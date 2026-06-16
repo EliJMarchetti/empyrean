@@ -2792,3 +2792,112 @@ function iconHistory() {
     </svg>
   `;
 }
+
+function renderDicePanel(character) {
+  const lastRoll = state.ui.lastRoll;
+  const displayedDice = getDisplayedDice(lastRoll);
+
+  return `
+    <section class="utility-panel dice-panel">
+      <div class="section-heading section-heading-tight">
+        <div>
+          <p class="eyebrow">Resolution engine</p>
+          <h2>Dice Roller</h2>
+        </div>
+        <button
+          class="icon-button history-button"
+          data-action="open-roll-history"
+          type="button"
+          title="Open recent rolls"
+          aria-label="Open recent rolls"
+        >
+          ${iconHistory()}
+        </button>
+      </div>
+      <span class="section-caption">Left click to build a roll. Right click for a custom formula.</span>
+      <button class="roll-button" data-action="open-builder-modal" type="button">
+        <span class="roll-button-label">Roll</span>
+        <span class="roll-button-note">Attribute + Skill + Specs + Bonus</span>
+      </button>
+      <div class="dice-stage ${state.ui.isRolling ? "is-rolling" : ""}">
+        ${displayedDice.map((die, index) => renderDie(die.value, `slot-${index + 1}`, die.sides)).join("")}
+      </div>
+      <div class="roll-summary">
+        ${
+          lastRoll
+            ? `
+              <div class="summary-total">${lastRoll.total}</div>
+              <div class="summary-meta">
+                <p>${escapeHtml(lastRoll.label)}</p>
+                <p>${escapeHtml(lastRoll.breakdown)}</p>
+              </div>
+            `
+            : `
+              <div class="summary-empty">
+                <p>No roll yet.</p>
+                <p>Your latest result lands here with critical and bonus math.</p>
+              </div>
+            `
+        }
+      </div>
+    </section>
+  `;
+}
+
+function renderDie(value, suffix, sides = 6) {
+  const shapeClass = getDieShapeClass(sides);
+  const displayValue = value === undefined || value === null ? "-" : String(value);
+
+  return `
+    <div class="die ${shapeClass} die-${suffix}" data-sides="${sides}">
+      <div class="die-facet die-facet-left" aria-hidden="true"></div>
+      <div class="die-facet die-facet-right" aria-hidden="true"></div>
+      <div class="die-shell">
+        <span class="die-value">${escapeHtml(displayValue)}</span>
+      </div>
+      <span class="die-kind">d${sides}</span>
+    </div>
+  `;
+}
+
+function getDisplayedDice(lastRoll) {
+  if (!lastRoll) {
+    return [
+      { value: "-", sides: 6 },
+      { value: "-", sides: 6 },
+    ];
+  }
+
+  const values = Array.isArray(lastRoll.results) ? lastRoll.results.slice(0, 2) : [];
+  const sides = Array.isArray(lastRoll.diceSides) ? lastRoll.diceSides.slice(0, 2) : [];
+  const dice = values.map((value, index) => ({
+    value,
+    sides: sides[index] || 6,
+  }));
+
+  while (dice.length < 2) {
+    dice.push({ value: "-", sides: 6 });
+  }
+
+  return dice;
+}
+
+function getDieShapeClass(sides) {
+  if (sides <= 4) {
+    return "die-shape-d4";
+  }
+
+  if (sides <= 6) {
+    return "die-shape-d6";
+  }
+
+  if (sides <= 8) {
+    return "die-shape-d8";
+  }
+
+  if (sides <= 10) {
+    return "die-shape-d10";
+  }
+
+  return "die-shape-d12";
+}

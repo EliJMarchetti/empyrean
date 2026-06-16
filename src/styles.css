@@ -1251,3 +1251,140 @@ svg {
     width: 100%;
   }
 }
+
+.dice-stage {
+  align-items: center;
+  min-height: 6.5rem;
+  perspective: none;
+}
+
+.die {
+  position: relative;
+  width: 4.1rem;
+  height: 4.6rem;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 0.35rem;
+  perspective: none;
+  transform: none;
+}
+
+.die-shell,
+.die-facet {
+  background:
+    linear-gradient(145deg, rgba(21, 51, 60, 0.98), rgba(8, 22, 30, 0.94)),
+    radial-gradient(circle at top left, rgba(123, 231, 207, 0.16), transparent 38%);
+  border: 1px solid rgba(123, 231, 207, 0.34);
+  box-shadow: inset 0 0 18px rgba(123, 231, 207, 0.1);
+}
+
+.die-shell {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-7deg);
+}
+
+.die-facet {
+  position: absolute;
+  inset: 0.28rem;
+  opacity: 0.52;
+  z-index: 1;
+}
+
+.die-facet-left {
+  transform: translate(-0.42rem, 0.36rem) rotate(-16deg);
+}
+
+.die-facet-right {
+  transform: translate(0.44rem, 0.32rem) rotate(12deg);
+}
+
+.die-value {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.die-kind {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.die-shape-d4 .die-shell,
+.die-shape-d4 .die-facet {
+  clip-path: polygon(50% 0%, 6% 100%, 94% 100%);
+  border-radius: 0;
+}
+
+.die-shape-d6 {
+  width: 4rem;
+  height: 4.45rem;
+}
+
+.die-shape-d6 .die-shell,
+.die-shape-d6 .die-facet {
+  border-radius: 1rem;
+}
+
+.die-shape-d8 .die-shell,
+.die-shape-d8 .die-facet {
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  border-radius: 0;
+}
+
+.die-shape-d10 .die-shell,
+.die-shape-d10 .die-facet {
+  clip-path: polygon(50% 0%, 82% 11%, 100% 40%, 92% 78%, 68% 100%, 32% 100%, 8% 78%, 0% 40%, 18% 11%);
+  border-radius: 0;
+}
+
+.die-shape-d12 .die-shell,
+.die-shape-d12 .die-facet {
+  clip-path: polygon(26% 0%, 74% 0%, 100% 26%, 100% 74%, 74% 100%, 26% 100%, 0% 74%, 0% 26%);
+  border-radius: 0;
+}
+
+.dice-stage.is-rolling .die-slot-1,
+.dice-stage.is-rolling .die-slot-2 {
+  animation-duration: 950ms;
+  animation-timing-function: ease;
+}
+
+.dice-stage.is-rolling .die-slot-1 {
+  animation-name: tumble-flat-a;
+}
+
+.dice-stage.is-rolling .die-slot-2 {
+  animation-name: tumble-flat-b;
+}
+
+@keyframes tumble-flat-a {
+  0% {
+    transform: rotate(-6deg) translateY(0) scale(0.96);
+  }
+  45% {
+    transform: rotate(26deg) translateY(-0.35rem) scale(1.03);
+  }
+  100% {
+    transform: rotate(0deg) translateY(0) scale(1);
+  }
+}
+
+@keyframes tumble-flat-b {
+  0% {
+    transform: rotate(8deg) translateY(0) scale(0.96);
+  }
+  45% {
+    transform: rotate(-24deg) translateY(-0.3rem) scale(1.03);
+  }
+  100% {
+    transform: rotate(0deg) translateY(0) scale(1);
+  }
+}
