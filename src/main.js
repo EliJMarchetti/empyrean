@@ -2,7 +2,7 @@ const STORAGE_KEY = "empyrean.characters.v1";
 const MAX_SPECIALIZATIONS = 8;
 const ATTRIBUTE_SCORES = [4, 5, 6, 7, 8, 9, 10, 11, 12];
 const NAME_HOVER_HINTS = ["Gender", "Lineage", "Affiliation", "Height", "Weight", "O.R.A.C.L.E. ID"];
-const UI_ASSET_VERSION = "20260616e";
+const UI_ASSET_VERSION = "20260616f";
 const NAME_PLACEHOLDER_SUGGESTIONS = [
   "Rhea Sol",
   "Cassian Vale",
@@ -492,6 +492,7 @@ function renderDicePanel() {
 function renderDie(die, index, canReroll) {
   const displayValue = die.value === undefined || die.value === null ? "-" : String(die.value);
   const art = getDieArt(die.sides);
+  const toneClass = `die-tone-${die.tone || "specialization"}`;
   const isRolling = state.ui.isRolling && state.ui.rollingDieIndexes.includes(index);
   const className = `die die-slot-${index + 1} ${canReroll ? "die-button" : "die-static"} ${
     isRolling ? "is-rolling" : ""
@@ -499,7 +500,7 @@ function renderDie(die, index, canReroll) {
   const artMarkup = `
     <div class="die-figure">
       <span
-        class="die-art die-art-${art.key}"
+        class="die-art die-art-${art.key} ${toneClass}"
         style="${escapeAttribute(`--die-art-mask: url('${art.src}')`)}"
         aria-hidden="true"
       ></span>
@@ -1276,9 +1277,16 @@ function handleSubmit(event) {
   if (formName === "build-roll") {
     const attributeRef = String(formData.get("attributeRef") || "");
     const skillRef = String(formData.get("skillRef") || "");
+    const outsideIdentity = formData.get("outsideIdentity") === "on";
     const situationalBonus = clampNumber(formData.get("situationalBonus"), -100, 100);
     const specializationIndexes = formData.getAll("specialization").map((value) => Number(value));
-    const roll = buildCharacterRoll(attributeRef, skillRef, specializationIndexes, situationalBonus);
+    const roll = buildCharacterRoll(
+      attributeRef,
+      skillRef,
+      specializationIndexes,
+      situationalBonus,
+      outsideIdentity
+    );
 
     if (!roll) {
       showToast("Roll configuration could not be resolved.");
@@ -1303,6 +1311,7 @@ function handleSubmit(event) {
         diceSides: parsed.diceSides,
         flatBonus: parsed.flatBonus,
         bonusParts: parsed.flatBonus ? [`Formula bonus ${formatSigned(parsed.flatBonus)}`] : [],
+        tone: "specialization",
       });
       state.ui.activeModal = null;
       finalizeRoll(roll);
@@ -1399,7 +1408,7 @@ function handleKeydown(event) {
   }
 }
 
-function buildCharacterRoll(attributeRef, skillRef, specializationIndexes, situationalBonus) {
+function buildCharacterRoll(attributeRef, skillRef, specializationIndexes, situationalBonus, outsideIdentity = false) {
   const character = getActiveCharacter();
   if (!character) {
     return null;
@@ -1440,6 +1449,7 @@ function buildCharacterRoll(attributeRef, skillRef, specializationIndexes, situa
     diceSides: scoreToDice(attribute.score),
     flatBonus: skillBonus + specializationBonus + situationalBonus,
     bonusParts,
+    tone: getCharacterRollTone(attributeSectionId, skillSectionId, outsideIdentity),
   });
 }
 
@@ -1511,33 +1521,22 @@ function getBuildRollState(character, payload = {}) {
   };
 }
 
-function executeRoll({ label, notation, diceSides, flatBonus = 0, bonusParts = [] }) {
+function executeRoll({ label, notation, diceSides, flatBonus = 0, bonusParts = [], tone = "specialization" }) {
   const results = diceSides.map((sides) => randomInt(1, sides));
-  return resolveRoll({ label, notation, diceSides, results, flatBonus, bonusParts });
+  return resolveRoll({ label, notation, diceSides, results, flatBonus, bonusParts, tone });
 }
 
-function resolveRoll({ label, notation, diceSides, results, flatBonus = 0, bonusParts = [] }) {
-  const orderedResults = [...results].sort((left, right) => right - left);
-  const base = Number(orderedResults.join(""));
+function resolveRoll({ label, notation, diceSides, results, flatBonus = 0, bonusParts = [], tone = "specialization" }) {
+  const scoredPair = selectScoredDice(results, diceSides);
+  const total = scoredPair.total + flatBonus;
+  const detailLead =
+    results.length > 2
+      ? `${notation} -> Best pair ${scoredPair.orderedResults.join(" / ")}`
+      : `${notation} -> ${scoredPair.orderedResults.join(" / ")}`;
+  const detailParts = [detailLead, `Base ${scoredPair.base}`];
 
-  let criticalBonus = 0;
-  let criticalLabel = "";
-
-  if (results.length === 2) {
-    if (orderedResults[0] === 2 && orderedResults[1] === 1) {
-      criticalBonus = 100;
-      criticalLabel = "21 surge +100";
-    } else if (results[0] === results[1]) {
-      criticalBonus = 50;
-      criticalLabel = "Double match +50";
-    }
-  }
-
-  const total = base + criticalBonus + flatBonus;
-  const detailParts = [`${notation} -> ${orderedResults.join(" / ")}`, `Base ${base}`];
-
-  if (criticalLabel) {
-    detailParts.push(criticalLabel);
+  if (scoredPair.criticalLabel) {
+    detailParts.push(scoredPair.criticalLabel);
   }
 
   if (bonusParts.length) {
@@ -1550,9 +1549,13 @@ function resolveRoll({ label, notation, diceSides, results, flatBonus = 0, bonus
     notation,
     diceSides,
     results,
-    orderedResults,
+    orderedResults: scoredPair.orderedResults,
+    displayedDice: scoredPair.displayedDice,
+    displayedResultIndexes: scoredPair.displayedResultIndexes,
+    criticalBonus: scoredPair.criticalBonus,
     flatBonus,
     bonusParts,
+    tone,
     total,
     breakdown: detailParts.join(" | "),
     createdAt: new Date().toISOString(),
@@ -1561,12 +1564,22 @@ function resolveRoll({ label, notation, diceSides, results, flatBonus = 0, bonus
 
 function rerollLastRollDie(dieIndex) {
   const roll = state.ui.lastRoll;
-  if (!roll || !Number.isInteger(dieIndex) || dieIndex < 0 || dieIndex >= roll.results.length) {
+  if (
+    !roll ||
+    !Number.isInteger(dieIndex) ||
+    dieIndex < 0 ||
+    dieIndex >= (roll.displayedResultIndexes?.length || 0)
+  ) {
+    return null;
+  }
+
+  const resultIndex = roll.displayedResultIndexes[dieIndex];
+  if (!Number.isInteger(resultIndex) || resultIndex < 0 || resultIndex >= roll.results.length) {
     return null;
   }
 
   const nextResults = [...roll.results];
-  nextResults[dieIndex] = randomInt(1, roll.diceSides[dieIndex]);
+  nextResults[resultIndex] = randomInt(1, roll.diceSides[resultIndex]);
 
   return resolveRoll({
     label: roll.label,
@@ -1575,6 +1588,7 @@ function rerollLastRollDie(dieIndex) {
     results: nextResults,
     flatBonus: roll.flatBonus || 0,
     bonusParts: Array.isArray(roll.bonusParts) ? [...roll.bonusParts] : [],
+    tone: roll.tone || "specialization",
   });
 }
 
@@ -1585,7 +1599,7 @@ function finalizeRoll(roll, options = {}) {
   state.ui.isRolling = true;
   state.ui.rollingDieIndexes = Array.isArray(options.rollingDieIndexes)
     ? options.rollingDieIndexes.filter((index) => Number.isInteger(index))
-    : roll.results.map((_, index) => index).slice(0, 2);
+    : (roll.displayedDice || []).map((_, index) => index);
   renderApp();
   finalizeRoll.timeoutId = window.setTimeout(() => {
     state.ui.isRolling = false;
@@ -1940,21 +1954,24 @@ function getBodyDerivedValue(attribute) {
 function getDisplayedDice(lastRoll) {
   if (!lastRoll) {
     return [
-      { value: "-", sides: 6 },
-      { value: "-", sides: 6 },
+      { value: "-", sides: 6, tone: "specialization" },
+      { value: "-", sides: 6, tone: "specialization" },
     ];
   }
 
-  const displayed = lastRoll.results.map((value, index) => ({
-    value,
-    sides: lastRoll.diceSides[index] || 6,
-  }));
-
-  while (displayed.length < 2) {
-    displayed.push({ value: "-", sides: 6 });
+  if (Array.isArray(lastRoll.displayedDice) && lastRoll.displayedDice.length) {
+    return lastRoll.displayedDice.map((die) => ({
+      value: die.value,
+      sides: die.sides,
+      tone: die.tone || lastRoll.tone || "specialization",
+    }));
   }
 
-  return displayed.slice(0, 2);
+  return lastRoll.results.map((value, index) => ({
+    value,
+    sides: lastRoll.diceSides[index] || 6,
+    tone: lastRoll.tone || "specialization",
+  }));
 }
 
 function getDieArt(sides) {
@@ -1979,6 +1996,87 @@ function getDieArt(sides) {
   }
 
   return DIE_ART.d20;
+}
+
+function getCharacterRollTone(attributeSectionId, skillSectionId, outsideIdentity) {
+  if (outsideIdentity || attributeSectionId !== skillSectionId) {
+    return "specialization";
+  }
+
+  if (attributeSectionId === "body" || attributeSectionId === "soul" || attributeSectionId === "spirit") {
+    return attributeSectionId;
+  }
+
+  return "specialization";
+}
+
+function selectScoredDice(results, diceSides) {
+  if (!results.length) {
+    return {
+      base: 0,
+      criticalBonus: 0,
+      criticalLabel: "",
+      total: 0,
+      orderedResults: ["-"],
+      displayedDice: [],
+      displayedResultIndexes: [],
+    };
+  }
+
+  if (results.length === 1) {
+    return {
+      base: Number(results[0]),
+      criticalBonus: 0,
+      criticalLabel: "",
+      total: Number(results[0]),
+      orderedResults: [String(results[0])],
+      displayedDice: [{ resultIndex: 0, value: results[0], sides: diceSides[0] || 6 }],
+      displayedResultIndexes: [0],
+    };
+  }
+
+  let bestPair = null;
+
+  for (let leftIndex = 0; leftIndex < results.length - 1; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < results.length; rightIndex += 1) {
+      const pair = evaluateDicePair(results, diceSides, leftIndex, rightIndex);
+      if (!bestPair || pair.total > bestPair.total || (pair.total === bestPair.total && pair.base > bestPair.base)) {
+        bestPair = pair;
+      }
+    }
+  }
+
+  return bestPair;
+}
+
+function evaluateDicePair(results, diceSides, leftIndex, rightIndex) {
+  const pair = [
+    { resultIndex: leftIndex, value: results[leftIndex], sides: diceSides[leftIndex] || 6 },
+    { resultIndex: rightIndex, value: results[rightIndex], sides: diceSides[rightIndex] || 6 },
+  ].sort((left, right) => right.value - left.value || left.resultIndex - right.resultIndex);
+
+  const orderedResults = pair.map((entry) => entry.value);
+  const base = Number(orderedResults.join(""));
+  let criticalBonus = 0;
+  let criticalLabel = "";
+
+  if (orderedResults[0] === 2 && orderedResults[1] === 1) {
+    criticalBonus = 100;
+    criticalLabel = "21 surge +100";
+  } else if (orderedResults[0] === orderedResults[1]) {
+    criticalBonus = 50;
+    criticalLabel = "Double match +50";
+  }
+
+  return {
+    base,
+    criticalBonus,
+    criticalLabel,
+    total: base + criticalBonus,
+    orderedResults,
+    displayedDice: pair,
+    displayedResultIndexes: pair.map((entry) => entry.resultIndex),
+  };
 }
 
 function clampNumber(value, minimum, maximum) {

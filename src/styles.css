@@ -11,6 +11,10 @@
   --accent-warm: #ffb35e;
   --danger: #ff7c72;
   --shadow: 0 18px 42px rgba(2, 9, 14, 0.36);
+  --tone-body: rgba(255, 110, 104, 0.95);
+  --tone-soul: rgba(102, 225, 168, 0.95);
+  --tone-spirit: rgba(103, 164, 255, 0.95);
+  --tone-specialization: rgba(189, 122, 255, 0.95);
   --radius-lg: 1.25rem;
   --radius-md: 0.95rem;
   --radius-sm: 0.72rem;
@@ -678,7 +682,7 @@ svg {
   overflow: hidden;
   padding: 0.45rem;
   padding-bottom: 1rem;
-  --section-accent: rgba(189, 122, 255, 0.95);
+  --section-accent: var(--tone-specialization);
   --section-accent-soft: rgba(189, 122, 255, 0.22);
 }
 
@@ -814,7 +818,7 @@ svg {
   display: block;
   pointer-events: none;
   user-select: none;
-  background-color: var(--die-art-tint, rgba(196, 238, 229, 0.94));
+  background-color: var(--die-roll-tint, var(--tone-specialization));
   -webkit-mask-image: var(--die-art-mask);
   mask-image: var(--die-art-mask);
   -webkit-mask-repeat: no-repeat;
@@ -826,28 +830,20 @@ svg {
   filter: drop-shadow(0 10px 18px rgba(2, 9, 14, 0.38));
 }
 
-.die-art-d4 {
-  --die-art-tint: rgba(255, 108, 104, 0.95);
+.die-tone-body {
+  --die-roll-tint: var(--tone-body);
 }
 
-.die-art-d6 {
-  --die-art-tint: rgba(98, 154, 255, 0.96);
+.die-tone-soul {
+  --die-roll-tint: var(--tone-soul);
 }
 
-.die-art-d8 {
-  --die-art-tint: rgba(255, 172, 92, 0.96);
+.die-tone-spirit {
+  --die-roll-tint: var(--tone-spirit);
 }
 
-.die-art-d10 {
-  --die-art-tint: rgba(233, 241, 248, 0.96);
-}
-
-.die-art-d12 {
-  --die-art-tint: rgba(255, 213, 102, 0.96);
-}
-
-.die-art-d20 {
-  --die-art-tint: rgba(108, 223, 170, 0.96);
+.die-tone-specialization {
+  --die-roll-tint: var(--tone-specialization);
 }
 
 .die-value-chip {
@@ -1199,17 +1195,17 @@ svg {
 }
 
 .stat-block-body {
-  --section-accent: rgba(255, 110, 104, 0.95);
+  --section-accent: var(--tone-body);
   --section-accent-soft: rgba(255, 110, 104, 0.2);
 }
 
 .stat-block-soul {
-  --section-accent: rgba(102, 225, 168, 0.95);
+  --section-accent: var(--tone-soul);
   --section-accent-soft: rgba(102, 225, 168, 0.2);
 }
 
 .stat-block-spirit {
-  --section-accent: rgba(103, 164, 255, 0.95);
+  --section-accent: var(--tone-spirit);
   --section-accent-soft: rgba(103, 164, 255, 0.2);
 }
 
