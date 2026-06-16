@@ -1,6 +1,7 @@
 const STORAGE_KEY = "empyrean.characters.v1";
 const MAX_SPECIALIZATIONS = 8;
 const ATTRIBUTE_SCORES = [4, 5, 6, 7, 8, 9, 10, 11, 12];
+const NAME_HOVER_HINTS = ["Gender", "Lineage", "Affiliation", "Height", "Weight", "O.R.A.C.L.E. ID"];
 
 const SECTION_TEMPLATES = [
   {
@@ -63,6 +64,8 @@ const state = {
     lastRoll: null,
     isRolling: false,
     skillLossSelectionSection: null,
+    isNameHoverHintVisible: false,
+    nameHoverHintIndex: -1,
   },
 };
 
@@ -86,6 +89,8 @@ document.addEventListener("click", handleClick);
 document.addEventListener("change", handleChange);
 document.addEventListener("submit", handleSubmit);
 document.addEventListener("contextmenu", handleContextMenu);
+document.addEventListener("mouseover", handleMouseOver);
+document.addEventListener("mouseout", handleMouseOut);
 window.addEventListener("keydown", handleKeydown);
 
 function renderApp() {
@@ -126,7 +131,6 @@ function renderToolbar(character) {
           <button class="toolbar-button toolbar-button-primary" data-action="toggle-character-menu" type="button">
             ${iconFolder()}
             <span>Characters</span>
-            <span class="toolbar-caret">${state.ui.isCharacterMenuOpen ? "^" : "v"}</span>
           </button>
           ${
             state.ui.isCharacterMenuOpen
@@ -205,10 +209,18 @@ function renderWelcomePanel() {
 }
 
 function renderCharacterHeader(character) {
+  const hoverHint =
+    NAME_HOVER_HINTS[
+      ((state.ui.nameHoverHintIndex % NAME_HOVER_HINTS.length) + NAME_HOVER_HINTS.length) % NAME_HOVER_HINTS.length
+    ] || NAME_HOVER_HINTS[0];
+
   return `
     <section class="character-header">
       <button class="character-title-button" data-action="open-bio-modal" type="button">
         <h1>${escapeHtml(character.name)}</h1>
+        <span class="character-hover-hint ${state.ui.isNameHoverHintVisible ? "is-visible" : ""}" aria-hidden="true">
+          ${escapeHtml(hoverHint)}
+        </span>
       </button>
       <div class="view-switcher">
         <button
@@ -1262,6 +1274,46 @@ function handleContextMenu(event) {
   renderApp();
 }
 
+function handleMouseOver(event) {
+  const titleButton = event.target.closest(".character-title-button");
+  if (!titleButton) {
+    return;
+  }
+
+  if (event.relatedTarget instanceof Node && titleButton.contains(event.relatedTarget)) {
+    return;
+  }
+
+  state.ui.nameHoverHintIndex = (state.ui.nameHoverHintIndex + 1) % NAME_HOVER_HINTS.length;
+  state.ui.isNameHoverHintVisible = true;
+  const hint = titleButton.querySelector(".character-hover-hint");
+  if (hint) {
+    hint.textContent = NAME_HOVER_HINTS[state.ui.nameHoverHintIndex];
+    hint.classList.add("is-visible");
+  }
+}
+
+function handleMouseOut(event) {
+  const titleButton = event.target.closest(".character-title-button");
+  if (!titleButton) {
+    return;
+  }
+
+  if (event.relatedTarget instanceof Node && titleButton.contains(event.relatedTarget)) {
+    return;
+  }
+
+  if (!state.ui.isNameHoverHintVisible) {
+    return;
+  }
+
+  state.ui.isNameHoverHintVisible = false;
+  const hint = titleButton.querySelector(".character-hover-hint");
+  if (hint) {
+    hint.classList.remove("is-visible");
+  }
+}
+
 function handleKeydown(event) {
   if (event.key === "Escape" && state.ui.activeModal) {
     closeModal();
@@ -1504,7 +1556,7 @@ function createCharacter(name, gender = "male") {
 
   SECTION_TEMPLATES.forEach((section) => {
     character.sections[section.id] = {
-      health: { current: 24 },
+      health: { current: 0 },
       attributes: section.attributes.map((attribute) => ({
         ...attribute,
         score: 8,
@@ -1549,8 +1601,7 @@ function normalizeCharacter(rawCharacter) {
       value: clampNumber(sourceSection?.skills?.[index]?.value ?? 0, 0, 100),
       redacted: Boolean(sourceSection?.skills?.[index]?.redacted),
     }));
-    const maxHealth = getSectionMax(base.sections[section.id]);
-    base.sections[section.id].health.current = clampMinimum(sourceSection?.health?.current ?? maxHealth, 0);
+    base.sections[section.id].health.current = clampMinimum(sourceSection?.health?.current ?? 0, 0);
   });
 
   base.specializations = Array.from({ length: MAX_SPECIALIZATIONS }, (_, index) => ({
@@ -1576,7 +1627,7 @@ function createCharacterSkeleton(name, gender) {
 
   SECTION_TEMPLATES.forEach((section) => {
     skeleton.sections[section.id] = {
-      health: { current: 24 },
+      health: { current: 0 },
       attributes: section.attributes.map((attribute) => ({
         ...attribute,
         score: 8,
