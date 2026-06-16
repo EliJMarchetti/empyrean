@@ -62,6 +62,7 @@ const state = {
     rollHistory: [],
     lastRoll: null,
     isRolling: false,
+    skillLossSelectionSection: null,
   },
 };
 
@@ -246,6 +247,7 @@ function renderPrimaryView(character) {
       ${SECTION_TEMPLATES.map((section) => renderSectionBlock(character, section)).join("")}
     </div>
     <section class="specializations-panel">
+      <div class="subsection-title">Specializations</div>
       <div class="specialization-strip">
         ${character.specializations
           .map(
@@ -273,11 +275,25 @@ function renderPrimaryView(character) {
 function renderSectionBlock(character, template) {
   const section = character.sections[template.id];
   const maxHealth = getSectionMax(section);
+  const isSkillLossMode = state.ui.skillLossSelectionSection === template.id;
 
   return `
     <section class="stat-block stat-block-${template.tone}">
       <div class="stat-header">
-        <h2>${escapeHtml(template.title)}</h2>
+        <div class="stat-title-cluster">
+          <h2>${escapeHtml(template.title)}</h2>
+          <button
+            class="effect-toggle-button ${isSkillLossMode ? "is-active" : ""}"
+            data-action="toggle-skill-loss-mode"
+            data-section="${template.id}"
+            type="button"
+            aria-pressed="${isSkillLossMode ? "true" : "false"}"
+            title="${template.healthLabel} long-term effects"
+            aria-label="${template.healthLabel} long-term effects"
+          >
+            ${getSectionEffectIcon(template.id)}
+          </button>
+        </div>
         <div class="health-module">
           <span class="health-label">${escapeHtml(template.healthLabel)}</span>
           <div class="health-inline">
@@ -285,7 +301,6 @@ function renderSectionBlock(character, template) {
               class="health-input"
               type="number"
               min="0"
-              max="${maxHealth}"
               value="${section.health.current}"
               data-input="health-current"
               data-section="${template.id}"
@@ -302,27 +317,44 @@ function renderSectionBlock(character, template) {
       </div>
       <div class="subsection-title">Skills</div>
       <div class="skills-grid">
-        ${section.skills
-          .map(
-            (skill, index) => `
-              <label class="skill-box">
-                <span>${escapeHtml(skill.label)}</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value="${skill.value}"
-                  data-input="skill-value"
-                  data-section="${template.id}"
-                  data-index="${index}"
-                  ${state.ui.editMode ? "" : "disabled"}
-                />
-              </label>
-            `
-          )
-          .join("")}
+        ${section.skills.map((skill, index) => renderSkillCard(template.id, skill, index, isSkillLossMode)).join("")}
       </div>
     </section>
+  `;
+}
+
+function renderSkillCard(sectionId, skill, index, isSkillLossMode) {
+  const classes = `skill-box ${skill.redacted ? "is-redacted" : ""} ${isSkillLossMode ? "is-armed" : ""}`.trim();
+
+  if (isSkillLossMode) {
+    return `
+      <button
+        class="${classes}"
+        data-action="toggle-redacted-skill"
+        data-section="${sectionId}"
+        data-index="${index}"
+        type="button"
+      >
+        <span>${escapeHtml(skill.label)}</span>
+        <div class="skill-value-display">${skill.value}</div>
+      </button>
+    `;
+  }
+
+  return `
+    <label class="${classes}">
+      <span>${escapeHtml(skill.label)}</span>
+      <input
+        type="number"
+        min="0"
+        max="100"
+        value="${skill.value}"
+        data-input="skill-value"
+        data-section="${sectionId}"
+        data-index="${index}"
+        ${state.ui.editMode ? "" : "disabled"}
+      />
+    </label>
   `;
 }
 
@@ -851,6 +883,7 @@ function handleClick(event) {
   }
 
   if (action === "open-create-modal") {
+    state.ui.skillLossSelectionSection = null;
     state.ui.activeModal = { type: "create-character" };
     state.ui.isCharacterMenuOpen = false;
     renderApp();
@@ -858,6 +891,7 @@ function handleClick(event) {
   }
 
   if (action === "open-import-modal") {
+    state.ui.skillLossSelectionSection = null;
     state.ui.activeModal = { type: "import-modal" };
     state.ui.isCharacterMenuOpen = false;
     renderApp();
@@ -867,6 +901,7 @@ function handleClick(event) {
   if (action === "select-character") {
     state.ui.activeCharacterId = actionTarget.dataset.characterId;
     state.ui.isCharacterMenuOpen = false;
+    state.ui.skillLossSelectionSection = null;
     persistState();
     renderApp();
     return;
@@ -880,6 +915,7 @@ function handleClick(event) {
   }
 
   if (action === "open-link-modal") {
+    state.ui.skillLossSelectionSection = null;
     state.ui.activeModal = { type: "link-campaign" };
     renderApp();
     return;
@@ -896,6 +932,7 @@ function handleClick(event) {
   }
 
   if (action === "open-delete-modal") {
+    state.ui.skillLossSelectionSection = null;
     state.ui.activeModal = { type: "confirm-delete" };
     renderApp();
     return;
@@ -908,17 +945,20 @@ function handleClick(event) {
 
   if (action === "switch-view") {
     state.ui.activeView = actionTarget.dataset.view;
+    state.ui.skillLossSelectionSection = null;
     renderApp();
     return;
   }
 
   if (action === "open-bio-modal") {
+    state.ui.skillLossSelectionSection = null;
     state.ui.activeModal = { type: "bio-info" };
     renderApp();
     return;
   }
 
   if (action === "open-attribute-detail") {
+    state.ui.skillLossSelectionSection = null;
     state.ui.activeModal = {
       type: "attribute-detail",
       payload: {
@@ -930,13 +970,54 @@ function handleClick(event) {
     return;
   }
 
+  if (action === "toggle-skill-loss-mode") {
+    const sectionId = String(actionTarget.dataset.section || "");
+    const isCancelling = state.ui.skillLossSelectionSection === sectionId;
+    state.ui.skillLossSelectionSection = isCancelling ? null : sectionId;
+    showToast(
+      isCancelling
+        ? "Long-term effect selection cancelled."
+        : `Select a ${getSectionTitle(sectionId)} skill to black out, or click the icon again to cancel.`
+    );
+    renderApp();
+    return;
+  }
+
+  if (action === "toggle-redacted-skill") {
+    const sectionId = String(actionTarget.dataset.section || "");
+    const skillIndex = Number(actionTarget.dataset.index);
+    if (state.ui.skillLossSelectionSection !== sectionId || !Number.isInteger(skillIndex)) {
+      return;
+    }
+
+    const activeCharacter = getActiveCharacter();
+    const skillLabel = activeCharacter?.sections?.[sectionId]?.skills?.[skillIndex]?.label || "Skill";
+
+    let isNowRedacted = false;
+    updateCurrentCharacter((character) => {
+      const skill = character.sections?.[sectionId]?.skills?.[skillIndex];
+      if (!skill) {
+        return;
+      }
+      skill.redacted = !Boolean(skill.redacted);
+      isNowRedacted = skill.redacted;
+    });
+
+    state.ui.skillLossSelectionSection = null;
+    showToast(isNowRedacted ? `${skillLabel} has been blacked out.` : `${skillLabel} has been restored.`);
+    renderApp();
+    return;
+  }
+
   if (action === "open-builder-modal") {
+    state.ui.skillLossSelectionSection = null;
     state.ui.activeModal = { type: "build-roll", payload: getDefaultBuildRollPayload(getActiveCharacter()) };
     renderApp();
     return;
   }
 
   if (action === "open-roll-history") {
+    state.ui.skillLossSelectionSection = null;
     state.ui.activeModal = { type: "roll-history" };
     renderApp();
     return;
@@ -1027,7 +1108,7 @@ function handleChange(event) {
 
     if (inputType === "health-current") {
       const sectionData = character.sections[section];
-      sectionData.health.current = clampNumber(input.value, 0, getSectionMax(sectionData));
+      sectionData.health.current = clampMinimum(input.value, 0);
       return;
     }
 
@@ -1075,6 +1156,7 @@ function handleSubmit(event) {
     state.ui.activeView = "sheet";
     state.ui.editMode = true;
     state.ui.activeModal = null;
+    state.ui.skillLossSelectionSection = null;
     persistState();
     showToast(`${name} created.`);
     renderApp();
@@ -1205,13 +1287,13 @@ function buildCharacterRoll(attributeRef, skillRef, specializationIndexes, situa
     .map((index) => ({ index, specialization: character.specializations[index] }))
     .filter((entry) => Boolean(entry.specialization));
 
-  const skillBonus = skill.value;
+  const skillBonus = skill.redacted ? 0 : skill.value;
   const specializationBonus = selectedSpecializations.reduce(
     (total, entry) => total + entry.specialization.value,
     0
   );
 
-  const bonusParts = [`${skill.label} ${formatSigned(skillBonus)}`];
+  const bonusParts = [skill.redacted ? `${skill.label} redacted +0` : `${skill.label} ${formatSigned(skillBonus)}`];
 
   selectedSpecializations.forEach((entry) => {
     bonusParts.push(`${getSpecializationLabel(entry.index)} ${formatSigned(entry.specialization.value)}`);
@@ -1432,6 +1514,7 @@ function createCharacter(name, gender = "male") {
         key: slugify(skill),
         label: skill,
         value: 0,
+        redacted: false,
       })),
     };
   });
@@ -1464,9 +1547,10 @@ function normalizeCharacter(rawCharacter) {
       key: slugify(skill),
       label: skill,
       value: clampNumber(sourceSection?.skills?.[index]?.value ?? 0, 0, 100),
+      redacted: Boolean(sourceSection?.skills?.[index]?.redacted),
     }));
     const maxHealth = getSectionMax(base.sections[section.id]);
-    base.sections[section.id].health.current = clampNumber(sourceSection?.health?.current ?? maxHealth, 0, maxHealth);
+    base.sections[section.id].health.current = clampMinimum(sourceSection?.health?.current ?? maxHealth, 0);
   });
 
   base.specializations = Array.from({ length: MAX_SPECIALIZATIONS }, (_, index) => ({
@@ -1502,6 +1586,7 @@ function createCharacterSkeleton(name, gender) {
         key: slugify(skill),
         label: skill,
         value: 0,
+        redacted: false,
       })),
     };
   });
@@ -1535,6 +1620,7 @@ function deleteCurrentCharacter() {
   state.ui.activeCharacterId = state.characters[0]?.id ?? null;
   state.ui.activeView = "sheet";
   state.ui.activeModal = state.characters.length ? null : { type: "create-character" };
+  state.ui.skillLossSelectionSection = null;
   persistState();
   showToast("Character deleted.");
   renderApp();
@@ -1551,6 +1637,7 @@ function importCharacter(sharedCharacter) {
   state.ui.activeModal = null;
   state.ui.activeView = "sheet";
   state.ui.editMode = false;
+  state.ui.skillLossSelectionSection = null;
   clearShareParam();
   persistState();
   showToast(`${imported.name} imported.`);
@@ -1764,6 +1851,14 @@ function clampNumber(value, minimum, maximum) {
   return Math.min(maximum, Math.max(minimum, numeric));
 }
 
+function clampMinimum(value, minimum) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return minimum;
+  }
+  return Math.max(minimum, numeric);
+}
+
 function randomInt(minimum, maximum) {
   return Math.floor(Math.random() * (maximum - minimum + 1)) + minimum;
 }
@@ -1792,6 +1887,10 @@ function formatSigned(value) {
 
 function getSpecializationLabel(index) {
   return `Specialization ${index + 1}`;
+}
+
+function getSectionTitle(sectionId) {
+  return SECTION_TEMPLATES.find((section) => section.id === sectionId)?.title || "Section";
 }
 
 function showToast(message) {
@@ -1938,6 +2037,48 @@ function iconHistory() {
       <path d="M5 7h14"></path>
       <path d="M5 12h14"></path>
       <path d="M5 17h14"></path>
+    </svg>
+  `;
+}
+
+function getSectionEffectIcon(sectionId) {
+  if (sectionId === "body") {
+    return iconBrokenBone();
+  }
+  if (sectionId === "soul") {
+    return iconBrain();
+  }
+  return iconSpiral();
+}
+
+function iconBrokenBone() {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M8.3 7.3a2.1 2.1 0 1 1-3-3l1 1 .8-.8-.8-.8 1-1a2.1 2.1 0 1 1 3 3l-1 1 4.2 4.2-1.6 1.6-4.2-4.2Z"></path>
+      <path d="m15.3 13.3 4.2 4.2-1 1a2.1 2.1 0 1 0 3 3l1-1-.8-.8.8-.8-1-1a2.1 2.1 0 1 0-3-3l-1 1-4.2-4.2Z"></path>
+    </svg>
+  `;
+}
+
+function iconBrain() {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M10 5.3A2.8 2.8 0 0 0 5.4 8a3 3 0 0 0 .5 5.8A3.3 3.3 0 0 0 9.5 18v1"></path>
+      <path d="M14 5.3A2.8 2.8 0 0 1 18.6 8a3 3 0 0 1-.5 5.8 3.3 3.3 0 0 1-3.6 4.2v1"></path>
+      <path d="M10 5.3v13.7"></path>
+      <path d="M14 5.3v13.7"></path>
+      <path d="M9.8 9.5A2.5 2.5 0 0 1 7.4 12"></path>
+      <path d="M14.2 9.5A2.5 2.5 0 0 0 16.6 12"></path>
+    </svg>
+  `;
+}
+
+function iconSpiral() {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 19.3a7.3 7.3 0 1 1 6.1-3.4"></path>
+      <path d="M12 15.9a3.9 3.9 0 1 1 3.3-1.9"></path>
+      <path d="M12 12.4a.2.2 0 1 1 0-.4"></path>
     </svg>
   `;
 }
