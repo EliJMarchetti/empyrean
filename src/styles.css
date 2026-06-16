@@ -957,3 +957,297 @@ svg {
     justify-content: flex-start;
   }
 }
+
+.workspace {
+  grid-template-columns: minmax(0, 2.25fr) minmax(18rem, 0.95fr);
+  gap: 0.85rem;
+}
+
+.sheet-column,
+.utility-column {
+  gap: 0.85rem;
+}
+
+.character-header,
+.utility-panel,
+.placeholder-panel,
+.welcome-panel,
+.specializations-panel {
+  padding: 1rem;
+}
+
+.character-header {
+  padding-block: 0.95rem;
+}
+
+.section-heading-tight {
+  margin-bottom: 0.75rem;
+}
+
+.section-heading-compact {
+  margin-bottom: 0.65rem;
+}
+
+.stat-block {
+  padding: 0.95rem;
+}
+
+.sheet-grid {
+  gap: 0.85rem;
+}
+
+.health-module {
+  min-width: 6.6rem;
+  padding: 0.6rem 0.7rem;
+}
+
+.health-values input {
+  padding: 0.45rem 0.55rem;
+}
+
+.attribute-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin-bottom: 0.8rem;
+}
+
+.attribute-card-compact {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.7rem;
+  min-height: 0;
+}
+
+.attribute-title-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.45rem;
+  align-items: start;
+}
+
+.attribute-title-row .eyebrow {
+  margin-bottom: 0.18rem;
+}
+
+.attribute-title-row h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.attribute-title-row h3 span {
+  display: block;
+  margin-top: 0.12rem;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 500;
+}
+
+.attribute-score-select {
+  width: 4.25rem;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 0.8rem;
+  background: rgba(5, 14, 20, 0.9);
+  color: var(--text-main);
+}
+
+.attribute-support-readout,
+.attribute-detail-button {
+  display: grid;
+  gap: 0.15rem;
+  min-height: 3.2rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(157, 205, 216, 0.14);
+  border-radius: 0.9rem;
+  background: rgba(8, 18, 26, 0.78);
+}
+
+.attribute-support-readout span,
+.attribute-detail-button span {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.attribute-support-readout strong {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+}
+
+.attribute-detail-button {
+  text-align: left;
+  color: var(--text-main);
+}
+
+.attribute-detail-button small {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
+.attribute-detail-button.is-filled {
+  border-color: rgba(123, 231, 207, 0.24);
+  background: rgba(16, 33, 40, 0.9);
+}
+
+.skills-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0;
+}
+
+.skill-row {
+  gap: 0.25rem;
+  padding: 0.55rem 0.6rem;
+}
+
+.skill-row span,
+.specialization-chip span {
+  font-size: 0.74rem;
+}
+
+.skill-row input,
+.specialization-chip input {
+  padding: 0.42rem 0.5rem;
+}
+
+.specializations-panel {
+  padding-top: 0.95rem;
+}
+
+.specialization-strip {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.specialization-chip {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.55rem 0.55rem 0.6rem;
+  border: 1px solid rgba(157, 205, 216, 0.12);
+  border-radius: 0.95rem;
+  background: rgba(9, 19, 27, 0.72);
+}
+
+.specialization-chip input {
+  width: 100%;
+  border: 1px solid var(--line-soft);
+  border-radius: 0.75rem;
+  background: rgba(5, 14, 20, 0.9);
+  color: var(--text-main);
+}
+
+.dice-panel {
+  gap: 0.8rem;
+  min-height: 0;
+}
+
+.history-button {
+  width: 2.7rem;
+  height: 2.7rem;
+}
+
+.roll-button {
+  padding: 0.75rem 0.9rem;
+}
+
+.dice-stage {
+  min-height: 6rem;
+}
+
+.die {
+  width: 3.4rem;
+  height: 3.4rem;
+}
+
+.die-face-front,
+.die-face-back,
+.die-face-right,
+.die-face-left,
+.die-face-top,
+.die-face-bottom {
+  font-size: 1.15rem;
+}
+
+.die-face-front {
+  transform: translateZ(1.7rem);
+}
+
+.die-face-back {
+  transform: rotateY(180deg) translateZ(1.7rem);
+}
+
+.die-face-right {
+  transform: rotateY(90deg) translateZ(1.7rem);
+}
+
+.die-face-left {
+  transform: rotateY(-90deg) translateZ(1.7rem);
+}
+
+.die-face-top {
+  transform: rotateX(90deg) translateZ(1.7rem);
+}
+
+.die-face-bottom {
+  transform: rotateX(-90deg) translateZ(1.7rem);
+}
+
+.roll-summary {
+  min-height: 0;
+  padding: 0.8rem;
+}
+
+.summary-total {
+  font-size: 1.9rem;
+}
+
+.gear-panel {
+  min-height: 0;
+}
+
+.gear-placeholder-card,
+.placeholder-body {
+  min-height: 0;
+  padding: 0.95rem;
+}
+
+.modal-card {
+  width: min(36rem, 100%);
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+}
+
+.modal-roll-history {
+  max-height: 22rem;
+  overflow-y: auto;
+}
+
+@media (max-width: 1180px) {
+  .specialization-strip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1080px) {
+  .attribute-strip,
+  .skills-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .attribute-strip,
+  .skills-grid,
+  .specialization-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .attribute-title-row {
+    grid-template-columns: 1fr;
+  }
+
+  .attribute-score-select {
+    width: 100%;
+  }
+}

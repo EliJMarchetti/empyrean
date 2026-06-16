@@ -296,43 +296,29 @@ function renderPrimaryView(character) {
       ${SECTION_TEMPLATES.map((section) => renderSectionBlock(character, section)).join("")}
     </div>
     <section class="specializations-panel">
-      <div class="section-heading">
+      <div class="section-heading section-heading-compact">
         <div>
           <p class="eyebrow">Applied Bonuses</p>
           <h2>Specializations</h2>
         </div>
-        <span class="section-caption">Eight slots, each with a name and 0-100 bonus.</span>
+        <span class="section-caption">Eight quick bonus slots across the bottom edge.</span>
       </div>
-      <div class="specialization-list">
+      <div class="specialization-strip">
         ${character.specializations
           .map(
             (specialization, index) => `
-              <div class="specialization-row">
-                <label>
-                  <span>Specialization ${index + 1}</span>
-                  <input
-                    type="text"
-                    data-input="specialization-name"
-                    data-index="${index}"
-                    value="${escapeAttribute(specialization.name)}"
-                    maxlength="40"
-                    placeholder="Name this specialization"
-                    ${state.ui.editMode ? "" : "disabled"}
-                  />
-                </label>
-                <label>
-                  <span>Bonus</span>
-                  <input
-                    type="number"
-                    data-input="specialization-value"
-                    data-index="${index}"
-                    min="0"
-                    max="100"
-                    value="${specialization.value}"
-                    ${state.ui.editMode ? "" : "disabled"}
-                  />
-                </label>
-              </div>
+              <label class="specialization-chip">
+                <span>${getSpecializationLabel(index)}</span>
+                <input
+                  type="number"
+                  data-input="specialization-value"
+                  data-index="${index}"
+                  min="0"
+                  max="100"
+                  value="${specialization.value}"
+                  ${state.ui.editMode ? "" : "disabled"}
+                />
+              </label>
             `
           )
           .join("")}
@@ -1778,6 +1764,1031 @@ function iconWorld() {
       <path d="M4.5 12h15"></path>
       <path d="M12 4a13.5 13.5 0 0 1 0 16"></path>
       <path d="M12 4a13.5 13.5 0 0 0 0 16"></path>
+    </svg>
+  `;
+}
+
+function renderPrimaryView(character) {
+  if (state.ui.activeView === "inventory") {
+    return renderInventoryView(character);
+  }
+
+  if (state.ui.activeView === "world") {
+    return renderWorldPlaceholder(character);
+  }
+
+  return `
+    <div class="sheet-grid">
+      ${SECTION_TEMPLATES.map((section) => renderSectionBlock(character, section)).join("")}
+    </div>
+    <section class="specializations-panel">
+      <div class="section-heading section-heading-compact">
+        <div>
+          <p class="eyebrow">Applied Bonuses</p>
+          <h2>Specializations</h2>
+        </div>
+        <span class="section-caption">Eight quick bonus slots across the bottom edge.</span>
+      </div>
+      <div class="specialization-strip">
+        ${character.specializations
+          .map(
+            (specialization, index) => `
+              <label class="specialization-chip">
+                <span>${getSpecializationLabel(index)}</span>
+                <input
+                  type="number"
+                  data-input="specialization-value"
+                  data-index="${index}"
+                  min="0"
+                  max="100"
+                  value="${specialization.value}"
+                  ${state.ui.editMode ? "" : "disabled"}
+                />
+              </label>
+            `
+          )
+          .join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderSectionBlock(character, sectionTemplate) {
+  const section = character.sections[sectionTemplate.id];
+  const maxHealth = getSectionMax(section);
+
+  return `
+    <section class="stat-block stat-block-${sectionTemplate.tone}">
+      <div class="section-heading section-heading-tight">
+        <div>
+          <p class="eyebrow">${sectionTemplate.healthLabel} and core traits</p>
+          <h2>${sectionTemplate.title}</h2>
+        </div>
+        <div class="health-module">
+          <span>${sectionTemplate.healthLabel}</span>
+          <div class="health-values">
+            <input
+              type="number"
+              data-input="health-current"
+              data-section="${sectionTemplate.id}"
+              min="0"
+              max="${maxHealth}"
+              value="${section.health.current}"
+              ${state.ui.editMode ? "" : "disabled"}
+            />
+            <span>/ ${maxHealth}</span>
+          </div>
+        </div>
+      </div>
+      <div class="attribute-strip">
+        ${section.attributes
+          .map((attribute, index) => renderAttributeCard(sectionTemplate, attribute, index))
+          .join("")}
+      </div>
+      <div class="skills-grid">
+        ${section.skills
+          .map(
+            (skill, index) => `
+              <label class="skill-row">
+                <span>${escapeHtml(skill.label)}</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  data-input="skill-value"
+                  data-section="${sectionTemplate.id}"
+                  data-index="${index}"
+                  value="${skill.value}"
+                  ${state.ui.editMode ? "" : "disabled"}
+                />
+              </label>
+            `
+          )
+          .join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderAttributeCard(sectionTemplate, attribute, index) {
+  const diceText = formatDiceNotation(scoreToDice(attribute.score));
+  const detail = normalizeAttributeDetail(attribute.subValue);
+
+  if (sectionTemplate.id === "body") {
+    return `
+      <article class="attribute-card attribute-card-compact">
+        <div class="attribute-title-row">
+          <div>
+            <p class="eyebrow">${escapeHtml(attribute.label)}</p>
+            <h3>${attribute.score} <span>(${escapeHtml(diceText)})</span></h3>
+          </div>
+          <select
+            class="attribute-score-select"
+            data-input="attribute-score"
+            data-section="${sectionTemplate.id}"
+            data-index="${index}"
+            ${state.ui.editMode ? "" : "disabled"}
+          >
+            ${ATTRIBUTE_SCORES.map(
+              (value) => `<option value="${value}" ${value === attribute.score ? "selected" : ""}>${value}</option>`
+            ).join("")}
+          </select>
+        </div>
+        <div class="attribute-support-readout">
+          <span>${escapeHtml(attribute.subLabel)}</span>
+          <strong>${getBodyDerivedValue(attribute)}</strong>
+        </div>
+      </article>
+    `;
+  }
+
+  return `
+    <article class="attribute-card attribute-card-compact">
+      <div class="attribute-title-row">
+        <div>
+          <p class="eyebrow">${escapeHtml(attribute.label)}</p>
+          <h3>${attribute.score} <span>(${escapeHtml(diceText)})</span></h3>
+        </div>
+        <select
+          class="attribute-score-select"
+          data-input="attribute-score"
+          data-section="${sectionTemplate.id}"
+          data-index="${index}"
+          ${state.ui.editMode ? "" : "disabled"}
+        >
+          ${ATTRIBUTE_SCORES.map(
+            (value) => `<option value="${value}" ${value === attribute.score ? "selected" : ""}>${value}</option>`
+          ).join("")}
+        </select>
+      </div>
+      <button
+        class="attribute-detail-button ${detail.name ? "is-filled" : ""}"
+        data-action="open-attribute-detail"
+        data-section="${sectionTemplate.id}"
+        data-index="${index}"
+        type="button"
+      >
+        <span>${escapeHtml(detail.name || attribute.subLabel)}</span>
+        <small>${escapeHtml(detail.description ? "Open ability text" : "Add name and ability")}</small>
+      </button>
+    </article>
+  `;
+}
+
+function renderDicePanel(character) {
+  const lastRoll = state.ui.lastRoll;
+
+  return `
+    <section class="utility-panel dice-panel">
+      <div class="section-heading section-heading-tight">
+        <div>
+          <p class="eyebrow">Resolution engine</p>
+          <h2>Dice Roller</h2>
+        </div>
+        <button
+          class="icon-button history-button"
+          data-action="open-roll-history"
+          type="button"
+          title="Open recent rolls"
+          aria-label="Open recent rolls"
+        >
+          ${iconHistory()}
+        </button>
+      </div>
+      <span class="section-caption">Left click to build a roll. Right click for a custom formula.</span>
+      <button class="roll-button" data-action="open-builder-modal" type="button">
+        <span class="roll-button-label">Roll</span>
+        <span class="roll-button-note">Attribute + Skill + Specs + Bonus</span>
+      </button>
+      <div class="dice-stage ${state.ui.isRolling ? "is-rolling" : ""}">
+        ${renderDie(lastRoll?.orderedResults?.[0] ?? "-", "a")}
+        ${renderDie(lastRoll?.orderedResults?.[1] ?? "-", "b")}
+      </div>
+      <div class="roll-summary">
+        ${
+          lastRoll
+            ? `
+              <div class="summary-total">${lastRoll.total}</div>
+              <div class="summary-meta">
+                <p>${escapeHtml(lastRoll.label)}</p>
+                <p>${escapeHtml(lastRoll.breakdown)}</p>
+              </div>
+            `
+            : `
+              <div class="summary-empty">
+                <p>No roll yet.</p>
+                <p>Your latest result lands here with critical and bonus math.</p>
+              </div>
+            `
+        }
+      </div>
+    </section>
+  `;
+}
+
+function renderModal() {
+  if (!state.ui.activeModal) {
+    return "";
+  }
+
+  const { type, payload } = state.ui.activeModal;
+
+  if (type === "create-character") {
+    const preventClose = !state.characters.length;
+    return renderModalShell(
+      "Create Character",
+      "Start with a name and the profile silhouette for the sheet icon.",
+      `
+        <form class="modal-form" data-form="create-character">
+          <label>
+            <span>Character Name</span>
+            <input type="text" name="name" maxlength="48" placeholder="Rhea Sol, Idris Vale..." required />
+          </label>
+          <label>
+            <span>Profile Icon</span>
+            <select name="avatar">
+              ${AVATAR_OPTIONS.map(
+                (option) => `<option value="${option.value}">${escapeHtml(option.label)}</option>`
+              ).join("")}
+            </select>
+          </label>
+          <div class="modal-actions">
+            ${preventClose ? "" : `<button class="secondary-button" data-action="close-modal" type="button">Cancel</button>`}
+            <button class="primary-button" type="submit">Create Operative</button>
+          </div>
+        </form>
+      `,
+      { preventClose }
+    );
+  }
+
+  if (type === "link-campaign") {
+    const current = getActiveCharacter();
+    return renderModalShell(
+      "Link to Campaign",
+      "Store the code now so this character is ready when the VTT layer comes online.",
+      `
+        <form class="modal-form" data-form="link-campaign">
+          <label>
+            <span>VTT Space</span>
+            <input
+              type="text"
+              name="space"
+              maxlength="40"
+              placeholder="Foundry, Roll20, Discord table..."
+              value="${escapeAttribute(current?.campaign?.space || "")}"
+            />
+          </label>
+          <label>
+            <span>Campaign Code</span>
+            <input
+              type="text"
+              name="code"
+              maxlength="40"
+              placeholder="GM supplied code"
+              value="${escapeAttribute(current?.campaign?.code || "")}"
+              required
+            />
+          </label>
+          <div class="modal-actions">
+            ${
+              current?.campaign?.code
+                ? `<button class="secondary-button" data-action="unlink-campaign" type="button">Clear Link</button>`
+                : `<span></span>`
+            }
+            <button class="primary-button" type="submit">Save Link</button>
+          </div>
+        </form>
+      `
+    );
+  }
+
+  if (type === "confirm-delete") {
+    const current = getActiveCharacter();
+    return renderModalShell(
+      "Delete Character",
+      "This removes the currently selected saved character from local storage.",
+      `
+        <div class="modal-stack">
+          <p>
+            Are you sure you want to delete <strong>${escapeHtml(current?.name || "this character")}</strong>?
+          </p>
+          <div class="modal-actions">
+            <button class="secondary-button" data-action="close-modal" type="button">Cancel</button>
+            <button class="danger-button" data-action="confirm-delete-character" type="button">Delete Permanently</button>
+          </div>
+        </div>
+      `
+    );
+  }
+
+  if (type === "share-character") {
+    const current = getActiveCharacter();
+    const sharePayload = buildSharePayload(current);
+    return renderModalShell(
+      "Share Character",
+      "Use the portable code anywhere, or the link once this app is hosted.",
+      `
+        <div class="modal-stack">
+          <label>
+            <span>Portable Share Code</span>
+            <textarea rows="5" readonly>${escapeHtml(sharePayload.code)}</textarea>
+          </label>
+          <div class="modal-actions modal-actions-tight">
+            <button class="secondary-button" data-action="copy-share-code" data-copy-value="${escapeAttribute(
+              sharePayload.code
+            )}" type="button">Copy Code</button>
+          </div>
+          <label>
+            <span>Hosted Share Link</span>
+            <textarea rows="3" readonly>${escapeHtml(sharePayload.link || "Serve this app over HTTP to generate a shareable link.")}</textarea>
+          </label>
+          <div class="modal-actions modal-actions-tight">
+            <button
+              class="secondary-button"
+              data-action="copy-share-link"
+              data-copy-value="${escapeAttribute(sharePayload.link || "")}"
+              type="button"
+              ${sharePayload.link ? "" : "disabled"}
+            >
+              Copy Link
+            </button>
+            <button class="primary-button" data-action="close-modal" type="button">Done</button>
+          </div>
+        </div>
+      `
+    );
+  }
+
+  if (type === "attribute-detail") {
+    const current = getActiveCharacter();
+    const sectionId = payload?.sectionId;
+    const attributeIndex = Number(payload?.index);
+    const sectionTemplate = SECTION_TEMPLATES.find((section) => section.id === sectionId);
+    const attribute = current?.sections?.[sectionId]?.attributes?.[attributeIndex];
+
+    if (!sectionTemplate || !attribute) {
+      return "";
+    }
+
+    const detail = normalizeAttributeDetail(attribute.subValue);
+
+    return renderModalShell(
+      detail.name || attribute.subLabel,
+      `Capture the name and ability text for ${attribute.label}.`,
+      `
+        <form class="modal-form" data-form="attribute-detail">
+          <label>
+            <span>Name</span>
+            <input
+              type="text"
+              name="detailName"
+              maxlength="48"
+              value="${escapeAttribute(detail.name)}"
+              placeholder="${escapeAttribute(attribute.subLabel)}"
+              ${state.ui.editMode ? "" : "readonly"}
+            />
+          </label>
+          <label>
+            <span>Ability</span>
+            <textarea
+              rows="7"
+              name="detailDescription"
+              maxlength="600"
+              placeholder="Write the ability text here."
+              ${state.ui.editMode ? "" : "readonly"}
+            >${escapeHtml(detail.description)}</textarea>
+          </label>
+          <div class="modal-actions">
+            <button class="secondary-button" data-action="close-modal" type="button">Close</button>
+            ${state.ui.editMode ? `<button class="primary-button" type="submit">Save Ability</button>` : ""}
+          </div>
+        </form>
+      `
+    );
+  }
+
+  if (type === "build-roll") {
+    const current = getActiveCharacter();
+    const attributeOptions = SECTION_TEMPLATES.flatMap((section) =>
+      current.sections[section.id].attributes.map((attribute, index) => ({
+        value: `${section.id}:${index}`,
+        label: `${section.title} - ${attribute.label} (${attribute.score} / ${formatDiceNotation(scoreToDice(attribute.score))})`,
+      }))
+    );
+    const skillOptions = SECTION_TEMPLATES.flatMap((section) =>
+      current.sections[section.id].skills.map((skill, index) => ({
+        value: `${section.id}:${index}`,
+        label: `${section.title} - ${skill.label} (${formatSigned(skill.value)})`,
+      }))
+    );
+
+    return renderModalShell(
+      "Build Roll",
+      "Pick an attribute, then layer on one skill, any number of specializations, and an optional situational bonus.",
+      `
+        <form class="modal-form" data-form="build-roll">
+          <label>
+            <span>Attribute</span>
+            <select name="attributeRef" required>
+              ${attributeOptions.map((option) => `<option value="${option.value}">${escapeHtml(option.label)}</option>`).join("")}
+            </select>
+          </label>
+          <label>
+            <span>Skill</span>
+            <select name="skillRef" required>
+              ${skillOptions.map((option) => `<option value="${option.value}">${escapeHtml(option.label)}</option>`).join("")}
+            </select>
+          </label>
+          <label>
+            <span>Situational Bonus</span>
+            <input type="number" name="situationalBonus" min="-100" max="100" value="0" />
+          </label>
+          <fieldset class="checkbox-grid">
+            <legend>Optional Specializations</legend>
+            ${current.specializations
+              .map(
+                (specialization, index) => `
+                  <label class="check-row">
+                    <input type="checkbox" name="specialization" value="${index}" ${
+                      specialization.value === 0 ? "disabled" : ""
+                    } />
+                    <span>${getSpecializationLabel(index)} (${formatSigned(specialization.value)})</span>
+                  </label>
+                `
+              )
+              .join("")}
+          </fieldset>
+          <div class="modal-actions">
+            <button class="secondary-button" data-action="close-modal" type="button">Cancel</button>
+            <button class="primary-button" type="submit">Roll</button>
+          </div>
+        </form>
+      `
+    );
+  }
+
+  if (type === "custom-roll") {
+    return renderModalShell(
+      "Custom Roll",
+      "Type any dice notation set such as 2d6 + 5 or 1d8 + 1d10 + 12.",
+      `
+        <form class="modal-form" data-form="custom-roll">
+          <label>
+            <span>Label</span>
+            <input type="text" name="label" maxlength="48" placeholder="Manual check, weapon test..." />
+          </label>
+          <label>
+            <span>Dice Formula</span>
+            <input type="text" name="formula" maxlength="60" placeholder="1d8 + 1d10 + 12" required />
+          </label>
+          <div class="modal-actions">
+            <button class="secondary-button" data-action="close-modal" type="button">Cancel</button>
+            <button class="primary-button" type="submit">Roll Formula</button>
+          </div>
+        </form>
+      `
+    );
+  }
+
+  if (type === "roll-history") {
+    return renderModalShell(
+      "Recent Rolls",
+      "The last six results stay here for reference.",
+      `
+        <div class="modal-stack">
+          <div class="roll-history modal-roll-history">
+            ${
+              state.ui.rollHistory.length
+                ? state.ui.rollHistory
+                    .map(
+                      (entry) => `
+                        <div class="history-row">
+                          <div>
+                            <strong>${escapeHtml(entry.label)}</strong>
+                            <span>${escapeHtml(entry.breakdown)}</span>
+                          </div>
+                          <div class="history-total">${entry.total}</div>
+                        </div>
+                      `
+                    )
+                    .join("")
+                : `<div class="history-empty">No recent rolls yet.</div>`
+            }
+          </div>
+          <div class="modal-actions">
+            <button class="primary-button" data-action="close-modal" type="button">Done</button>
+          </div>
+        </div>
+      `
+    );
+  }
+
+  if (type === "import-modal") {
+    return renderModalShell(
+      "Import Share Code",
+      "Paste a portable code from another character export to save it locally.",
+      `
+        <form class="modal-form" data-form="import-code">
+          <label>
+            <span>Share Code</span>
+            <textarea rows="6" name="shareCode" placeholder="Paste exported code here." required></textarea>
+          </label>
+          <div class="modal-actions">
+            <button class="secondary-button" data-action="close-modal" type="button">Cancel</button>
+            <button class="primary-button" type="submit">Import Character</button>
+          </div>
+        </form>
+      `
+    );
+  }
+
+  if (type === "import-shared") {
+    const imported = payload;
+    return renderModalShell(
+      "Import Shared Character",
+      "This character arrived from a shared link or code. Save it as a new local copy?",
+      `
+        <div class="modal-stack">
+          <p><strong>${escapeHtml(imported.name)}</strong> will be imported into your local character list.</p>
+          <div class="modal-actions">
+            <button class="secondary-button" data-action="dismiss-shared-import" type="button">Not Now</button>
+            <button class="primary-button" data-action="confirm-import-shared" type="button">Save Copy</button>
+          </div>
+        </div>
+      `
+    );
+  }
+
+  return "";
+}
+
+function renderModalShell(title, subtitle, body, options = {}) {
+  return `
+    <div class="modal-backdrop" ${options.preventClose ? "" : 'data-close-backdrop="true"'}>
+      <section class="modal-card" aria-modal="true" role="dialog">
+        <div class="modal-header">
+          <div>
+            <h2>${escapeHtml(title)}</h2>
+            <p>${escapeHtml(subtitle)}</p>
+          </div>
+          ${
+            options.preventClose
+              ? ""
+              : `<button class="icon-button" data-action="close-modal" type="button" aria-label="Close dialog">x</button>`
+          }
+        </div>
+        ${body}
+      </section>
+    </div>
+  `;
+}
+
+function handleClick(event) {
+  const backdrop = event.target.closest(".modal-backdrop[data-close-backdrop='true']");
+  if (backdrop && event.target === backdrop) {
+    closeModal();
+    return;
+  }
+
+  const actionTarget = event.target.closest("[data-action]");
+
+  if (!actionTarget) {
+    if (state.ui.isCharacterMenuOpen && !event.target.closest(".toolbar-dropdown")) {
+      state.ui.isCharacterMenuOpen = false;
+      renderApp();
+    }
+    return;
+  }
+
+  const action = actionTarget.dataset.action;
+
+  if (action === "toggle-character-menu") {
+    state.ui.isCharacterMenuOpen = !state.ui.isCharacterMenuOpen;
+    renderApp();
+    return;
+  }
+
+  if (action === "open-create-modal") {
+    state.ui.activeModal = { type: "create-character" };
+    state.ui.isCharacterMenuOpen = false;
+    renderApp();
+    return;
+  }
+
+  if (action === "open-import-modal") {
+    state.ui.activeModal = { type: "import-modal" };
+    state.ui.isCharacterMenuOpen = false;
+    renderApp();
+    return;
+  }
+
+  if (action === "select-character") {
+    state.ui.activeCharacterId = actionTarget.dataset.characterId;
+    state.ui.isCharacterMenuOpen = false;
+    persistState();
+    renderApp();
+    return;
+  }
+
+  if (action === "toggle-edit-mode") {
+    state.ui.editMode = !state.ui.editMode;
+    showToast(state.ui.editMode ? "Edit mode enabled." : "Edit mode locked.");
+    renderApp();
+    return;
+  }
+
+  if (action === "save-character") {
+    persistState();
+    showToast("Character data saved locally.");
+    renderApp();
+    return;
+  }
+
+  if (action === "open-share-modal") {
+    state.ui.activeModal = { type: "share-character" };
+    renderApp();
+    return;
+  }
+
+  if (action === "open-link-modal") {
+    state.ui.activeModal = { type: "link-campaign" };
+    renderApp();
+    return;
+  }
+
+  if (action === "unlink-campaign") {
+    updateCurrentCharacter((character) => {
+      character.campaign = { space: "", code: "" };
+    });
+    state.ui.activeModal = null;
+    showToast("Campaign link cleared.");
+    renderApp();
+    return;
+  }
+
+  if (action === "open-delete-modal") {
+    state.ui.activeModal = { type: "confirm-delete" };
+    renderApp();
+    return;
+  }
+
+  if (action === "confirm-delete-character") {
+    deleteCurrentCharacter();
+    return;
+  }
+
+  if (action === "switch-view") {
+    const view = actionTarget.dataset.view;
+    if (view === "world") {
+      showToast("World view will unlock once the VTT layer exists.");
+      return;
+    }
+    state.ui.activeView = view;
+    renderApp();
+    return;
+  }
+
+  if (action === "open-attribute-detail") {
+    state.ui.activeModal = {
+      type: "attribute-detail",
+      payload: {
+        sectionId: actionTarget.dataset.section,
+        index: Number(actionTarget.dataset.index),
+      },
+    };
+    renderApp();
+    return;
+  }
+
+  if (action === "open-builder-modal") {
+    state.ui.activeModal = { type: "build-roll" };
+    renderApp();
+    return;
+  }
+
+  if (action === "open-roll-history") {
+    state.ui.activeModal = { type: "roll-history" };
+    renderApp();
+    return;
+  }
+
+  if (action === "copy-share-code" || action === "copy-share-link") {
+    const value = actionTarget.dataset.copyValue;
+    if (!value) {
+      showToast("A hosted link is only available when this app is served over HTTP.");
+      renderApp();
+      return;
+    }
+    copyText(value)
+      .then(() => {
+        showToast(action === "copy-share-code" ? "Share code copied." : "Share link copied.");
+        renderApp();
+      })
+      .catch(() => {
+        showToast("Clipboard access was blocked. You can still copy the text manually.");
+        renderApp();
+      });
+    return;
+  }
+
+  if (action === "confirm-import-shared") {
+    const sharedPayload = state.ui.activeModal?.payload;
+    if (sharedPayload) {
+      importCharacter(sharedPayload);
+    }
+    return;
+  }
+
+  if (action === "dismiss-shared-import") {
+    clearShareParam();
+    state.ui.activeModal = state.characters.length ? null : { type: "create-character" };
+    renderApp();
+    return;
+  }
+
+  if (action === "close-modal") {
+    closeModal();
+  }
+}
+
+function handleSubmit(event) {
+  const form = event.target.closest("[data-form]");
+  if (!form) {
+    return;
+  }
+
+  event.preventDefault();
+  const formData = new FormData(form);
+  const formName = form.dataset.form;
+
+  if (formName === "create-character") {
+    const name = String(formData.get("name") || "").trim();
+    const avatar = String(formData.get("avatar") || "neutral");
+
+    if (!name) {
+      showToast("Character name is required.");
+      renderApp();
+      return;
+    }
+
+    const character = createCharacter(name, avatar);
+    state.characters.unshift(character);
+    state.ui.activeCharacterId = character.id;
+    state.ui.editMode = true;
+    state.ui.activeModal = null;
+    state.ui.activeView = "sheet";
+    persistState();
+    showToast(`${name} created.`);
+    renderApp();
+    return;
+  }
+
+  if (formName === "link-campaign") {
+    const space = String(formData.get("space") || "").trim();
+    const code = String(formData.get("code") || "").trim();
+
+    updateCurrentCharacter((character) => {
+      character.campaign = { space, code };
+    });
+
+    state.ui.activeModal = null;
+    showToast(code ? `Campaign linked to ${code}.` : "Campaign link saved.");
+    renderApp();
+    return;
+  }
+
+  if (formName === "attribute-detail") {
+    const payload = state.ui.activeModal?.payload;
+    if (!payload) {
+      closeModal();
+      return;
+    }
+
+    const detailName = String(formData.get("detailName") || "").trim();
+    const detailDescription = String(formData.get("detailDescription") || "").trim();
+
+    updateCurrentCharacter((character) => {
+      character.sections[payload.sectionId].attributes[payload.index].subValue = {
+        name: detailName,
+        description: detailDescription,
+      };
+    });
+
+    state.ui.activeModal = null;
+    showToast(`${detailName || "Ability"} saved.`);
+    renderApp();
+    return;
+  }
+
+  if (formName === "build-roll") {
+    const attributeRef = String(formData.get("attributeRef"));
+    const skillRef = String(formData.get("skillRef"));
+    const situationalBonus = clampNumber(formData.get("situationalBonus"), -100, 100);
+    const specializationIndexes = formData.getAll("specialization").map((value) => Number(value));
+    const roll = buildCharacterRoll(attributeRef, skillRef, specializationIndexes, situationalBonus);
+
+    if (!roll) {
+      showToast("Roll configuration could not be resolved.");
+      renderApp();
+      return;
+    }
+
+    state.ui.activeModal = null;
+    finalizeRoll(roll);
+    return;
+  }
+
+  if (formName === "custom-roll") {
+    const label = String(formData.get("label") || "").trim() || "Custom Roll";
+    const formula = String(formData.get("formula") || "").trim();
+
+    try {
+      const parsed = parseDiceFormula(formula);
+      const roll = executeRoll({
+        label,
+        notation: parsed.notation,
+        diceSides: parsed.diceSides,
+        flatBonus: parsed.flatBonus,
+        bonusParts: parsed.flatBonus ? [`Formula bonus ${formatSigned(parsed.flatBonus)}`] : [],
+      });
+      state.ui.activeModal = null;
+      finalizeRoll(roll);
+      return;
+    } catch (error) {
+      showToast(error.message);
+      renderApp();
+      return;
+    }
+  }
+
+  if (formName === "import-code") {
+    const shareCode = String(formData.get("shareCode") || "").trim();
+
+    try {
+      const character = parseShareCode(shareCode);
+      importCharacter(character);
+      return;
+    } catch (error) {
+      showToast(error.message);
+      renderApp();
+      return;
+    }
+  }
+}
+
+function createCharacter(name, avatar = "neutral") {
+  const character = {
+    id: createId(),
+    name,
+    avatar,
+    campaign: { space: "", code: "" },
+    sections: {},
+    specializations: Array.from({ length: MAX_SPECIALIZATIONS }, (_, index) => ({
+      id: createId(),
+      name: getSpecializationLabel(index),
+      value: 0,
+    })),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  SECTION_TEMPLATES.forEach((section) => {
+    character.sections[section.id] = {
+      health: { current: 24 },
+      attributes: section.attributes.map((attribute) => ({
+        ...attribute,
+        score: 8,
+        subValue: { name: "", description: "" },
+      })),
+      skills: section.skills.map((skill) => ({
+        key: slugify(skill),
+        label: skill,
+        value: 0,
+      })),
+    };
+  });
+
+  return normalizeCharacter(character);
+}
+
+function normalizeCharacter(rawCharacter) {
+  const base = createCharacterSkeleton(rawCharacter?.name || "Untitled Operative", rawCharacter?.avatar || "neutral");
+  base.id = rawCharacter?.id || base.id;
+  base.campaign = {
+    space: String(rawCharacter?.campaign?.space || ""),
+    code: String(rawCharacter?.campaign?.code || ""),
+  };
+  base.createdAt = rawCharacter?.createdAt || base.createdAt;
+  base.updatedAt = rawCharacter?.updatedAt || base.updatedAt;
+
+  SECTION_TEMPLATES.forEach((section) => {
+    const sourceSection = rawCharacter?.sections?.[section.id];
+    base.sections[section.id].attributes = section.attributes.map((attribute, index) => ({
+      ...attribute,
+      score: clampNumber(sourceSection?.attributes?.[index]?.score ?? 8, 4, 12),
+      subValue: normalizeAttributeDetail(sourceSection?.attributes?.[index]?.subValue),
+    }));
+    base.sections[section.id].skills = section.skills.map((skill, index) => ({
+      key: slugify(skill),
+      label: skill,
+      value: clampNumber(sourceSection?.skills?.[index]?.value ?? 0, 0, 100),
+    }));
+    const maxHealth = getSectionMax(base.sections[section.id]);
+    base.sections[section.id].health.current = clampNumber(sourceSection?.health?.current ?? maxHealth, 0, maxHealth);
+  });
+
+  base.specializations = Array.from({ length: MAX_SPECIALIZATIONS }, (_, index) => ({
+    id: rawCharacter?.specializations?.[index]?.id || createId(),
+    name: String(rawCharacter?.specializations?.[index]?.name || getSpecializationLabel(index)),
+    value: clampNumber(rawCharacter?.specializations?.[index]?.value ?? 0, 0, 100),
+  }));
+
+  return base;
+}
+
+function createCharacterSkeleton(name, avatar) {
+  const skeleton = {
+    id: createId(),
+    name,
+    avatar,
+    campaign: { space: "", code: "" },
+    sections: {},
+    specializations: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  SECTION_TEMPLATES.forEach((section) => {
+    skeleton.sections[section.id] = {
+      health: { current: 24 },
+      attributes: section.attributes.map((attribute) => ({
+        ...attribute,
+        score: 8,
+        subValue: { name: "", description: "" },
+      })),
+      skills: section.skills.map((skill) => ({
+        key: slugify(skill),
+        label: skill,
+        value: 0,
+      })),
+    };
+  });
+
+  return skeleton;
+}
+
+function closeModal() {
+  if (state.ui.activeModal?.type === "create-character" && !state.characters.length) {
+    return;
+  }
+  state.ui.activeModal = null;
+  renderApp();
+}
+
+function normalizeAttributeDetail(rawValue) {
+  if (rawValue && typeof rawValue === "object") {
+    return {
+      name: String(rawValue.name || ""),
+      description: String(rawValue.description || ""),
+    };
+  }
+
+  if (typeof rawValue === "string" && rawValue.trim()) {
+    return {
+      name: rawValue.trim(),
+      description: "",
+    };
+  }
+
+  return {
+    name: "",
+    description: "",
+  };
+}
+
+function getBodyDerivedValue(attribute) {
+  if (attribute.key === "power") {
+    return attribute.score * 2;
+  }
+
+  if (attribute.key === "control") {
+    return 12 - attribute.score;
+  }
+
+  return attribute.score;
+}
+
+function getSpecializationLabel(index) {
+  return `Specialization ${index + 1}`;
+}
+
+function iconHistory() {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M5 7h14"></path>
+      <path d="M5 12h14"></path>
+      <path d="M5 17h14"></path>
     </svg>
   `;
 }
