@@ -2,7 +2,7 @@ const STORAGE_KEY = "empyrean.characters.v1";
 const MAX_SPECIALIZATIONS = 8;
 const ATTRIBUTE_SCORES = [4, 5, 6, 7, 8, 9, 10, 11, 12];
 const NAME_HOVER_HINTS = ["Gender", "Lineage", "Affiliation", "Height", "Weight", "O.R.A.C.L.E. ID"];
-const UI_ASSET_VERSION = "20260616d";
+const UI_ASSET_VERSION = "20260616e";
 const NAME_PLACEHOLDER_SUGGESTIONS = [
   "Rhea Sol",
   "Cassian Vale",
@@ -18,12 +18,12 @@ const NAME_PLACEHOLDER_SUGGESTIONS = [
   "Tessa Vire",
 ];
 const DIE_ART = {
-  d4: { key: "d4", label: "d4", src: `./src/assets/dice/d4.png?v=${UI_ASSET_VERSION}` },
-  d6: { key: "d6", label: "d6", src: `./src/assets/dice/d6.png?v=${UI_ASSET_VERSION}` },
-  d8: { key: "d8", label: "d8", src: `./src/assets/dice/d8.png?v=${UI_ASSET_VERSION}` },
-  d10: { key: "d10", label: "d10", src: `./src/assets/dice/d10.png?v=${UI_ASSET_VERSION}` },
-  d12: { key: "d12", label: "d12", src: `./src/assets/dice/d12.png?v=${UI_ASSET_VERSION}` },
-  d20: { key: "d20", label: "d20", src: `./src/assets/dice/d20.png?v=${UI_ASSET_VERSION}` },
+  d4: { key: "d4", label: "d4", src: `./assets/dice/d4.png?v=${UI_ASSET_VERSION}` },
+  d6: { key: "d6", label: "d6", src: `./assets/dice/d6.png?v=${UI_ASSET_VERSION}` },
+  d8: { key: "d8", label: "d8", src: `./assets/dice/d8.png?v=${UI_ASSET_VERSION}` },
+  d10: { key: "d10", label: "d10", src: `./assets/dice/d10.png?v=${UI_ASSET_VERSION}` },
+  d12: { key: "d12", label: "d12", src: `./assets/dice/d12.png?v=${UI_ASSET_VERSION}` },
+  d20: { key: "d20", label: "d20", src: `./assets/dice/d20.png?v=${UI_ASSET_VERSION}` },
 };
 
 const SECTION_TEMPLATES = [
@@ -498,7 +498,11 @@ function renderDie(die, index, canReroll) {
   }`.trim();
   const artMarkup = `
     <div class="die-figure">
-      <img class="die-art die-art-${art.key}" src="${art.src}" alt="" aria-hidden="true" />
+      <span
+        class="die-art die-art-${art.key}"
+        style="${escapeAttribute(`--die-art-mask: url('${art.src}')`)}"
+        aria-hidden="true"
+      ></span>
       <span class="die-value-chip">${escapeHtml(displayValue)}</span>
     </div>
   `;
