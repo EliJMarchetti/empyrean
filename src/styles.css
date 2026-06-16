@@ -179,6 +179,12 @@ svg {
   font-size: 0.8rem;
 }
 
+.toolbar-icon-button {
+  width: 2rem;
+  min-width: 2rem;
+  padding-inline: 0;
+}
+
 .toolbar-button:hover:not(:disabled),
 .menu-action:hover,
 .view-button:hover:not(:disabled),
@@ -348,6 +354,16 @@ svg {
   margin-bottom: 0.55rem;
 }
 
+.subsection-title {
+  margin-bottom: 0.32rem;
+  text-align: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
 .health-module {
   display: flex;
   align-items: center;
@@ -375,7 +391,7 @@ svg {
 .skill-box input,
 .specialization-box input,
 .attribute-score,
-.modal-form input,
+.modal-form input:not([type="checkbox"]),
 .modal-form select,
 .modal-form textarea,
 .share-panel textarea {
@@ -405,9 +421,10 @@ svg {
 
 .attribute-card {
   display: grid;
+  grid-template-rows: minmax(1.4rem, auto) auto auto minmax(2rem, auto);
   gap: 0.28rem;
   min-width: 0;
-  padding: 0.55rem;
+  padding: 0.48rem;
   border: 1px solid rgba(157, 205, 216, 0.12);
   border-radius: var(--radius-md);
   background: var(--bg-panel-soft);
@@ -415,25 +432,34 @@ svg {
 
 .attribute-name {
   text-align: center;
-  font-size: 0.74rem;
+  font-size: 0.65rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.05;
+  min-height: 1.45rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.attribute-card-tight .attribute-name {
+  font-size: 0.58rem;
+  letter-spacing: 0.04em;
 }
 
 .attribute-score {
   width: 100%;
-  padding: 0.4rem 0.45rem;
+  padding: 0.36rem 0.3rem;
   text-align: center;
   font-weight: 700;
 }
 
 .attribute-dice {
   text-align: center;
-  font-size: 0.68rem;
+  font-size: 0.6rem;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -444,19 +470,29 @@ svg {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 2.15rem;
-  padding: 0.38rem 0.48rem;
+  width: 100%;
+  min-height: 2rem;
+  min-width: 0;
+  padding: 0.32rem 0.3rem;
   border: 1px solid rgba(157, 205, 216, 0.12);
   border-radius: var(--radius-sm);
   background: rgba(7, 17, 24, 0.78);
   color: var(--text-main);
   text-align: center;
+  overflow: hidden;
 }
 
 .attribute-subbox span {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: block;
+  width: 100%;
+  font-size: 0.62rem;
+  line-height: 1.05;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.attribute-card-tight .attribute-subbox span {
+  font-size: 0.54rem;
 }
 
 .attribute-subbox-static {
@@ -707,12 +743,22 @@ svg {
   color: var(--text-muted);
 }
 
-.modal-form input,
+.modal-form input:not([type="checkbox"]),
 .modal-form select,
 .modal-form textarea,
 .share-panel textarea {
   width: 100%;
   padding: 0.65rem 0.72rem;
+}
+
+.modal-form input[type="checkbox"],
+.inline-toggle input[type="checkbox"],
+.check-row input[type="checkbox"] {
+  width: auto;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  accent-color: var(--accent);
 }
 
 .share-panel textarea,
@@ -732,6 +778,10 @@ svg {
   justify-content: start;
 }
 
+.modal-actions-end {
+  justify-content: end;
+}
+
 .modal-divider {
   height: 1px;
   margin: 0.7rem 0;
@@ -741,8 +791,8 @@ svg {
 .checkbox-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.35rem 0.55rem;
-  padding: 0.65rem;
+  gap: 0.22rem 0.45rem;
+  padding: 0.55rem;
   border: 1px solid rgba(157, 205, 216, 0.12);
   border-radius: var(--radius-md);
 }
@@ -757,7 +807,7 @@ svg {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.28rem;
   min-width: 0;
 }
 
@@ -770,6 +820,33 @@ svg {
 .check-row strong {
   font-size: 0.8rem;
   color: var(--text-muted);
+}
+
+.modal-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: -0.15rem;
+}
+
+.modal-label-row > span {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.inline-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
+.inline-toggle input {
+  width: auto;
+  margin: 0;
 }
 
 .history-row {

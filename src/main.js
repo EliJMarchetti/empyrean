@@ -162,13 +162,14 @@ function renderToolbar(character) {
           }
         </div>
         <button
-          class="toolbar-button ${state.ui.editMode ? "is-active" : ""}"
+          class="toolbar-button toolbar-icon-button ${state.ui.editMode ? "is-active" : ""}"
           data-action="toggle-edit-mode"
           type="button"
+          title="${state.ui.editMode ? "Lock editing" : "Unlock editing"}"
+          aria-label="${state.ui.editMode ? "Lock editing" : "Unlock editing"}"
           ${character ? "" : "disabled"}
         >
           ${iconLock(state.ui.editMode)}
-          <span>Edit ${state.ui.editMode ? "On" : "Off"}</span>
         </button>
       </div>
       <div class="toolbar-group">
@@ -295,9 +296,11 @@ function renderSectionBlock(character, template) {
           </div>
         </div>
       </div>
+      <div class="subsection-title">Attributes</div>
       <div class="attribute-strip">
         ${section.attributes.map((attribute, index) => renderAttributeCard(template, attribute, index)).join("")}
       </div>
+      <div class="subsection-title">Skills</div>
       <div class="skills-grid">
         ${section.skills
           .map(
@@ -325,9 +328,12 @@ function renderSectionBlock(character, template) {
 
 function renderAttributeCard(template, attribute, index) {
   const detail = normalizeAttributeDetail(attribute.detail);
+  const subboxLabel =
+    template.id === "body" ? `${attribute.subLabel} ${getBodyDerivedValue(attribute)}` : detail.name || attribute.subLabel;
+  const isTight = attribute.label.length > 9 || subboxLabel.length > 11;
 
   return `
-    <article class="attribute-card">
+    <article class="attribute-card ${isTight ? "attribute-card-tight" : ""}">
       <div class="attribute-name">${escapeHtml(attribute.label)}</div>
       <select
         class="attribute-score"
@@ -345,7 +351,7 @@ function renderAttributeCard(template, attribute, index) {
         template.id === "body"
           ? `
             <div class="attribute-subbox attribute-subbox-static">
-              <span>${escapeHtml(attribute.subLabel)} ${getBodyDerivedValue(attribute)}</span>
+              <span>${escapeHtml(subboxLabel)}</span>
             </div>
           `
           : `
@@ -356,7 +362,7 @@ function renderAttributeCard(template, attribute, index) {
               data-index="${index}"
               type="button"
             >
-              <span>${escapeHtml(detail.name || attribute.subLabel)}</span>
+              <span>${escapeHtml(subboxLabel)}</span>
             </button>
           `
       }
@@ -620,18 +626,7 @@ function renderModal() {
   }
 
   if (type === "build-roll") {
-    const attributeOptions = SECTION_TEMPLATES.flatMap((section) =>
-      character.sections[section.id].attributes.map((attribute, index) => ({
-        value: `${section.id}:${index}`,
-        label: `${section.title} - ${attribute.label} (${attribute.score} / ${formatDiceNotation(scoreToDice(attribute.score))})`,
-      }))
-    );
-    const skillOptions = SECTION_TEMPLATES.flatMap((section) =>
-      character.sections[section.id].skills.map((skill, index) => ({
-        value: `${section.id}:${index}`,
-        label: `${section.title} - ${skill.label} (${formatSigned(skill.value)})`,
-      }))
-    );
+    const rollState = getBuildRollState(character, payload);
 
     return renderModalShell(
       "Build Roll",
@@ -641,18 +636,47 @@ function renderModal() {
           <label>
             <span>Attribute</span>
             <select name="attributeRef" required>
-              ${attributeOptions.map((option) => `<option value="${option.value}">${escapeHtml(option.label)}</option>`).join("")}
+              ${rollState.attributeOptions
+                .map(
+                  (option) => `
+                    <option value="${option.value}" ${option.value === rollState.attributeRef ? "selected" : ""}>
+                      ${escapeHtml(option.label)}
+                    </option>
+                  `
+                )
+                .join("")}
             </select>
           </label>
-          <label>
+          <div class="modal-label-row">
             <span>Skill</span>
+            <label class="inline-toggle">
+              <input type="checkbox" name="outsideIdentity" ${rollState.outsideIdentity ? "checked" : ""} />
+              <span>Outside of Identity</span>
+            </label>
+          </div>
+          <label>
             <select name="skillRef" required>
-              ${skillOptions.map((option) => `<option value="${option.value}">${escapeHtml(option.label)}</option>`).join("")}
+              ${rollState.skillOptions
+                .map(
+                  (option) => `
+                    <option value="${option.value}" ${option.value === rollState.skillRef ? "selected" : ""}>
+                      ${escapeHtml(option.label)}
+                    </option>
+                  `
+                )
+                .join("")}
             </select>
           </label>
           <label>
             <span>Situational Bonus</span>
-            <input type="number" name="situationalBonus" min="-100" max="100" value="0" placeholder="0" />
+            <input
+              type="number"
+              name="situationalBonus"
+              min="-100"
+              max="100"
+              value="${rollState.situationalBonus}"
+              placeholder="0"
+            />
           </label>
           <fieldset class="checkbox-grid">
             <legend>Specializations</legend>
@@ -660,9 +684,13 @@ function renderModal() {
               .map(
                 (specialization, index) => `
                   <label class="check-row">
-                    <input type="checkbox" name="specialization" value="${index}" ${
-                      specialization.value === 0 ? "disabled" : ""
-                    } />
+                    <input
+                      type="checkbox"
+                      name="specialization"
+                      value="${index}"
+                      ${specialization.value === 0 ? "disabled" : ""}
+                      ${rollState.specializationIndexes.includes(index) ? "checked" : ""}
+                    />
                     <span>${getSpecializationLabel(index)}</span>
                     <strong>${formatSigned(specialization.value)}</strong>
                   </label>
@@ -670,8 +698,7 @@ function renderModal() {
               )
               .join("")}
           </fieldset>
-          <div class="modal-actions">
-            <button class="secondary-button" data-action="close-modal" type="button">Cancel</button>
+          <div class="modal-actions modal-actions-end">
             <button class="primary-button" type="submit">Roll</button>
           </div>
         </form>
@@ -693,8 +720,7 @@ function renderModal() {
             <span>Dice Formula</span>
             <input type="text" name="formula" maxlength="60" placeholder="1d8 + 1d10 + 12" required />
           </label>
-          <div class="modal-actions">
-            <button class="secondary-button" data-action="close-modal" type="button">Cancel</button>
+          <div class="modal-actions modal-actions-end">
             <button class="primary-button" type="submit">Roll</button>
           </div>
         </form>
@@ -905,7 +931,7 @@ function handleClick(event) {
   }
 
   if (action === "open-builder-modal") {
-    state.ui.activeModal = { type: "build-roll" };
+    state.ui.activeModal = { type: "build-roll", payload: getDefaultBuildRollPayload(getActiveCharacter()) };
     renderApp();
     return;
   }
@@ -956,6 +982,41 @@ function handleClick(event) {
 }
 
 function handleChange(event) {
+  const buildRollForm = event.target.closest('[data-form="build-roll"]');
+  if (
+    buildRollForm &&
+    state.ui.activeModal?.type === "build-roll" &&
+    ["attributeRef", "skillRef", "outsideIdentity", "situationalBonus", "specialization"].includes(event.target.name)
+  ) {
+    const currentCharacter = getActiveCharacter();
+    if (!currentCharacter) {
+      return;
+    }
+
+    const liveFormData = new FormData(buildRollForm);
+    const nextPayload = {
+      attributeRef: String(liveFormData.get("attributeRef") || ""),
+      skillRef: String(liveFormData.get("skillRef") || ""),
+      outsideIdentity: liveFormData.get("outsideIdentity") === "on",
+      situationalBonus: clampNumber(liveFormData.get("situationalBonus"), -100, 100),
+      specializationIndexes: liveFormData.getAll("specialization").map((value) => Number(value)),
+    };
+
+    const normalizedPayload = getBuildRollState(currentCharacter, nextPayload);
+    state.ui.activeModal = {
+      type: "build-roll",
+      payload: {
+        attributeRef: normalizedPayload.attributeRef,
+        skillRef: normalizedPayload.skillRef,
+        outsideIdentity: normalizedPayload.outsideIdentity,
+        situationalBonus: normalizedPayload.situationalBonus,
+        specializationIndexes: normalizedPayload.specializationIndexes,
+      },
+    };
+    renderApp();
+    return;
+  }
+
   const input = event.target.closest("[data-input]");
   if (!input) {
     return;
@@ -1167,6 +1228,74 @@ function buildCharacterRoll(attributeRef, skillRef, specializationIndexes, situa
     flatBonus: skillBonus + specializationBonus + situationalBonus,
     bonusParts,
   });
+}
+
+function getDefaultBuildRollPayload(character) {
+  if (!character) {
+    return {
+      attributeRef: "",
+      skillRef: "",
+      outsideIdentity: false,
+      situationalBonus: 0,
+      specializationIndexes: [],
+    };
+  }
+
+  const firstSection = SECTION_TEMPLATES[0];
+  return {
+    attributeRef: `${firstSection.id}:0`,
+    skillRef: `${firstSection.id}:0`,
+    outsideIdentity: false,
+    situationalBonus: 0,
+    specializationIndexes: [],
+  };
+}
+
+function getBuildRollState(character, payload = {}) {
+  const attributeOptions = SECTION_TEMPLATES.flatMap((section) =>
+    character.sections[section.id].attributes.map((attribute, index) => ({
+      value: `${section.id}:${index}`,
+      label: attribute.label,
+      sectionId: section.id,
+    }))
+  );
+
+  const fallbackAttributeRef = payload.attributeRef || attributeOptions[0]?.value || "";
+  const selectedAttributeRef = attributeOptions.some((option) => option.value === fallbackAttributeRef)
+    ? fallbackAttributeRef
+    : attributeOptions[0]?.value || "";
+  const selectedAttributeSection = selectedAttributeRef.split(":")[0];
+  const outsideIdentity = Boolean(payload.outsideIdentity);
+
+  const skillOptions = SECTION_TEMPLATES.flatMap((section) =>
+    character.sections[section.id].skills
+      .filter(() => outsideIdentity || section.id === selectedAttributeSection)
+      .map((skill, index) => ({
+        value: `${section.id}:${index}`,
+        label: skill.label,
+      }))
+  );
+
+  const fallbackSkillRef = payload.skillRef || skillOptions[0]?.value || "";
+  const selectedSkillRef = skillOptions.some((option) => option.value === fallbackSkillRef)
+    ? fallbackSkillRef
+    : skillOptions[0]?.value || "";
+  const situationalBonus = clampNumber(payload.situationalBonus ?? 0, -100, 100);
+  const specializationIndexes = Array.isArray(payload.specializationIndexes)
+    ? payload.specializationIndexes
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value >= 0 && value < MAX_SPECIALIZATIONS)
+    : [];
+
+  return {
+    attributeOptions,
+    skillOptions,
+    attributeRef: selectedAttributeRef,
+    skillRef: selectedSkillRef,
+    outsideIdentity,
+    situationalBonus,
+    specializationIndexes,
+  };
 }
 
 function executeRoll({ label, notation, diceSides, flatBonus = 0, bonusParts = [] }) {
