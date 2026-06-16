@@ -283,6 +283,12 @@ svg {
   gap: 0.7rem;
 }
 
+.sheet-column {
+  align-self: stretch;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  min-height: 0;
+}
+
 .utility-column {
   align-self: stretch;
   grid-template-rows: auto minmax(0, 1fr);
@@ -654,18 +660,29 @@ svg {
 }
 
 .specializations-panel {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-self: stretch;
+  min-height: 0;
+  overflow: hidden;
   padding: 0.45rem;
-  --section-accent: rgba(123, 231, 207, 0.78);
+  padding-bottom: 1rem;
+  --section-accent: rgba(189, 122, 255, 0.95);
+  --section-accent-soft: rgba(189, 122, 255, 0.22);
 }
 
 .specialization-strip {
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 0.35rem;
+  align-content: start;
 }
 
 .specializations-panel .subsection-title {
   margin-bottom: 0.45rem;
+  font-size: 0.82rem;
+  letter-spacing: 0.2em;
 }
 
 .skill-box.is-armed {
@@ -1063,6 +1080,18 @@ svg {
 }
 
 .stat-block::after {
+  content: "";
+  position: absolute;
+  left: 0.7rem;
+  right: 0.7rem;
+  bottom: 0.34rem;
+  height: 0.32rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--section-accent), transparent);
+  pointer-events: none;
+}
+
+.specializations-panel::after {
   content: "";
   position: absolute;
   left: 0.7rem;

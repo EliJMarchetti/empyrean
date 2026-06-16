@@ -2,6 +2,20 @@ const STORAGE_KEY = "empyrean.characters.v1";
 const MAX_SPECIALIZATIONS = 8;
 const ATTRIBUTE_SCORES = [4, 5, 6, 7, 8, 9, 10, 11, 12];
 const NAME_HOVER_HINTS = ["Gender", "Lineage", "Affiliation", "Height", "Weight", "O.R.A.C.L.E. ID"];
+const NAME_PLACEHOLDER_SUGGESTIONS = [
+  "Rhea Sol",
+  "Cassian Vale",
+  "Mira Quell",
+  "Talon Vey",
+  "Nyra Flint",
+  "Orin Voss",
+  "Lyra Sable",
+  "Kael Meridian",
+  "Iona Strake",
+  "Juno Kestrel",
+  "Soren Halcyon",
+  "Tessa Vire",
+];
 
 const SECTION_TEMPLATES = [
   {
@@ -66,6 +80,7 @@ const state = {
     skillLossSelectionSection: null,
     isNameHoverHintVisible: false,
     nameHoverHintIndex: -1,
+    createCharacterNameSuggestionIndex: -1,
   },
 };
 
@@ -80,7 +95,7 @@ if (sharedImport) {
 }
 
 if (!state.characters.length && !state.ui.activeModal) {
-  state.ui.activeModal = { type: "create-character" };
+  openCreateCharacterModal(false);
 }
 
 renderApp();
@@ -91,6 +106,7 @@ document.addEventListener("submit", handleSubmit);
 document.addEventListener("contextmenu", handleContextMenu);
 document.addEventListener("mouseover", handleMouseOver);
 document.addEventListener("mouseout", handleMouseOut);
+document.addEventListener("focusin", handleFocusIn);
 window.addEventListener("keydown", handleKeydown);
 
 function renderApp() {
@@ -503,7 +519,13 @@ function renderModal() {
         <form class="modal-form" data-form="create-character">
           <label>
             <span>Name</span>
-            <input type="text" name="name" maxlength="48" placeholder="Rhea Sol" required />
+            <input
+              type="text"
+              name="name"
+              maxlength="48"
+              placeholder="${escapeAttribute(getCreateCharacterNamePlaceholder())}"
+              required
+            />
           </label>
           <label>
             <span>Gender</span>
@@ -895,9 +917,7 @@ function handleClick(event) {
   }
 
   if (action === "open-create-modal") {
-    state.ui.skillLossSelectionSection = null;
-    state.ui.activeModal = { type: "create-character" };
-    state.ui.isCharacterMenuOpen = false;
+    openCreateCharacterModal();
     renderApp();
     return;
   }
@@ -1275,6 +1295,11 @@ function handleContextMenu(event) {
 }
 
 function handleMouseOver(event) {
+  const createNameInput = event.target.closest('form[data-form="create-character"] input[name="name"]');
+  if (createNameInput) {
+    rotateCreateCharacterNameSuggestion(event, createNameInput);
+  }
+
   const titleButton = event.target.closest(".character-title-button");
   if (!titleButton) {
     return;
@@ -1312,6 +1337,15 @@ function handleMouseOut(event) {
   if (hint) {
     hint.classList.remove("is-visible");
   }
+}
+
+function handleFocusIn(event) {
+  const createNameInput = event.target.closest('form[data-form="create-character"] input[name="name"]');
+  if (!createNameInput) {
+    return;
+  }
+
+  rotateCreateCharacterNameSuggestion(event, createNameInput);
 }
 
 function handleKeydown(event) {
@@ -1670,7 +1704,11 @@ function deleteCurrentCharacter() {
   state.characters = state.characters.filter((character) => character.id !== state.ui.activeCharacterId);
   state.ui.activeCharacterId = state.characters[0]?.id ?? null;
   state.ui.activeView = "sheet";
-  state.ui.activeModal = state.characters.length ? null : { type: "create-character" };
+  if (state.characters.length) {
+    state.ui.activeModal = null;
+  } else {
+    openCreateCharacterModal(false);
+  }
   state.ui.skillLossSelectionSection = null;
   persistState();
   showToast("Character deleted.");
@@ -1959,6 +1997,47 @@ function closeModal() {
   }
   state.ui.activeModal = null;
   renderApp();
+}
+
+function openCreateCharacterModal(shouldCloseMenu = true) {
+  state.ui.skillLossSelectionSection = null;
+  state.ui.activeModal = { type: "create-character" };
+  if (shouldCloseMenu) {
+    state.ui.isCharacterMenuOpen = false;
+  }
+  advanceCreateCharacterNameSuggestion();
+}
+
+function advanceCreateCharacterNameSuggestion() {
+  state.ui.createCharacterNameSuggestionIndex = pickNextNameSuggestionIndex(
+    state.ui.createCharacterNameSuggestionIndex
+  );
+}
+
+function pickNextNameSuggestionIndex(currentIndex) {
+  if (NAME_PLACEHOLDER_SUGGESTIONS.length <= 1) {
+    return 0;
+  }
+
+  const randomOffset = Math.floor(Math.random() * (NAME_PLACEHOLDER_SUGGESTIONS.length - 1)) + 1;
+  return (currentIndex + randomOffset + NAME_PLACEHOLDER_SUGGESTIONS.length) % NAME_PLACEHOLDER_SUGGESTIONS.length;
+}
+
+function getCreateCharacterNamePlaceholder() {
+  const index = state.ui.createCharacterNameSuggestionIndex;
+  if (index < 0 || index >= NAME_PLACEHOLDER_SUGGESTIONS.length) {
+    return NAME_PLACEHOLDER_SUGGESTIONS[0];
+  }
+  return NAME_PLACEHOLDER_SUGGESTIONS[index];
+}
+
+function rotateCreateCharacterNameSuggestion(event, input) {
+  if (event.relatedTarget instanceof Node && input.contains(event.relatedTarget)) {
+    return;
+  }
+
+  advanceCreateCharacterNameSuggestion();
+  input.placeholder = getCreateCharacterNamePlaceholder();
 }
 
 async function copyText(value) {
