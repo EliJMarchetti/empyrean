@@ -2,6 +2,7 @@ const STORAGE_KEY = "empyrean.characters.v1";
 const MAX_SPECIALIZATIONS = 8;
 const ATTRIBUTE_SCORES = [4, 5, 6, 7, 8, 9, 10, 11, 12];
 const NAME_HOVER_HINTS = ["Gender", "Lineage", "Affiliation", "Height", "Weight", "O.R.A.C.L.E. ID"];
+const UI_ASSET_VERSION = "20260616d";
 const NAME_PLACEHOLDER_SUGGESTIONS = [
   "Rhea Sol",
   "Cassian Vale",
@@ -16,6 +17,14 @@ const NAME_PLACEHOLDER_SUGGESTIONS = [
   "Soren Halcyon",
   "Tessa Vire",
 ];
+const DIE_ART = {
+  d4: { key: "d4", label: "d4", src: `./src/assets/dice/d4.png?v=${UI_ASSET_VERSION}` },
+  d6: { key: "d6", label: "d6", src: `./src/assets/dice/d6.png?v=${UI_ASSET_VERSION}` },
+  d8: { key: "d8", label: "d8", src: `./src/assets/dice/d8.png?v=${UI_ASSET_VERSION}` },
+  d10: { key: "d10", label: "d10", src: `./src/assets/dice/d10.png?v=${UI_ASSET_VERSION}` },
+  d12: { key: "d12", label: "d12", src: `./src/assets/dice/d12.png?v=${UI_ASSET_VERSION}` },
+  d20: { key: "d20", label: "d20", src: `./src/assets/dice/d20.png?v=${UI_ASSET_VERSION}` },
+};
 
 const SECTION_TEMPLATES = [
   {
@@ -77,6 +86,7 @@ const state = {
     rollHistory: [],
     lastRoll: null,
     isRolling: false,
+    rollingDieIndexes: [],
     skillLossSelectionSection: null,
     isNameHoverHintVisible: false,
     nameHoverHintIndex: -1,
@@ -452,7 +462,9 @@ function renderDicePanel() {
       </div>
       <div class="dice-panel-surface ${state.ui.isRolling ? "is-rolling" : ""}" data-action="open-builder-modal">
         <div class="dice-stage">
-          ${dice.map((die, index) => renderDie(die.value, die.sides, index)).join("")}
+          ${dice
+            .map((die, index) => renderDie(die, index, Boolean(lastRoll?.results && index < lastRoll.results.length)))
+            .join("")}
         </div>
         <div class="roll-summary">
           ${
@@ -477,18 +489,36 @@ function renderDicePanel() {
   `;
 }
 
-function renderDie(value, sides, index) {
-  const spec = getDieSpec(sides);
-  const displayValue = value === undefined || value === null ? "-" : String(value);
-
-  return `
-    <div class="die die-slot-${index + 1}">
-      <svg class="die-svg die-svg-${spec.className}" viewBox="${spec.viewBox}" aria-hidden="true">
-        <polygon points="${spec.points}"></polygon>
-        <text x="${spec.textX}" y="${spec.textY}">${escapeHtml(displayValue)}</text>
-      </svg>
+function renderDie(die, index, canReroll) {
+  const displayValue = die.value === undefined || die.value === null ? "-" : String(die.value);
+  const art = getDieArt(die.sides);
+  const isRolling = state.ui.isRolling && state.ui.rollingDieIndexes.includes(index);
+  const className = `die die-slot-${index + 1} ${canReroll ? "die-button" : "die-static"} ${
+    isRolling ? "is-rolling" : ""
+  }`.trim();
+  const artMarkup = `
+    <div class="die-figure">
+      <img class="die-art die-art-${art.key}" src="${art.src}" alt="" aria-hidden="true" />
+      <span class="die-value-chip">${escapeHtml(displayValue)}</span>
     </div>
   `;
+
+  if (canReroll) {
+    return `
+      <button
+        class="${className}"
+        data-action="reroll-die"
+        data-die-index="${index}"
+        type="button"
+        title="Reroll this ${art.label}"
+        aria-label="Reroll this ${art.label}"
+      >
+        ${artMarkup}
+      </button>
+    `;
+  }
+
+  return `<div class="${className}" aria-hidden="true">${artMarkup}</div>`;
 }
 
 function renderGearPanel() {
@@ -1041,6 +1071,17 @@ function handleClick(event) {
     return;
   }
 
+  if (action === "reroll-die") {
+    const dieIndex = Number(actionTarget.dataset.dieIndex);
+    const rerolledRoll = rerollLastRollDie(dieIndex);
+    if (!rerolledRoll) {
+      return;
+    }
+
+    finalizeRoll(rerolledRoll, { rollingDieIndexes: [dieIndex] });
+    return;
+  }
+
   if (action === "open-builder-modal") {
     state.ui.skillLossSelectionSection = null;
     state.ui.activeModal = { type: "build-roll", payload: getDefaultBuildRollPayload(getActiveCharacter()) };
@@ -1468,6 +1509,10 @@ function getBuildRollState(character, payload = {}) {
 
 function executeRoll({ label, notation, diceSides, flatBonus = 0, bonusParts = [] }) {
   const results = diceSides.map((sides) => randomInt(1, sides));
+  return resolveRoll({ label, notation, diceSides, results, flatBonus, bonusParts });
+}
+
+function resolveRoll({ label, notation, diceSides, results, flatBonus = 0, bonusParts = [] }) {
   const orderedResults = [...results].sort((left, right) => right - left);
   const base = Number(orderedResults.join(""));
 
@@ -1502,19 +1547,45 @@ function executeRoll({ label, notation, diceSides, flatBonus = 0, bonusParts = [
     diceSides,
     results,
     orderedResults,
+    flatBonus,
+    bonusParts,
     total,
     breakdown: detailParts.join(" | "),
     createdAt: new Date().toISOString(),
   };
 }
 
-function finalizeRoll(roll) {
+function rerollLastRollDie(dieIndex) {
+  const roll = state.ui.lastRoll;
+  if (!roll || !Number.isInteger(dieIndex) || dieIndex < 0 || dieIndex >= roll.results.length) {
+    return null;
+  }
+
+  const nextResults = [...roll.results];
+  nextResults[dieIndex] = randomInt(1, roll.diceSides[dieIndex]);
+
+  return resolveRoll({
+    label: roll.label,
+    notation: roll.notation,
+    diceSides: [...roll.diceSides],
+    results: nextResults,
+    flatBonus: roll.flatBonus || 0,
+    bonusParts: Array.isArray(roll.bonusParts) ? [...roll.bonusParts] : [],
+  });
+}
+
+function finalizeRoll(roll, options = {}) {
+  window.clearTimeout(finalizeRoll.timeoutId);
   state.ui.lastRoll = roll;
   state.ui.rollHistory = [roll, ...state.ui.rollHistory].slice(0, 6);
   state.ui.isRolling = true;
+  state.ui.rollingDieIndexes = Array.isArray(options.rollingDieIndexes)
+    ? options.rollingDieIndexes.filter((index) => Number.isInteger(index))
+    : roll.results.map((_, index) => index).slice(0, 2);
   renderApp();
-  window.setTimeout(() => {
+  finalizeRoll.timeoutId = window.setTimeout(() => {
     state.ui.isRolling = false;
+    state.ui.rollingDieIndexes = [];
     renderApp();
   }, 900);
 }
@@ -1882,54 +1953,28 @@ function getDisplayedDice(lastRoll) {
   return displayed.slice(0, 2);
 }
 
-function getDieSpec(sides) {
+function getDieArt(sides) {
   if (sides <= 4) {
-    return {
-      className: "d4",
-      viewBox: "0 0 100 90",
-      points: "50,6 8,84 92,84",
-      textX: "50",
-      textY: "60",
-    };
+    return DIE_ART.d4;
   }
 
   if (sides <= 6) {
-    return {
-      className: "d6",
-      viewBox: "0 0 100 100",
-      points: "14,14 86,14 86,86 14,86",
-      textX: "50",
-      textY: "56",
-    };
+    return DIE_ART.d6;
   }
 
   if (sides <= 8) {
-    return {
-      className: "d8",
-      viewBox: "0 0 100 100",
-      points: "50,6 94,50 50,94 6,50",
-      textX: "50",
-      textY: "56",
-    };
+    return DIE_ART.d8;
   }
 
   if (sides <= 10) {
-    return {
-      className: "d10",
-      viewBox: "0 0 100 100",
-      points: "50,4 80,14 96,42 86,78 62,96 38,96 14,78 4,42 20,14",
-      textX: "50",
-      textY: "58",
-    };
+    return DIE_ART.d10;
   }
 
-  return {
-    className: "d12",
-    viewBox: "0 0 100 100",
-    points: "50,4 72,10 90,28 96,50 90,72 72,90 50,96 28,90 10,72 4,50 10,28 28,10",
-    textX: "50",
-    textY: "56",
-  };
+  if (sides <= 12) {
+    return DIE_ART.d12;
+  }
+
+  return DIE_ART.d20;
 }
 
 function clampNumber(value, minimum, maximum) {

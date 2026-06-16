@@ -16,6 +16,7 @@
   --radius-sm: 0.72rem;
   --font-display: "Bahnschrift", "Aptos Display", "Segoe UI", sans-serif;
   --font-body: "Aptos", "Segoe UI", sans-serif;
+  --app-gap: 0.65rem;
 }
 
 * {
@@ -24,6 +25,7 @@
 
 html,
 body {
+  height: 100%;
   min-height: 100%;
 }
 
@@ -35,6 +37,7 @@ body {
     radial-gradient(circle at 15% 15%, rgba(16, 94, 104, 0.22), transparent 28%),
     radial-gradient(circle at 85% 20%, rgba(255, 159, 67, 0.16), transparent 24%),
     linear-gradient(145deg, #031017 0%, #081a23 48%, #02080c 100%);
+  overflow: hidden;
   overflow-x: hidden;
 }
 
@@ -80,13 +83,19 @@ svg {
 }
 
 #app {
-  min-height: 100vh;
+  height: 100dvh;
+  min-height: 100dvh;
 }
 
 .app-shell {
   position: relative;
-  min-height: 100vh;
-  padding: 0.75rem;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--app-gap);
+  height: 100dvh;
+  min-height: 100dvh;
+  padding: 0.65rem;
+  overflow: hidden;
 }
 
 .backdrop-orbit {
@@ -136,7 +145,6 @@ svg {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.65rem;
-  margin-bottom: 0.7rem;
 }
 
 .toolbar-group {
@@ -268,9 +276,10 @@ svg {
 .workspace {
   display: grid;
   grid-template-columns: minmax(0, 2.2fr) minmax(18rem, 0.95fr);
-  gap: 0.75rem;
+  gap: var(--app-gap);
   align-items: start;
-  min-height: calc(100vh - 5rem);
+  min-height: 0;
+  height: 100%;
 }
 
 .workspace-empty {
@@ -280,7 +289,8 @@ svg {
 .sheet-column,
 .utility-column {
   display: grid;
-  gap: 0.7rem;
+  gap: var(--app-gap);
+  min-height: 0;
 }
 
 .sheet-column {
@@ -743,8 +753,8 @@ svg {
 
 .dice-panel-surface {
   display: grid;
-  gap: 0.6rem;
-  padding: 0.6rem;
+  gap: 0.5rem;
+  padding: 0.55rem;
   border: 1px solid rgba(123, 231, 207, 0.18);
   border-radius: var(--radius-md);
   background:
@@ -759,49 +769,101 @@ svg {
 .dice-stage {
   display: flex;
   justify-content: center;
-  gap: 0.8rem;
+  gap: 0.65rem;
   align-items: center;
-  min-height: 5.5rem;
+  min-height: 4.9rem;
 }
 
 .die {
-  width: 4.25rem;
-  height: 4.25rem;
+  width: 4rem;
+  height: 4rem;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  transition:
+    transform 140ms ease,
+    filter 140ms ease;
 }
 
-.die-svg {
+.die-button:hover {
+  transform: translateY(-1px) scale(1.02);
+}
+
+.die-button:active {
+  transform: translateY(0) scale(0.99);
+}
+
+.die-button:focus-visible {
+  outline: 2px solid rgba(123, 231, 207, 0.46);
+  outline-offset: 0.18rem;
+}
+
+.die-figure {
+  position: relative;
   width: 100%;
   height: 100%;
-  overflow: visible;
-  filter: drop-shadow(0 10px 18px rgba(2, 9, 14, 0.34));
+  display: grid;
+  place-items: center;
 }
 
-.die-svg polygon {
-  fill: rgba(13, 33, 40, 0.98);
-  stroke: rgba(123, 231, 207, 0.4);
-  stroke-width: 3;
+.die-art {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  filter: drop-shadow(0 10px 18px rgba(2, 9, 14, 0.38));
 }
 
-.die-svg text {
-  fill: var(--text-main);
+.die-value-chip {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.85rem;
+  min-height: 1.85rem;
+  padding: 0.12rem 0.45rem;
+  border: 1px solid rgba(157, 205, 216, 0.12);
+  border-radius: 999px;
+  background: rgba(5, 14, 20, 0.82);
+  box-shadow: 0 0 0 1px rgba(6, 18, 24, 0.42);
+  color: var(--text-main);
   font-family: var(--font-display);
-  font-size: 28px;
-  font-weight: 700;
-  dominant-baseline: middle;
-  text-anchor: middle;
+  font-size: 1.08rem;
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
 }
 
-.is-rolling .die-slot-1 {
+.die-art-d4 + .die-value-chip {
+  transform: translateY(0.18rem);
+}
+
+.die-art-d6 + .die-value-chip {
+  transform: translateY(0.02rem);
+}
+
+.die-art-d8 + .die-value-chip,
+.die-art-d10 + .die-value-chip,
+.die-art-d12 + .die-value-chip,
+.die-art-d20 + .die-value-chip {
+  transform: translateY(0.05rem);
+}
+
+.die.is-rolling.die-slot-1 {
   animation: roll-left 900ms ease;
 }
 
-.is-rolling .die-slot-2 {
+.die.is-rolling.die-slot-2 {
   animation: roll-right 900ms ease;
 }
 
 .roll-summary {
-  min-height: 5.1rem;
-  padding: 0.7rem;
+  min-height: 4.75rem;
+  padding: 0.65rem;
   border: 1px solid rgba(157, 205, 216, 0.12);
   border-radius: var(--radius-md);
   background: rgba(8, 18, 25, 0.76);
@@ -1153,8 +1215,24 @@ svg {
 }
 
 @media (max-width: 960px) {
+  body {
+    overflow-y: auto;
+  }
+
+  #app,
+  .app-shell {
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .app-shell {
+    grid-template-rows: auto;
+    overflow: visible;
+  }
+
   .workspace {
     grid-template-columns: 1fr;
+    height: auto;
   }
 
   .skills-grid,
