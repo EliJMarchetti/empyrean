@@ -93,7 +93,7 @@ svg {
 .app-shell {
   position: relative;
   display: grid;
-  grid-template-rows: auto auto;
+  grid-template-rows: auto;
   gap: var(--app-gap);
   min-height: 100dvh;
   padding: 0.65rem;
@@ -162,6 +162,7 @@ svg {
 }
 
 .toolbar-button,
+.character-action-button,
 .menu-action,
 .view-button,
 .hero-button,
@@ -186,6 +187,7 @@ svg {
 }
 
 .toolbar-button,
+.character-action-button,
 .menu-action {
   font-size: 0.8rem;
 }
@@ -197,6 +199,7 @@ svg {
 }
 
 .toolbar-button:hover:not(:disabled),
+.character-action-button:hover:not(:disabled),
 .menu-action:hover,
 .view-button:hover:not(:disabled),
 .hero-button:hover,
@@ -212,11 +215,16 @@ svg {
   background: linear-gradient(135deg, rgba(22, 59, 66, 0.96), rgba(16, 43, 54, 0.96));
 }
 
+.character-action-primary {
+  background: linear-gradient(135deg, rgba(22, 59, 66, 0.96), rgba(16, 43, 54, 0.96));
+}
+
 .toolbar-button.is-active {
   border-color: rgba(123, 231, 207, 0.42);
 }
 
 .toolbar-button-danger,
+.character-action-danger,
 .danger-button {
   border-color: rgba(255, 124, 114, 0.26);
   color: #ffe4df;
@@ -226,6 +234,7 @@ svg {
   position: absolute;
   top: calc(100% + 0.55rem);
   left: 0;
+  z-index: 14;
   width: min(21rem, 80vw);
   padding: 0.75rem;
   border: 1px solid var(--line-soft);
@@ -276,6 +285,38 @@ svg {
   color: var(--text-muted);
 }
 
+.character-actions-panel {
+  position: relative;
+  z-index: 16;
+  overflow: visible;
+  padding: 0.45rem;
+}
+
+.character-action-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.character-action-dropdown {
+  position: relative;
+  min-width: 0;
+}
+
+.character-action-button {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.35rem;
+  padding-inline: 0.4rem;
+}
+
+.character-action-button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .workspace {
   display: grid;
   grid-template-columns: minmax(0, 2.2fr) minmax(18rem, 0.95fr);
@@ -298,13 +339,13 @@ svg {
 
 .sheet-column {
   align-self: stretch;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
 }
 
 .utility-column {
   align-self: stretch;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   min-height: 0;
 }
 
@@ -313,30 +354,23 @@ svg {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.95rem 1.1rem;
+  padding: 0.68rem 0.9rem;
   background:
     linear-gradient(135deg, rgba(8, 22, 31, 0.96), rgba(7, 17, 24, 0.92)),
     radial-gradient(circle at left center, rgba(123, 231, 207, 0.08), transparent 30%);
 }
 
-.character-title-button {
+.character-title-block {
   position: relative;
   display: inline-grid;
   gap: 0.2rem;
-  border: 0;
-  background: transparent;
   color: inherit;
-  padding: 0;
   text-align: left;
   flex: 1;
   overflow: visible;
 }
 
-.character-title-button.is-active h1 {
-  color: var(--accent);
-}
-
-.character-title-button h1,
+.character-title-block h1,
 .stat-header h2,
 .utility-title-row h2,
 .welcome-copy h1 {
@@ -345,8 +379,8 @@ svg {
   letter-spacing: 0.02em;
 }
 
-.character-title-button h1 {
-  font-size: 2.2rem;
+.character-title-block h1 {
+  font-size: 2rem;
   line-height: 1;
 }
 
@@ -360,41 +394,6 @@ svg {
   overflow-wrap: anywhere;
 }
 
-.character-title-button:hover .character-title-meta,
-.character-title-button.is-active .character-title-meta {
-  color: var(--accent);
-}
-
-.character-hover-hint {
-  position: absolute;
-  left: 0;
-  top: calc(100% + 0.15rem);
-  display: inline-flex;
-  align-items: center;
-  min-height: 1.3rem;
-  padding: 0.08rem 0.5rem;
-  border: 1px solid rgba(123, 231, 207, 0.22);
-  border-radius: 999px;
-  background: rgba(6, 18, 26, 0.96);
-  color: var(--text-muted);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(-0.15rem);
-  transition:
-    opacity 140ms ease,
-    transform 140ms ease;
-}
-
-.character-hover-hint.is-visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
 .view-switcher {
   display: inline-flex;
   gap: 0.55rem;
@@ -402,8 +401,8 @@ svg {
 }
 
 .view-button {
-  width: 2.8rem;
-  height: 2.8rem;
+  width: 2.45rem;
+  height: 2.45rem;
   padding: 0;
 }
 
@@ -773,6 +772,12 @@ svg {
   margin-bottom: 0.45rem;
 }
 
+.utility-title-actions {
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
 .dice-panel-surface {
   display: grid;
   gap: 0.5rem;
@@ -895,8 +900,7 @@ svg {
 
 .die-art-d8 + .die-value-chip,
 .die-art-d10 + .die-value-chip,
-.die-art-d12 + .die-value-chip,
-.die-art-d20 + .die-value-chip {
+.die-art-d12 + .die-value-chip {
   transform: translateY(0.05rem);
 }
 
@@ -1031,11 +1035,15 @@ svg {
 }
 
 .profile-detail {
-  padding: 0.05rem 0.7rem 0.7rem;
+  padding: 0.05rem 0.7rem;
+}
+
+.profile-detail[open] {
+  padding-bottom: 0.7rem;
 }
 
 .profile-detail summary,
-.feature-editor summary {
+.feature-editor-heading {
   cursor: pointer;
   padding: 0.68rem 0;
   font-weight: 800;
@@ -1043,13 +1051,41 @@ svg {
 }
 
 .feature-editor {
-  padding: 0.05rem 0.65rem 0.65rem;
+  padding: 0.05rem 0.65rem;
 }
 
-.feature-editor summary {
+.feature-editor[open] {
+  padding-bottom: 0.65rem;
+}
+
+.feature-editor-heading {
   display: flex;
   justify-content: space-between;
   gap: 0.8rem;
+}
+
+.feature-editor-heading::marker {
+  color: var(--text-muted);
+}
+
+.profile-section-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: rgba(228, 244, 242, 0.82);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.profile-section-divider::before,
+.profile-section-divider::after {
+  content: "";
+  flex: 1;
+  min-width: 1rem;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 179, 94, 0.54), transparent);
 }
 
 .feature-editor small,
@@ -1064,8 +1100,7 @@ svg {
 }
 
 .profile-field-grid label,
-.feature-editor-fields label,
-.profile-specialization-row {
+.feature-editor-fields label {
   display: grid;
   gap: 0.28rem;
 }
@@ -1079,8 +1114,7 @@ svg {
 .profile-field-grid input,
 .profile-field-grid select,
 .feature-editor-fields input,
-.feature-editor-fields textarea,
-.profile-specialization-row input {
+.feature-editor-fields textarea {
   width: 100%;
   padding: 0.58rem 0.64rem;
   border: 1px solid var(--line-soft);
@@ -1091,43 +1125,6 @@ svg {
 
 .feature-editor-fields textarea {
   resize: vertical;
-}
-
-.creation-total-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.55rem;
-}
-
-.creation-total-card {
-  display: grid;
-  gap: 0.2rem;
-  padding: 0.65rem;
-  border: 1px solid rgba(157, 205, 216, 0.12);
-  border-radius: var(--radius-sm);
-  background: rgba(7, 17, 24, 0.72);
-}
-
-.creation-total-card span {
-  color: var(--text-muted);
-  font-size: 0.76rem;
-}
-
-.profile-specialization-grid {
-  display: grid;
-  gap: 0.45rem;
-}
-
-.profile-specialization-row {
-  grid-template-columns: 1.5rem minmax(0, 1fr) 4.5rem;
-  align-items: end;
-}
-
-.profile-specialization-row > span {
-  align-self: center;
-  color: var(--text-muted);
-  font-weight: 800;
-  text-align: center;
 }
 
 .welcome-panel {
@@ -1174,6 +1171,7 @@ svg {
   max-height: calc(100vh - 1.5rem);
   max-height: calc(100dvh - 1.5rem);
   overflow-y: auto;
+  overflow-anchor: none;
   -webkit-overflow-scrolling: touch;
   padding: 1rem;
   border: 1px solid var(--line-soft);
@@ -1696,11 +1694,97 @@ svg {
   }
 }
 
-@media (max-width: 1180px) {
-  .sheet-grid {
-    grid-template-columns: 1fr;
+@media (min-width: 961px) {
+  #app {
+    min-height: 100dvh;
   }
 
+  .app-shell {
+    height: 100dvh;
+    min-height: 0;
+    gap: clamp(0.42rem, 0.7vh, var(--app-gap));
+    padding: clamp(0.38rem, 0.75vh, 0.65rem);
+  }
+
+  .workspace,
+  .sheet-column,
+  .utility-column {
+    gap: clamp(0.42rem, 0.7vh, var(--app-gap));
+  }
+
+  .character-header {
+    padding-block: clamp(0.46rem, 0.75vh, 0.68rem);
+  }
+
+  .stat-block {
+    padding: clamp(0.54rem, 0.82vh, 0.8rem);
+    padding-bottom: clamp(0.72rem, 1vh, 1rem);
+  }
+
+  .stat-header {
+    margin-bottom: clamp(0.34rem, 0.65vh, 0.55rem);
+  }
+
+  .attribute-strip {
+    margin-bottom: clamp(0.34rem, 0.65vh, 0.55rem);
+  }
+
+  .subsection-title {
+    margin-bottom: clamp(0.24rem, 0.5vh, 0.38rem);
+  }
+
+  .attribute-card {
+    padding: clamp(0.34rem, 0.62vh, 0.48rem);
+    gap: clamp(0.18rem, 0.36vh, 0.28rem);
+  }
+
+  .skill-box,
+  .specialization-box {
+    padding: clamp(0.36rem, 0.68vh, 0.5rem);
+  }
+
+  .specializations-panel {
+    padding-top: clamp(0.34rem, 0.6vh, 0.45rem);
+    padding-bottom: clamp(0.72rem, 0.95vh, 1rem);
+  }
+
+  .specialization-strip {
+    gap: clamp(0.25rem, 0.5vh, 0.35rem);
+  }
+
+  .utility-panel {
+    padding: clamp(0.52rem, 0.86vh, 0.8rem);
+  }
+
+  .character-actions-panel {
+    padding: clamp(0.36rem, 0.65vh, 0.45rem);
+  }
+
+  .dice-panel-surface {
+    gap: clamp(0.34rem, 0.6vh, 0.5rem);
+    padding: clamp(0.42rem, 0.7vh, 0.55rem);
+  }
+
+  .dice-stage {
+    min-height: clamp(4.05rem, 8.2vh, 4.9rem);
+  }
+
+  .die {
+    width: clamp(3.45rem, 6.8vh, 4rem);
+    height: clamp(3.45rem, 6.8vh, 4rem);
+  }
+
+  .roll-summary {
+    min-height: clamp(3.85rem, 7.2vh, 4.75rem);
+    padding: clamp(0.5rem, 0.78vh, 0.65rem);
+  }
+
+  .gear-blank {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 1180px) {
   .specialization-strip {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
@@ -1727,10 +1811,13 @@ svg {
     height: auto;
   }
 
+  .sheet-grid {
+    grid-template-columns: 1fr;
+  }
+
   .skills-grid,
   .attribute-strip,
-  .profile-field-grid,
-  .creation-total-grid {
+  .profile-field-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
@@ -1770,14 +1857,8 @@ svg {
     justify-content: flex-start;
   }
 
-  .character-title-button h1 {
+  .character-title-block h1 {
     font-size: 1.9rem;
-  }
-
-  .character-hover-hint {
-    position: static;
-    width: fit-content;
-    margin-top: 0.1rem;
   }
 
   .attribute-strip,
@@ -1790,12 +1871,10 @@ svg {
   .create-skill-grid,
   .create-specialization-grid,
   .optional-feature-grid,
-  .profile-field-grid,
-  .creation-total-grid {
+  .profile-field-grid {
     grid-template-columns: 1fr;
   }
 
-  .profile-specialization-row,
   .create-specialization-row {
     grid-template-columns: 1.4rem minmax(0, 1fr);
   }
@@ -1804,7 +1883,6 @@ svg {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .profile-specialization-row input[type="number"],
   .create-specialization-row input[type="number"] {
     grid-column: 2;
   }

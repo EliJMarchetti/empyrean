@@ -9,7 +9,6 @@ const SKILL_CREATION_MAX = 10;
 const DEFAULT_SPECIALIZATION_CREATION_MAX = 10;
 const ANDROID_SPECIALIZATION_CREATION_MAX = 20;
 const ATTRIBUTE_SCORES = [4, 5, 6, 7, 8, 9, 10, 11, 12];
-const NAME_HOVER_HINTS = ["Gender", "Lineage", "Affiliation", "Height", "Weight", "O.R.A.C.L.E. ID"];
 const UI_ASSET_VERSION = "20260616f";
 const NAME_PLACEHOLDER_SUGGESTIONS = [
   "Aster Wren",
@@ -72,7 +71,6 @@ const DIE_ART = {
   d8: { key: "d8", label: "d8", src: `./assets/dice/d8.png?v=${UI_ASSET_VERSION}` },
   d10: { key: "d10", label: "d10", src: `./assets/dice/d10.png?v=${UI_ASSET_VERSION}` },
   d12: { key: "d12", label: "d12", src: `./assets/dice/d12.png?v=${UI_ASSET_VERSION}` },
-  d20: { key: "d20", label: "d20", src: `./assets/dice/d20.png?v=${UI_ASSET_VERSION}` },
 };
 
 const SECTION_TEMPLATES = [
@@ -306,8 +304,6 @@ const state = {
     isRolling: false,
     rollingDieIndexes: [],
     skillLossSelectionSection: null,
-    isNameHoverHintVisible: false,
-    nameHoverHintIndex: -1,
     createCharacterNameSuggestionIndex: -1,
   },
 };
@@ -332,19 +328,19 @@ document.addEventListener("click", handleClick);
 document.addEventListener("change", handleChange);
 document.addEventListener("submit", handleSubmit);
 document.addEventListener("contextmenu", handleContextMenu);
-document.addEventListener("mouseover", handleMouseOver);
-document.addEventListener("mouseout", handleMouseOut);
 document.addEventListener("focusin", handleFocusIn);
+document.addEventListener("toggle", handleExclusiveDetailsToggle, true);
 window.addEventListener("keydown", handleKeydown);
 
 function renderApp() {
   const character = getActiveCharacter();
+  const previousModalType = state.ui.activeModal?.type || "";
+  const previousModalScrollTop = document.querySelector(".modal-card")?.scrollTop ?? null;
 
   app.innerHTML = `
     <div class="app-shell">
       <div class="backdrop-orbit orbit-one"></div>
       <div class="backdrop-orbit orbit-two"></div>
-      ${renderToolbar(character)}
       <main class="workspace ${character ? "" : "workspace-empty"}">
         ${
           character
@@ -354,6 +350,7 @@ function renderApp() {
                 ${renderPrimaryView(character)}
               </section>
               <aside class="utility-column">
+                ${renderCharacterActionsPanel(character)}
                 ${renderDicePanel()}
                 ${renderGearPanel()}
               </aside>
@@ -365,14 +362,32 @@ function renderApp() {
       ${renderToast()}
     </div>
   `;
+
+  restoreModalScroll(previousModalType, previousModalScrollTop);
 }
 
-function renderToolbar(character) {
+function restoreModalScroll(previousModalType, previousModalScrollTop) {
+  if (previousModalScrollTop === null || !state.ui.activeModal || state.ui.activeModal.type !== previousModalType) {
+    return;
+  }
+
+  window.requestAnimationFrame(() => {
+    const modalCard = document.querySelector(".modal-card");
+    if (!modalCard) {
+      return;
+    }
+
+    const maximumScrollTop = Math.max(0, modalCard.scrollHeight - modalCard.clientHeight);
+    modalCard.scrollTop = Math.min(previousModalScrollTop, maximumScrollTop);
+  });
+}
+
+function renderCharacterActionsPanel(character) {
   return `
-    <header class="toolbar">
-      <div class="toolbar-group">
-        <div class="toolbar-dropdown">
-          <button class="toolbar-button toolbar-button-primary" data-action="toggle-character-menu" type="button">
+    <section class="utility-panel character-actions-panel">
+      <div class="character-action-grid">
+        <div class="character-action-dropdown">
+          <button class="character-action-button character-action-primary" data-action="toggle-character-menu" type="button">
             ${iconFolder()}
             <span>Characters</span>
           </button>
@@ -410,33 +425,21 @@ function renderToolbar(character) {
               : ""
           }
         </div>
-        <button
-          class="toolbar-button toolbar-icon-button ${state.ui.editMode ? "is-active" : ""}"
-          data-action="toggle-edit-mode"
-          type="button"
-          title="${state.ui.editMode ? "Lock editing" : "Unlock editing"}"
-          aria-label="${state.ui.editMode ? "Lock editing" : "Unlock editing"}"
-          ${character ? "" : "disabled"}
-        >
-          ${iconLock(state.ui.editMode)}
-        </button>
-      </div>
-      <div class="toolbar-group">
-        <button class="toolbar-button" data-action="open-link-modal" type="button" ${character ? "" : "disabled"}>
+        <button class="character-action-button" data-action="open-link-modal" type="button" ${character ? "" : "disabled"}>
           ${iconLink()}
-          <span>Link to Campaign</span>
+          <span>Campaign</span>
         </button>
         <button
-          class="toolbar-button toolbar-button-danger"
+          class="character-action-button character-action-danger"
           data-action="open-delete-modal"
           type="button"
           ${character ? "" : "disabled"}
         >
           ${iconTrash()}
-          <span>Delete Character</span>
+          <span>Delete</span>
         </button>
       </div>
-    </header>
+    </section>
   `;
 }
 
@@ -453,31 +456,27 @@ function renderWelcomePanel() {
 }
 
 function renderCharacterHeader(character) {
-  const hoverHint =
-    NAME_HOVER_HINTS[
-      ((state.ui.nameHoverHintIndex % NAME_HOVER_HINTS.length) + NAME_HOVER_HINTS.length) % NAME_HOVER_HINTS.length
-    ] || NAME_HOVER_HINTS[0];
   const lineage = normalizeLineageRecord(character.lineage);
   const background = normalizeBackgroundRecord(character.background);
+  const oracleId = String(character.biometrics?.oracleId || "").trim();
+  const metaParts = [lineage.label, background.name, oracleId].filter(Boolean);
+  const isCharacterView = state.ui.activeView === "sheet" || state.ui.activeView === "profile";
+  const characterButtonTitle = state.ui.activeView === "sheet" ? "Biometrics and details" : "Character sheet";
 
   return `
     <section class="character-header">
-      <button class="character-title-button ${state.ui.activeView === "profile" ? "is-active" : ""}" data-action="open-profile-view" type="button">
+      <div class="character-title-block">
         <h1>${escapeHtml(character.name)}</h1>
         <span class="character-title-meta">
-          ${escapeHtml(lineage.label)} / ${escapeHtml(background.name)} / Profile & Creation Data
+          ${escapeHtml(metaParts.join(" / "))}
         </span>
-        <span class="character-hover-hint ${state.ui.isNameHoverHintVisible ? "is-visible" : ""}" aria-hidden="true">
-          ${escapeHtml(hoverHint)}
-        </span>
-      </button>
+      </div>
       <div class="view-switcher">
         <button
-          class="view-button ${state.ui.activeView === "sheet" ? "is-active" : ""}"
-          data-action="switch-view"
-          data-view="sheet"
+          class="view-button ${isCharacterView ? "is-active" : ""}"
+          data-action="toggle-character-view"
           type="button"
-          title="Character sheet"
+          title="${escapeAttribute(characterButtonTitle)}"
         >
           ${iconAvatar(character.gender || "male")}
         </button>
@@ -713,32 +712,8 @@ function renderProfileView(character) {
         }
       </aside>
       <div class="profile-stack">
-        <details class="profile-detail" open>
+        <details class="profile-detail" data-exclusive-group="profile">
           <summary>Biometrics</summary>
-          <div class="profile-field-grid">
-            <label>
-              <span>Gender</span>
-              <input type="text" value="${escapeAttribute(biometricGender)}" readonly />
-            </label>
-            ${BIOMETRIC_FIELDS.map(
-              (field) => `
-                <label>
-                  <span>${escapeHtml(field.label)}</span>
-                  <input
-                    type="text"
-                    maxlength="60"
-                    value="${escapeAttribute(character.biometrics?.[field.key] || "")}"
-                    data-input="biometric-field"
-                    data-field="${field.key}"
-                    ${state.ui.editMode ? "" : "readonly"}
-                  />
-                </label>
-              `
-            ).join("")}
-          </div>
-        </details>
-        <details class="profile-detail" open>
-          <summary>Character Data</summary>
           <div class="profile-field-grid">
             <label>
               <span>Name</span>
@@ -770,17 +745,12 @@ function renderProfileView(character) {
                 ${state.ui.editMode ? "" : "readonly"}
               />
             </label>
-            ${
-              lineage.key === "golem"
-                ? `
-                  <label>
-                    <span>Recorded Gender</span>
-                    <input type="text" value="${escapeAttribute(getGenderLabel(character.gender))}" readonly />
-                  </label>
-                `
-                : `
-                  <label>
-                    <span>Gender</span>
+            <label>
+              <span>Gender</span>
+              ${
+                lineage.key === "golem"
+                  ? `<input type="text" value="${escapeAttribute(biometricGender)}" readonly />`
+                  : `
                     <select data-input="profile-gender" ${state.ui.editMode ? "" : "disabled"}>
                       ${GENDER_OPTIONS.map(
                         (option) => `
@@ -790,64 +760,34 @@ function renderProfileView(character) {
                         `
                       ).join("")}
                     </select>
-                  </label>
-                `
-            }
+                  `
+              }
+            </label>
+            ${BIOMETRIC_FIELDS.map(
+              (field) => `
+                <label>
+                  <span>${escapeHtml(field.label)}</span>
+                  <input
+                    type="text"
+                    maxlength="60"
+                    value="${escapeAttribute(character.biometrics?.[field.key] || "")}"
+                    data-input="biometric-field"
+                    data-field="${field.key}"
+                    ${state.ui.editMode ? "" : "readonly"}
+                  />
+                </label>
+              `
+            ).join("")}
           </div>
         </details>
-        <details class="profile-detail" open>
-          <summary>Features</summary>
-          <div class="feature-editor-list">
-            ${
-              features.length
-                ? features.map((feature, index) => renderFeatureEditor(feature, index)).join("")
-                : `<div class="profile-empty">No feature data saved yet.</div>`
-            }
-          </div>
-        </details>
-        <details class="profile-detail">
-          <summary>Creation Totals</summary>
-          <div class="creation-total-grid">
-            ${renderProfileTotalCard("Attributes", getAttributeTotal(character), character.creation?.attributeTotal)}
-            ${renderProfileTotalCard("Skills", getSkillTotal(character), character.creation?.skillTotal)}
-            ${renderProfileTotalCard(
-              "Specializations",
-              getSpecializationTotal(character),
-              character.creation?.specializationTotal
-            )}
-          </div>
-        </details>
-        <details class="profile-detail">
-          <summary>Specializations</summary>
-          <div class="profile-specialization-grid">
-            ${getVisibleSpecializationEntries(character)
-              .map(
-                ({ specialization, index }) => `
-                  <label class="profile-specialization-row">
-                    <span>${index + 1}</span>
-                    <input
-                      type="text"
-                      maxlength="48"
-                      value="${escapeAttribute(getSpecializationName(specialization, index))}"
-                      data-input="specialization-name"
-                      data-index="${index}"
-                      ${state.ui.editMode ? "" : "readonly"}
-                    />
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value="${specialization.value}"
-                      data-input="specialization-value"
-                      data-index="${index}"
-                      ${state.ui.editMode ? "" : "disabled"}
-                    />
-                  </label>
-                `
-              )
-              .join("")}
-          </div>
-        </details>
+        <div class="profile-section-divider">Features</div>
+        <div class="feature-editor-list">
+          ${
+            features.length
+              ? features.map((feature, index) => renderFeatureEditor(feature, index)).join("")
+              : `<div class="profile-empty">No feature data saved yet.</div>`
+          }
+        </div>
       </div>
     </section>
   `;
@@ -855,10 +795,10 @@ function renderProfileView(character) {
 
 function renderFeatureEditor(feature, index) {
   return `
-    <details class="feature-editor">
-      <summary>
+    <details class="feature-editor" data-exclusive-group="profile">
+      <summary class="feature-editor-heading">
         <span>${escapeHtml(feature.name || "Feature")}</span>
-        <small>${escapeHtml(feature.sourceLabel || feature.category || "Character")}</small>
+        <small>${escapeHtml(getFeatureSourceLabel(feature))}</small>
       </summary>
       <div class="feature-editor-fields">
         <label>
@@ -887,14 +827,21 @@ function renderFeatureEditor(feature, index) {
   `;
 }
 
-function renderProfileTotalCard(label, current, expected) {
-  const target = Number.isFinite(Number(expected)) ? Number(expected) : current;
-  return `
-    <div class="creation-total-card">
-      <span>${escapeHtml(label)}</span>
-      <strong>${current} / ${target}</strong>
-    </div>
-  `;
+function getFeatureSourceLabel(feature) {
+  const sourceLabel = String(feature?.sourceLabel || "").trim();
+  const category = String(feature?.category || "").trim();
+
+  if (feature?.source === "lineage") {
+    return sourceLabel.startsWith("Lineage:") ? sourceLabel : `Lineage: ${sourceLabel || category || "Lineage"}`;
+  }
+
+  if (feature?.source === "creation-feature") {
+    return sourceLabel.startsWith("Creation Feature:")
+      ? sourceLabel
+      : `Creation Feature: ${category || sourceLabel || "Feature"}`;
+  }
+
+  return sourceLabel || category || "Character";
 }
 
 function renderAttributeDetailFields(kind, detail, attribute) {
@@ -1066,6 +1013,11 @@ function renderCreateCharacterModal(payload, preventClose) {
             <h3>Skills</h3>
             ${renderCreationPointStatus(getArrayTotal(draft.skillValues), totals.skills)}
           </div>
+          ${
+            draft.lineageKey === "ghoul"
+              ? `<div class="create-note">Choose exactly 9 blacked-out skills: ${draft.ghoulRedactedSkillRefs.length} / 9 selected.</div>`
+              : ""
+          }
           <div class="create-skill-grid">
             ${getCreationSkillEntries()
               .map(
@@ -1694,9 +1646,21 @@ function renderDicePanel() {
     <section class="utility-panel dice-panel">
       <div class="utility-title-row">
         <h2>Dice Roller</h2>
-        <button class="icon-button" data-action="open-roll-history" type="button" aria-label="Open roll history">
-          ${iconHistory()}
-        </button>
+        <div class="utility-title-actions">
+          <button
+            class="icon-button"
+            data-action="repeat-last-roll"
+            type="button"
+            aria-label="Repeat last roll"
+            title="Repeat last roll"
+            ${lastRoll ? "" : "disabled"}
+          >
+            ${iconRepeat()}
+          </button>
+          <button class="icon-button" data-action="open-roll-history" type="button" aria-label="Open roll history" title="Open roll history">
+            ${iconHistory()}
+          </button>
+        </div>
       </div>
       <div class="dice-panel-surface ${state.ui.isRolling ? "is-rolling" : ""}" data-action="open-builder-modal">
         <div class="dice-stage">
@@ -2128,7 +2092,7 @@ function handleClick(event) {
   const actionTarget = event.target.closest("[data-action]");
 
   if (!actionTarget) {
-    if (state.ui.isCharacterMenuOpen && !event.target.closest(".toolbar-dropdown")) {
+    if (state.ui.isCharacterMenuOpen && !event.target.closest(".character-action-dropdown")) {
       state.ui.isCharacterMenuOpen = false;
       renderApp();
     }
@@ -2166,15 +2130,9 @@ function handleClick(event) {
     return;
   }
 
-  if (action === "toggle-edit-mode") {
-    state.ui.editMode = !state.ui.editMode;
-    showToast(state.ui.editMode ? "Edit mode enabled." : "Edit mode locked.");
-    renderApp();
-    return;
-  }
-
   if (action === "open-link-modal") {
     state.ui.skillLossSelectionSection = null;
+    state.ui.isCharacterMenuOpen = false;
     state.ui.activeModal = { type: "link-campaign" };
     renderApp();
     return;
@@ -2192,6 +2150,7 @@ function handleClick(event) {
 
   if (action === "open-delete-modal") {
     state.ui.skillLossSelectionSection = null;
+    state.ui.isCharacterMenuOpen = false;
     state.ui.activeModal = { type: "confirm-delete" };
     renderApp();
     return;
@@ -2202,16 +2161,16 @@ function handleClick(event) {
     return;
   }
 
-  if (action === "switch-view") {
-    state.ui.activeView = actionTarget.dataset.view;
+  if (action === "toggle-character-view") {
+    state.ui.activeView = state.ui.activeView === "sheet" ? "profile" : "sheet";
     state.ui.skillLossSelectionSection = null;
     renderApp();
     return;
   }
 
-  if (action === "open-profile-view") {
+  if (action === "switch-view") {
+    state.ui.activeView = actionTarget.dataset.view;
     state.ui.skillLossSelectionSection = null;
-    state.ui.activeView = "profile";
     renderApp();
     return;
   }
@@ -2285,6 +2244,16 @@ function handleClick(event) {
     }
 
     finalizeRoll(rerolledRoll, { rollingDieIndexes: [dieIndex] });
+    return;
+  }
+
+  if (action === "repeat-last-roll") {
+    const repeatedRoll = repeatLastRoll();
+    if (!repeatedRoll) {
+      return;
+    }
+
+    finalizeRoll(repeatedRoll);
     return;
   }
 
@@ -2663,49 +2632,22 @@ function handleContextMenu(event) {
   renderApp();
 }
 
-function handleMouseOver(event) {
-  const createNameInput = event.target.closest('form[data-form="create-character"] input[name="name"]');
-  if (createNameInput) {
-    rotateCreateCharacterNameSuggestion(event, createNameInput);
-  }
-
-  const titleButton = event.target.closest(".character-title-button");
-  if (!titleButton) {
+function handleExclusiveDetailsToggle(event) {
+  const details = event.target;
+  if (!(details instanceof HTMLDetailsElement) || !details.open) {
     return;
   }
 
-  if (event.relatedTarget instanceof Node && titleButton.contains(event.relatedTarget)) {
+  const group = details.dataset.exclusiveGroup;
+  if (!group) {
     return;
   }
 
-  state.ui.nameHoverHintIndex = (state.ui.nameHoverHintIndex + 1) % NAME_HOVER_HINTS.length;
-  state.ui.isNameHoverHintVisible = true;
-  const hint = titleButton.querySelector(".character-hover-hint");
-  if (hint) {
-    hint.textContent = NAME_HOVER_HINTS[state.ui.nameHoverHintIndex];
-    hint.classList.add("is-visible");
-  }
-}
-
-function handleMouseOut(event) {
-  const titleButton = event.target.closest(".character-title-button");
-  if (!titleButton) {
-    return;
-  }
-
-  if (event.relatedTarget instanceof Node && titleButton.contains(event.relatedTarget)) {
-    return;
-  }
-
-  if (!state.ui.isNameHoverHintVisible) {
-    return;
-  }
-
-  state.ui.isNameHoverHintVisible = false;
-  const hint = titleButton.querySelector(".character-hover-hint");
-  if (hint) {
-    hint.classList.remove("is-visible");
-  }
+  document.querySelectorAll(`details[data-exclusive-group="${group}"]`).forEach((otherDetails) => {
+    if (otherDetails !== details) {
+      otherDetails.open = false;
+    }
+  });
 }
 
 function handleFocusIn(event) {
@@ -2714,24 +2656,12 @@ function handleFocusIn(event) {
     return;
   }
 
-  keepFocusedModalFieldInView(target);
-
   const createNameInput = target.closest('form[data-form="create-character"] input[name="name"]');
   if (!createNameInput) {
     return;
   }
 
   rotateCreateCharacterNameSuggestion(event, createNameInput);
-}
-
-function keepFocusedModalFieldInView(target) {
-  if (!target.matches("input, select, textarea") || !target.closest(".modal-card")) {
-    return;
-  }
-
-  window.requestAnimationFrame(() => {
-    target.scrollIntoView({ block: "center", inline: "nearest" });
-  });
 }
 
 function handleKeydown(event) {
@@ -2922,6 +2852,22 @@ function rerollLastRollDie(dieIndex) {
     notation: roll.notation,
     diceSides: [...roll.diceSides],
     results: nextResults,
+    flatBonus: roll.flatBonus || 0,
+    bonusParts: Array.isArray(roll.bonusParts) ? [...roll.bonusParts] : [],
+    tone: roll.tone || "specialization",
+  });
+}
+
+function repeatLastRoll() {
+  const roll = state.ui.lastRoll;
+  if (!roll || !Array.isArray(roll.diceSides) || !roll.diceSides.length) {
+    return null;
+  }
+
+  return executeRoll({
+    label: roll.label,
+    notation: roll.notation,
+    diceSides: [...roll.diceSides],
     flatBonus: roll.flatBonus || 0,
     bonusParts: Array.isArray(roll.bonusParts) ? [...roll.bonusParts] : [],
     tone: roll.tone || "specialization",
@@ -3485,12 +3431,13 @@ function buildCreationFeatures(draft) {
 
 function buildLineageFeatures(draft) {
   const lineage = getLineageOption(draft.lineageKey);
+  const lineageSourceLabel = `Lineage: ${lineage.label}`;
 
   if (draft.lineageKey === "terran") {
     return [
       createFeatureRecord({
         source: "lineage",
-        sourceLabel: lineage.label,
+        sourceLabel: lineageSourceLabel,
         category: "Corporate Ties",
         name: `Corporate Ties: ${getCorporateDisplayName(draft)}`,
         ability: draft.corporateAbility,
@@ -3503,7 +3450,7 @@ function buildLineageFeatures(draft) {
     return [
       createFeatureRecord({
         source: "lineage",
-        sourceLabel: lineage.label,
+        sourceLabel: lineageSourceLabel,
         category: "Homeworld",
         name: `Homeworld: ${draft.homeworld}`,
         ability: draft.homeworldAbility,
@@ -3522,7 +3469,7 @@ function buildLineageFeatures(draft) {
     return [
       createFeatureRecord({
         source: "lineage",
-        sourceLabel: lineage.label,
+        sourceLabel: lineageSourceLabel,
         category: categoryByLineage[draft.lineageKey],
         name: draft.lineageFeatureName || categoryByLineage[draft.lineageKey],
         ability: draft.lineageFeatureAbility,
@@ -3536,7 +3483,7 @@ function buildLineageFeatures(draft) {
     return [
       createFeatureRecord({
         source: "lineage",
-        sourceLabel: lineage.label,
+        sourceLabel: lineageSourceLabel,
         category: "Configuration",
         name: draft.lineageFeatureName || "Configuration",
         ability: draft.lineageFeatureAbility,
@@ -3549,7 +3496,7 @@ function buildLineageFeatures(draft) {
     return [
       createFeatureRecord({
         source: "lineage",
-        sourceLabel: lineage.label,
+        sourceLabel: lineageSourceLabel,
         category: "Protocol",
         name: draft.lineageFeatureName || "Protocol",
         ability: draft.lineageFeatureAbility,
@@ -3562,7 +3509,7 @@ function buildLineageFeatures(draft) {
     return [
       createFeatureRecord({
         source: "lineage",
-        sourceLabel: lineage.label,
+        sourceLabel: lineageSourceLabel,
         category: "Hybrid Animal",
         name: draft.lineageFeatureName || "Hybrid Animal",
         ability: draft.lineageFeatureAbility,
@@ -3603,7 +3550,7 @@ function buildOptionalCreationFeatures(draft) {
     features.push(
       createFeatureRecord({
         source: "creation-feature",
-        sourceLabel: "Creation Feature",
+        sourceLabel: "Creation Feature: Augment",
         category: "Augment",
         name: augment.name,
         ability: augment.ability,
@@ -3617,7 +3564,7 @@ function buildOptionalCreationFeatures(draft) {
     features.push(
       createFeatureRecord({
         source: "creation-feature",
-        sourceLabel: "Creation Feature",
+        sourceLabel: "Creation Feature: Tekhne",
         category: "Tekhne",
         name: `Tekhne: ${draft.creationTekhneName}`,
         ability: draft.creationTekhneAbility,
@@ -3630,7 +3577,7 @@ function buildOptionalCreationFeatures(draft) {
     features.push(
       createFeatureRecord({
         source: "creation-feature",
-        sourceLabel: "Creation Feature",
+        sourceLabel: "Creation Feature: Arkhemetry",
         category: "Arkhemetry",
         name: draft.creationArkhemetryName || "Arkhemetry",
         ability: draft.creationArkhemetryAbility,
@@ -3644,7 +3591,7 @@ function buildOptionalCreationFeatures(draft) {
     features.push(
       createFeatureRecord({
         source: "creation-feature",
-        sourceLabel: "Creation Feature",
+        sourceLabel: "Creation Feature: Cosmoglossia",
         category: "Cosmoglossia",
         name: draft.creationCosmoglossiaName || "Cosmoglossia",
         ability: formatCosmoglossiaPanels(panels),
@@ -3779,7 +3726,7 @@ function normalizeNumberList(rawValues, fallbackValues, minimum, maximum) {
 
 function normalizeSkillRefs(rawValues, fallbackValues) {
   const validRefs = new Set(getCreationSkillEntries().map((entry) => entry.ref));
-  const source = Array.isArray(rawValues) && rawValues.length ? rawValues : fallbackValues;
+  const source = Array.isArray(rawValues) ? rawValues : fallbackValues;
 
   return [...new Set(source.map((value) => String(value)).filter((value) => validRefs.has(value)))];
 }
@@ -4229,7 +4176,7 @@ function importCharacter(sharedCharacter) {
   state.ui.activeCharacterId = imported.id;
   state.ui.activeModal = null;
   state.ui.activeView = "sheet";
-  state.ui.editMode = false;
+  state.ui.editMode = true;
   state.ui.skillLossSelectionSection = null;
   clearShareParam();
   persistState();
@@ -4482,6 +4429,10 @@ function getDisplayedDice(lastRoll) {
 }
 
 function getDieArt(sides) {
+  if (sides === 100) {
+    return DIE_ART.d10;
+  }
+
   if (sides <= 4) {
     return DIE_ART.d4;
   }
@@ -4502,7 +4453,7 @@ function getDieArt(sides) {
     return DIE_ART.d12;
   }
 
-  return DIE_ART.d20;
+  return DIE_ART.d12;
 }
 
 function getCharacterRollTone(attributeSectionId, skillSectionId, outsideIdentity) {
@@ -4563,7 +4514,7 @@ function evaluateDicePair(results, diceSides, leftIndex, rightIndex) {
   ].sort((left, right) => right.value - left.value || left.resultIndex - right.resultIndex);
 
   const orderedResults = pair.map((entry) => entry.value);
-  const base = Number(orderedResults.join(""));
+  const base = scoreOrderedDicePair(orderedResults);
   let criticalBonus = 0;
   let criticalLabel = "";
 
@@ -4584,6 +4535,12 @@ function evaluateDicePair(results, diceSides, leftIndex, rightIndex) {
     displayedDice: pair,
     displayedResultIndexes: pair.map((entry) => entry.resultIndex),
   };
+}
+
+function scoreOrderedDicePair(orderedResults) {
+  const highPlace = Number(orderedResults[0] || 0);
+  const lowPlace = Number(orderedResults[1] || 0);
+  return highPlace * 10 + lowPlace;
 }
 
 function clampNumber(value, minimum, maximum) {
@@ -4789,18 +4746,6 @@ function iconFolder() {
   `;
 }
 
-function iconLock(isUnlocked) {
-  return `
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      ${
-        isUnlocked
-          ? `<path d="M8 11V8.8A4.1 4.1 0 0 1 16.2 8"></path><rect x="5" y="11" width="14" height="9" rx="2"></rect>`
-          : `<path d="M8 11V8a4 4 0 1 1 8 0v3"></path><rect x="5" y="11" width="14" height="9" rx="2"></rect>`
-      }
-    </svg>
-  `;
-}
-
 function iconLink() {
   return `
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -4869,6 +4814,15 @@ function iconHistory() {
       <path d="M5 7h14"></path>
       <path d="M5 12h14"></path>
       <path d="M5 17h14"></path>
+    </svg>
+  `;
+}
+
+function iconRepeat() {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M8 7H5v3"></path>
+      <path d="M5.4 10A7 7 0 1 0 8 5.1"></path>
     </svg>
   `;
 }
