@@ -1,21 +1,70 @@
 const STORAGE_KEY = "empyrean.characters.v1";
-const MAX_SPECIALIZATIONS = 8;
+const MAX_SPECIALIZATIONS = 16;
+const BASE_SPECIALIZATION_SLOTS = 8;
+const MAX_AUGMENT_SLOTS = 3;
+const COSMOGLOSSIA_PANEL_COUNT = 8;
+const ATTRIBUTE_CREATION_MIN = 4;
+const ATTRIBUTE_CREATION_MAX = 12;
+const SKILL_CREATION_MAX = 10;
+const DEFAULT_SPECIALIZATION_CREATION_MAX = 10;
+const ANDROID_SPECIALIZATION_CREATION_MAX = 20;
 const ATTRIBUTE_SCORES = [4, 5, 6, 7, 8, 9, 10, 11, 12];
 const NAME_HOVER_HINTS = ["Gender", "Lineage", "Affiliation", "Height", "Weight", "O.R.A.C.L.E. ID"];
 const UI_ASSET_VERSION = "20260616f";
 const NAME_PLACEHOLDER_SUGGESTIONS = [
-  "Rhea Sol",
-  "Cassian Vale",
-  "Mira Quell",
-  "Talon Vey",
-  "Nyra Flint",
-  "Orin Voss",
-  "Lyra Sable",
-  "Kael Meridian",
+  "Aster Wren",
+  "Bellamy Knox",
+  "Briar Vale",
+  "Calder Nyx",
+  "Carmen Quill",
+  "Cato Sol",
+  "Dara Voss",
+  "Dorian Pike",
+  "Eden Black",
+  "Elara Finch",
+  "Ember Rook",
+  "Ezra Kade",
+  "Farah Vey",
+  "Galen Cross",
+  "Hale Meridian",
+  "Ilya Strake",
   "Iona Strake",
+  "Jace Orison",
   "Juno Kestrel",
+  "Kael Meridian",
+  "Kira Ash",
+  "Lena Sable",
+  "Lio Argent",
+  "Lyra Sable",
+  "Mara Quell",
+  "Mira Quell",
+  "Nadia Sorn",
+  "Nico Halcyon",
+  "Nox Ardent",
+  "Nyra Flint",
+  "Oren Vanta",
+  "Orin Voss",
+  "Pax Calder",
+  "Quin Aeris",
+  "Rhea Sol",
+  "Riven Locke",
+  "Rowan Skye",
+  "Sable Irons",
+  "Cassian Vale",
+  "Selene Vox",
+  "Sera Myles",
   "Soren Halcyon",
+  "Talon Vey",
+  "Tamsin Reed",
   "Tessa Vire",
+  "Theo Warden",
+  "Vale Seren",
+  "Veda Cain",
+  "Vera Noct",
+  "Wyn Cipher",
+  "Xander Coil",
+  "Yara Bloom",
+  "Zane Icar",
 ];
 const DIE_ART = {
   d4: { key: "d4", label: "d4", src: `./assets/dice/d4.png?v=${UI_ASSET_VERSION}` },
@@ -68,6 +117,175 @@ const SECTION_TEMPLATES = [
 const GENDER_OPTIONS = [
   { value: "male", label: "Male" },
   { value: "female", label: "Female" },
+];
+
+const LINEAGE_OPTIONS = [
+  {
+    key: "terran",
+    label: "Terran",
+    specializations: ["Bureaucracy", "Urban Systems", "Old Earth History", "Public Records", "Civil Infrastructure", "Legacy Networks"],
+  },
+  {
+    key: "exo",
+    label: "Exo",
+    specializations: ["Homeworld Politics", "Low-G Operations", "Terraforming", "Colonial Logistics", "EVA", "Planetology"],
+  },
+  {
+    key: "voidborn",
+    label: "Voidborn",
+    specializations: ["Shipboard Life", "Zero-G Movement", "Vacuum Survival", "Salvage", "Station Culture", "Spacer Folklore"],
+  },
+  {
+    key: "chimera",
+    label: "Chimera",
+    specializations: ["Animal Instincts", "Tracking", "Natural Weapons", "Pack Dynamics", "Environmental Adaptation", "Enhanced Senses"],
+  },
+  {
+    key: "aberrant",
+    label: "Aberrant",
+    specializations: ["Mutation Control", "Biohazards", "Forbidden Research", "Anomaly Survival", "Containment", "Genetic Memory"],
+  },
+  {
+    key: "ghoul",
+    label: "Ghoul",
+    specializations: ["Radiation Zones", "Scavenging", "Wasteland Medicine", "Hazard Survival", "Ruin Navigation", "Mutant Networks"],
+  },
+  {
+    key: "android",
+    label: "Android",
+    specializations: ["Machine Logic", "Protocols", "Synthetic Culture", "Data Archives", "Precision Labor", "Maintenance"],
+  },
+  {
+    key: "golem",
+    label: "Golem",
+    specializations: ["Heavy Labor", "Construction", "Industrial Tools", "Structural Analysis", "Hazard Work", "Fortress Tactics"],
+  },
+  {
+    key: "cyborg",
+    label: "Cyborg",
+    specializations: ["Cybernetics", "Interface Systems", "Battlefield Systems", "Machine Maintenance", "Powered Movement", "Targeting"],
+  },
+];
+
+const CORPORATION_OPTIONS = [
+  { key: "none", label: "No Corporate Involvement", specializations: ["Independence", "Underground Contacts"], ability: "" },
+  { key: "custom", label: "Lesser Corporation", specializations: [], ability: "" },
+  { key: "vantis", label: "Vantis", specializations: ["Etiquette", "Coercion"], ability: "" },
+  { key: "aphelion", label: "Aphelion Dynamics", specializations: ["Spacecrafts", "Experimental Tech"], ability: "" },
+  { key: "nocturne", label: "Nocturne Solutions", specializations: ["Infiltration", "Nondetection"], ability: "" },
+  { key: "cerberus", label: "Cerberus Security", specializations: ["Protection", "Negotiation"], ability: "" },
+  { key: "omnisight", label: "Omnisight Data Core", specializations: ["Artificial Intelligence", "Surveillance"], ability: "" },
+  {
+    key: "helios",
+    label: "Helios Energy Systems",
+    specializations: ["Nuclear Technology", "Finance"],
+    ability: "Company Transit: You can get free passage between districts and between planets, by contacting Helios at least 24 hours in advance.",
+  },
+  { key: "terra-synth", label: "Terra-Synth Agro Com", specializations: ["Agriculture", "Hab-Design"], ability: "" },
+  { key: "aeternis", label: "Aeternis", specializations: ["Biochemistry", "Nanotechnology"], ability: "" },
+  { key: "nynthe", label: "Nynthe", specializations: ["Bargaining", "Media"], ability: "" },
+  { key: "oracle", label: "O.R.A.C.L.E.", specializations: ["Education", "Credibility"], ability: "" },
+];
+
+const EXO_HOMEWORLD_OPTIONS = [
+  "Mars",
+  "Saturn",
+  "Venus",
+  "Proxima Centauri b",
+  "Barnard's Star b",
+  "TRAPPIST-1e",
+  "TRAPPIST-1f",
+  "TRAPPIST-1g",
+];
+
+const HOMEWORLD_ABILITIES = {
+  Mars:
+    "Gaia's Edge Emissary: You have an official bill of travel which specifies a stated purpose or objective. While pursuing that directive, you have diplomatic immunity which major corporations are sworn to uphold so long as your presence doesn't pose an imminent threat.",
+};
+
+const BACKGROUND_OPTIONS = [
+  { key: "custom", label: "Custom", specializations: [], ability: "" },
+  {
+    key: "cyber-infiltrator",
+    label: "Cyber-Infiltrator",
+    specializations: ["Hacking", "Security Systems", "Decryption", "Infiltration", "Stealth Technology", "Remote Tasks"],
+    ability: "Well Connected: You have contacts in every major organization, who can help you get information, schematics, and records so long as doing so doesn't expose them to serious risk.",
+  },
+  {
+    key: "paratrooper",
+    label: "Paratrooper",
+    specializations: ["Stealth", "Piloting", "Breach Actions", "Sharpshooting", "Fast Adapting", "Battlefield Conditioning"],
+    ability: "Hardened Veteran: Whenever you fail a Combat Attrition Test, and black out a Skill, you may expend a Story Point to remain in the combat as though you hadn't failed.",
+  },
+  {
+    key: "energy-weaponsmith",
+    label: "Energy Weaponsmith",
+    specializations: ["Fusion", "Fission", "Lasers", "Electromagnetism", "Explosives", "Weapons Engineering"],
+    ability: "Weapons don't degrade or misfire while you use them.",
+  },
+  {
+    key: "conscript",
+    label: "Conscript",
+    specializations: ["Firefights", "Field Medicine", "Fortification", "Bushcraft", "Streetwise", "Urban Warfare"],
+    ability: "Pull Rank: You hold universal military credentials, which identify you personally, and may grant increased leniency to bring weapons into and operate within restricted areas.",
+  },
+];
+
+const TEKHNE_OPTIONS = ["Time", "Space", "Mass", "Energy", "Information", "Entropy"];
+
+const ARKHEMETRY_OPTIONS = [
+  "Mechanical",
+  "Biological",
+  "Chemical",
+  "Digital",
+  "Structural",
+  "Practical",
+  "Relational",
+  "Ornamental",
+  "Metaphysical",
+];
+
+const COSMOGLOSSIA_COLORS = [
+  { key: "C", label: "Cyan" },
+  { key: "M", label: "Magenta" },
+  { key: "Y", label: "Yellow" },
+  { key: "K", label: "Black" },
+  { key: "W", label: "White" },
+  { key: "R", label: "Red" },
+  { key: "G", label: "Green" },
+  { key: "B", label: "Blue" },
+];
+
+const AUGMENT_OPTIONS = [
+  {
+    key: "custom",
+    label: "Custom Augment",
+    ability: "",
+  },
+  {
+    key: "thermal-vision",
+    label: "Thermal Vision",
+    ability: "You can see heat signatures in darkness, including through up to four inches of non-metal and non-stone material.",
+  },
+  {
+    key: "metabolic-control",
+    label: "Metabolic Control",
+    ability: "You can increase your recovery speed by double, at the cost of consuming twice as much food. You can also reduce your heat signature to nearly nothing as long as you remain motionless.",
+  },
+  {
+    key: "enhanced-biology",
+    label: "Enhanced Biology",
+    ability: "You can spend a story point to add +10 on any Body test.",
+  },
+];
+
+const BIOMETRIC_FIELDS = [
+  { key: "height", label: "Height" },
+  { key: "weight", label: "Weight" },
+  { key: "eyeColor", label: "Eye Color" },
+  { key: "hairColor", label: "Hair Color" },
+  { key: "age", label: "Age" },
+  { key: "oracleId", label: "ORACLE ID" },
 ];
 
 const app = document.querySelector("#app");
@@ -239,11 +457,16 @@ function renderCharacterHeader(character) {
     NAME_HOVER_HINTS[
       ((state.ui.nameHoverHintIndex % NAME_HOVER_HINTS.length) + NAME_HOVER_HINTS.length) % NAME_HOVER_HINTS.length
     ] || NAME_HOVER_HINTS[0];
+  const lineage = normalizeLineageRecord(character.lineage);
+  const background = normalizeBackgroundRecord(character.background);
 
   return `
     <section class="character-header">
-      <button class="character-title-button" data-action="open-bio-modal" type="button">
+      <button class="character-title-button ${state.ui.activeView === "profile" ? "is-active" : ""}" data-action="open-profile-view" type="button">
         <h1>${escapeHtml(character.name)}</h1>
+        <span class="character-title-meta">
+          ${escapeHtml(lineage.label)} / ${escapeHtml(background.name)} / Profile & Creation Data
+        </span>
         <span class="character-hover-hint ${state.ui.isNameHoverHintVisible ? "is-visible" : ""}" aria-hidden="true">
           ${escapeHtml(hoverHint)}
         </span>
@@ -276,6 +499,10 @@ function renderCharacterHeader(character) {
 }
 
 function renderPrimaryView(character) {
+  if (state.ui.activeView === "profile") {
+    return renderProfileView(character);
+  }
+
   if (state.ui.activeView === "inventory") {
     return renderInventoryView();
   }
@@ -287,11 +514,11 @@ function renderPrimaryView(character) {
     <section class="specializations-panel">
       <div class="subsection-title">Specializations</div>
       <div class="specialization-strip">
-        ${character.specializations
+        ${getVisibleSpecializationEntries(character)
           .map(
-            (specialization, index) => `
+            ({ specialization, index }) => `
               <label class="specialization-box">
-                <span>${getSpecializationLabel(index)}</span>
+                <span>${escapeHtml(getSpecializationName(specialization, index))}</span>
                 <input
                   type="number"
                   min="0"
@@ -351,7 +578,7 @@ function renderSectionBlock(character, template) {
       </div>
       <div class="subsection-title">Attributes</div>
       <div class="attribute-strip">
-        ${section.attributes.map((attribute, index) => renderAttributeCard(template, attribute, index)).join("")}
+        ${section.attributes.map((attribute, index) => renderAttributeCard(character, template, attribute, index)).join("")}
       </div>
       <div class="subsection-title">Skills</div>
       <div class="skills-grid">
@@ -396,10 +623,10 @@ function renderSkillCard(sectionId, skill, index, isSkillLossMode) {
   `;
 }
 
-function renderAttributeCard(template, attribute, index) {
+function renderAttributeCard(character, template, attribute, index) {
   const detail = normalizeAttributeDetail(attribute.detail);
   const subboxLabel =
-    template.id === "body" ? `${attribute.subLabel} ${getBodyDerivedValue(attribute)}` : detail.name || attribute.subLabel;
+    template.id === "body" ? `${attribute.subLabel} ${getBodyDerivedValue(attribute, character)}` : detail.name || attribute.subLabel;
   const isTight = attribute.label.length > 9 || subboxLabel.length > 11;
 
   return `
@@ -446,6 +673,1017 @@ function renderInventoryView() {
       <div class="inventory-blank"></div>
     </section>
   `;
+}
+
+function renderProfileView(character) {
+  const lineage = normalizeLineageRecord(character.lineage);
+  const background = normalizeBackgroundRecord(character.background);
+  const features = normalizeFeatureList(character.features);
+  const biometricGender = lineage.key === "golem" ? "N/A" : getGenderLabel(character.gender);
+
+  return `
+    <section class="profile-panel">
+      <aside class="profile-image-panel">
+        <div class="profile-image-slot ${character.profileImage ? "has-image" : ""}">
+          ${
+            character.profileImage
+              ? `<img src="${escapeAttribute(character.profileImage)}" alt="${escapeAttribute(character.name)} portrait" />`
+              : `<span>Character Image</span>`
+          }
+        </div>
+        ${
+          state.ui.editMode
+            ? `
+              <div class="profile-image-actions">
+                <label class="secondary-button profile-upload-button">
+                  <span>Upload</span>
+                  <input data-input="profile-image" type="file" accept="image/*" />
+                </label>
+                <button
+                  class="secondary-button"
+                  data-action="remove-profile-image"
+                  type="button"
+                  ${character.profileImage ? "" : "disabled"}
+                >
+                  Remove
+                </button>
+              </div>
+            `
+            : ""
+        }
+      </aside>
+      <div class="profile-stack">
+        <details class="profile-detail" open>
+          <summary>Biometrics</summary>
+          <div class="profile-field-grid">
+            <label>
+              <span>Gender</span>
+              <input type="text" value="${escapeAttribute(biometricGender)}" readonly />
+            </label>
+            ${BIOMETRIC_FIELDS.map(
+              (field) => `
+                <label>
+                  <span>${escapeHtml(field.label)}</span>
+                  <input
+                    type="text"
+                    maxlength="60"
+                    value="${escapeAttribute(character.biometrics?.[field.key] || "")}"
+                    data-input="biometric-field"
+                    data-field="${field.key}"
+                    ${state.ui.editMode ? "" : "readonly"}
+                  />
+                </label>
+              `
+            ).join("")}
+          </div>
+        </details>
+        <details class="profile-detail" open>
+          <summary>Character Data</summary>
+          <div class="profile-field-grid">
+            <label>
+              <span>Name</span>
+              <input
+                type="text"
+                maxlength="48"
+                value="${escapeAttribute(character.name)}"
+                data-input="profile-name"
+                ${state.ui.editMode ? "" : "readonly"}
+              />
+            </label>
+            <label>
+              <span>Lineage</span>
+              <input
+                type="text"
+                maxlength="48"
+                value="${escapeAttribute(lineage.label)}"
+                data-input="lineage-label"
+                ${state.ui.editMode ? "" : "readonly"}
+              />
+            </label>
+            <label>
+              <span>Background</span>
+              <input
+                type="text"
+                maxlength="60"
+                value="${escapeAttribute(background.name)}"
+                data-input="background-name"
+                ${state.ui.editMode ? "" : "readonly"}
+              />
+            </label>
+            ${
+              lineage.key === "golem"
+                ? `
+                  <label>
+                    <span>Recorded Gender</span>
+                    <input type="text" value="${escapeAttribute(getGenderLabel(character.gender))}" readonly />
+                  </label>
+                `
+                : `
+                  <label>
+                    <span>Gender</span>
+                    <select data-input="profile-gender" ${state.ui.editMode ? "" : "disabled"}>
+                      ${GENDER_OPTIONS.map(
+                        (option) => `
+                          <option value="${option.value}" ${option.value === character.gender ? "selected" : ""}>
+                            ${escapeHtml(option.label)}
+                          </option>
+                        `
+                      ).join("")}
+                    </select>
+                  </label>
+                `
+            }
+          </div>
+        </details>
+        <details class="profile-detail" open>
+          <summary>Features</summary>
+          <div class="feature-editor-list">
+            ${
+              features.length
+                ? features.map((feature, index) => renderFeatureEditor(feature, index)).join("")
+                : `<div class="profile-empty">No feature data saved yet.</div>`
+            }
+          </div>
+        </details>
+        <details class="profile-detail">
+          <summary>Creation Totals</summary>
+          <div class="creation-total-grid">
+            ${renderProfileTotalCard("Attributes", getAttributeTotal(character), character.creation?.attributeTotal)}
+            ${renderProfileTotalCard("Skills", getSkillTotal(character), character.creation?.skillTotal)}
+            ${renderProfileTotalCard(
+              "Specializations",
+              getSpecializationTotal(character),
+              character.creation?.specializationTotal
+            )}
+          </div>
+        </details>
+        <details class="profile-detail">
+          <summary>Specializations</summary>
+          <div class="profile-specialization-grid">
+            ${getVisibleSpecializationEntries(character)
+              .map(
+                ({ specialization, index }) => `
+                  <label class="profile-specialization-row">
+                    <span>${index + 1}</span>
+                    <input
+                      type="text"
+                      maxlength="48"
+                      value="${escapeAttribute(getSpecializationName(specialization, index))}"
+                      data-input="specialization-name"
+                      data-index="${index}"
+                      ${state.ui.editMode ? "" : "readonly"}
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value="${specialization.value}"
+                      data-input="specialization-value"
+                      data-index="${index}"
+                      ${state.ui.editMode ? "" : "disabled"}
+                    />
+                  </label>
+                `
+              )
+              .join("")}
+          </div>
+        </details>
+      </div>
+    </section>
+  `;
+}
+
+function renderFeatureEditor(feature, index) {
+  return `
+    <details class="feature-editor">
+      <summary>
+        <span>${escapeHtml(feature.name || "Feature")}</span>
+        <small>${escapeHtml(feature.sourceLabel || feature.category || "Character")}</small>
+      </summary>
+      <div class="feature-editor-fields">
+        <label>
+          <span>Name</span>
+          <input
+            type="text"
+            maxlength="72"
+            value="${escapeAttribute(feature.name || "")}"
+            data-input="feature-name"
+            data-index="${index}"
+            ${state.ui.editMode ? "" : "readonly"}
+          />
+        </label>
+        <label>
+          <span>Ability</span>
+          <textarea
+            rows="4"
+            maxlength="900"
+            data-input="feature-ability"
+            data-index="${index}"
+            ${state.ui.editMode ? "" : "readonly"}
+          >${escapeHtml(feature.ability || "")}</textarea>
+        </label>
+      </div>
+    </details>
+  `;
+}
+
+function renderProfileTotalCard(label, current, expected) {
+  const target = Number.isFinite(Number(expected)) ? Number(expected) : current;
+  return `
+    <div class="creation-total-card">
+      <span>${escapeHtml(label)}</span>
+      <strong>${current} / ${target}</strong>
+    </div>
+  `;
+}
+
+function renderAttributeDetailFields(kind, detail, attribute) {
+  if (kind === "augment") {
+    return renderAugmentPresetControls({
+      selectedKey: detail.presetKey,
+      keyField: "detailAugmentKey",
+      nameField: "detailName",
+      abilityField: "detailDescription",
+      nameValue: detail.name,
+      abilityValue: detail.description,
+      namePlaceholder: attribute.subLabel,
+      disabled: !state.ui.editMode,
+    });
+  }
+
+  if (kind === "tekhne") {
+    return renderNamedAbilityDetailFields("detailName", detail.name, TEKHNE_OPTIONS, detail.description);
+  }
+
+  if (kind === "arkhemetry") {
+    return renderNamedAbilityDetailFields("detailName", detail.name, ARKHEMETRY_OPTIONS, detail.description);
+  }
+
+  if (kind === "cosmoglossia") {
+    return `
+      <input type="hidden" name="detailName" value="Cosmoglossia" />
+      ${renderCosmoglossiaPanelFields("detailCosmoglossia", detail.cosmoglossiaPanels, !state.ui.editMode)}
+    `;
+  }
+
+  return `
+    <label>
+      <span>Name</span>
+      <input
+        type="text"
+        name="detailName"
+        maxlength="48"
+        value="${escapeAttribute(detail.name)}"
+        placeholder="${escapeAttribute(attribute.subLabel)}"
+        ${state.ui.editMode ? "" : "readonly"}
+      />
+    </label>
+    <label>
+      <span>Ability</span>
+      <textarea
+        rows="6"
+        name="detailDescription"
+        maxlength="600"
+        placeholder="Ability text"
+        ${state.ui.editMode ? "" : "readonly"}
+      >${escapeHtml(detail.description)}</textarea>
+    </label>
+  `;
+}
+
+function renderNamedAbilityDetailFields(nameField, nameValue, options, abilityValue) {
+  const selectedName = options.includes(nameValue) ? nameValue : options[0];
+  return `
+    <label>
+      <span>Name</span>
+      <select name="${escapeAttribute(nameField)}" ${state.ui.editMode ? "" : "disabled"}>
+        ${options
+          .map(
+            (option) => `
+              <option value="${escapeAttribute(option)}" ${option === selectedName ? "selected" : ""}>
+                ${escapeHtml(option)}
+              </option>
+            `
+          )
+          .join("")}
+      </select>
+    </label>
+    <label>
+      <span>Ability</span>
+      <textarea
+        rows="6"
+        name="detailDescription"
+        maxlength="700"
+        placeholder="Ability text"
+        ${state.ui.editMode ? "" : "readonly"}
+      >${escapeHtml(abilityValue)}</textarea>
+    </label>
+  `;
+}
+
+function renderCreateCharacterModal(payload, preventClose) {
+  const draft = normalizeCreateCharacterDraft(payload);
+  const totals = getCreationTotalsForLineage(draft.lineageKey);
+  const specializationMax = getSpecializationCreationMax(draft.lineageKey);
+  const adjustedSpecializationTotal = getAdjustedSpecializationTotal(totals.specializations, draft);
+
+  return renderModalShell(
+    "New Character",
+    "",
+    `
+      <form class="modal-form create-character-form" data-form="create-character">
+        <section class="create-section">
+          <h3>Identity</h3>
+          <div class="create-grid create-grid-three">
+            <label>
+              <span>Name</span>
+              <input
+                type="text"
+                name="name"
+                maxlength="48"
+                value="${escapeAttribute(draft.name)}"
+                placeholder="${escapeAttribute(getCreateCharacterNamePlaceholder())}"
+              />
+            </label>
+            <label>
+              <span>Lineage</span>
+              <select name="lineage">
+                ${LINEAGE_OPTIONS.map(
+                  (option) => `
+                    <option value="${option.key}" ${option.key === draft.lineageKey ? "selected" : ""}>
+                      ${escapeHtml(option.label)}
+                    </option>
+                  `
+                ).join("")}
+              </select>
+            </label>
+            <label>
+              <span>Gender</span>
+              <select name="gender">
+                ${GENDER_OPTIONS.map(
+                  (option) => `
+                    <option value="${option.value}" ${option.value === draft.gender ? "selected" : ""}>
+                      ${escapeHtml(option.label)}
+                    </option>
+                  `
+                ).join("")}
+              </select>
+            </label>
+          </div>
+        </section>
+        ${renderLineageCreationFields(draft)}
+        ${renderBackgroundCreationFields(draft, "primary")}
+        ${draft.lineageKey === "aberrant" ? renderBackgroundCreationFields(draft, "secondary") : ""}
+        ${renderOptionalCreationFeatureFields(draft)}
+        <section class="create-section">
+          <div class="create-section-heading">
+            <h3>Attributes</h3>
+            ${renderCreationPointStatus(getArrayTotal(draft.attributeScores), totals.attributes)}
+          </div>
+          <div class="create-attribute-grid">
+            ${getCreationAttributeEntries()
+              .map(
+                (entry, index) => `
+                  <label class="create-compact-field">
+                    <span>${escapeHtml(entry.label)}</span>
+                    <select name="${escapeAttribute(entry.inputName)}">
+                      ${ATTRIBUTE_SCORES.map(
+                        (score) => `
+                          <option value="${score}" ${score === draft.attributeScores[index] ? "selected" : ""}>
+                            ${score}
+                          </option>
+                        `
+                      ).join("")}
+                    </select>
+                  </label>
+                `
+              )
+              .join("")}
+          </div>
+        </section>
+        <section class="create-section">
+          <div class="create-section-heading">
+            <h3>Skills</h3>
+            ${renderCreationPointStatus(getArrayTotal(draft.skillValues), totals.skills)}
+          </div>
+          <div class="create-skill-grid">
+            ${getCreationSkillEntries()
+              .map(
+                (entry, index) => `
+                  <label class="create-skill-row">
+                    ${
+                      draft.lineageKey === "ghoul"
+                        ? `
+                          <input
+                            type="checkbox"
+                            name="ghoulRedactedSkill"
+                            value="${escapeAttribute(entry.ref)}"
+                            ${draft.ghoulRedactedSkillRefs.includes(entry.ref) ? "checked" : ""}
+                          />
+                        `
+                        : ""
+                    }
+                    <span>${escapeHtml(entry.label)}</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="${SKILL_CREATION_MAX}"
+                      value="${draft.skillValues[index]}"
+                      name="${escapeAttribute(entry.inputName)}"
+                      ${totals.skills === 0 ? "disabled" : ""}
+                    />
+                  </label>
+                `
+              )
+              .join("")}
+          </div>
+        </section>
+        <section class="create-section">
+          <div class="create-section-heading">
+            <h3>Specializations</h3>
+            ${renderCreationPointStatus(getArrayTotal(draft.specializationValues), adjustedSpecializationTotal)}
+          </div>
+          ${renderCreateSpecializationFields(draft, specializationMax, totals.specializations)}
+        </section>
+        <div class="modal-actions">
+          ${preventClose ? "" : `<button class="secondary-button" data-action="close-modal" type="button">Cancel</button>`}
+          <button class="primary-button" type="submit">Create</button>
+        </div>
+      </form>
+    `,
+    { preventClose, wide: true }
+  );
+}
+
+function renderLineageCreationFields(draft) {
+  if (draft.lineageKey === "terran") {
+    const corporation = getCorporationOption(draft.corporationKey);
+    return `
+      <section class="create-section">
+        <h3>Corporate Ties</h3>
+        <div class="create-grid create-grid-two">
+          <label>
+            <span>Corporation</span>
+            <select name="corporation">
+              ${CORPORATION_OPTIONS.map(
+                (option) => `
+                  <option value="${option.key}" ${option.key === draft.corporationKey ? "selected" : ""}>
+                    ${escapeHtml(option.label)}
+                  </option>
+                `
+              ).join("")}
+            </select>
+          </label>
+          ${
+            draft.corporationKey === "custom"
+              ? `
+                <label>
+                  <span>Lesser Corporation</span>
+                  <input
+                    type="text"
+                    name="customCorporationName"
+                    maxlength="60"
+                    value="${escapeAttribute(draft.customCorporationName)}"
+                    placeholder="Corporation name"
+                  />
+                </label>
+              `
+              : ""
+          }
+        </div>
+        <label>
+          <span>Ability</span>
+          <textarea rows="3" maxlength="700" name="corporateAbility">${escapeHtml(draft.corporateAbility)}</textarea>
+        </label>
+        ${
+          corporation.specializations.length
+            ? `<div class="create-note">${escapeHtml(corporation.specializations.join(" / "))}</div>`
+            : ""
+        }
+      </section>
+    `;
+  }
+
+  if (draft.lineageKey === "exo") {
+    return `
+      <section class="create-section">
+        <h3>Homeworld</h3>
+        <div class="create-grid create-grid-two">
+          <label>
+            <span>World</span>
+            <select name="homeworld">
+              ${EXO_HOMEWORLD_OPTIONS.map(
+                (homeworld) => `
+                  <option value="${escapeAttribute(homeworld)}" ${homeworld === draft.homeworld ? "selected" : ""}>
+                    ${escapeHtml(homeworld)}
+                  </option>
+                `
+              ).join("")}
+            </select>
+          </label>
+        </div>
+        <label>
+          <span>Ability</span>
+          <textarea rows="3" maxlength="700" name="homeworldAbility">${escapeHtml(draft.homeworldAbility)}</textarea>
+        </label>
+      </section>
+    `;
+  }
+
+  if (["voidborn", "aberrant", "ghoul", "cyborg"].includes(draft.lineageKey)) {
+    const titleByLineage = {
+      voidborn: "Natural Augment",
+      aberrant: "Bio-Augment",
+      ghoul: "Radio-Augment",
+      cyborg: "Mech-Augment",
+    };
+    return renderLineageAugmentFields(draft, titleByLineage[draft.lineageKey]);
+  }
+
+  if (draft.lineageKey === "golem") {
+    return renderCreationFeatureFields({
+      title: "Configuration",
+      nameField: "lineageFeatureName",
+      abilityField: "lineageFeatureAbility",
+      nameValue: draft.lineageFeatureName,
+      abilityValue: draft.lineageFeatureAbility,
+      namePlaceholder: "Configuration",
+    });
+  }
+
+  if (draft.lineageKey === "android") {
+    return renderCreationFeatureFields({
+      title: "Protocol",
+      nameField: "lineageFeatureName",
+      abilityField: "lineageFeatureAbility",
+      nameValue: draft.lineageFeatureName,
+      abilityValue: draft.lineageFeatureAbility,
+      namePlaceholder: "Protocol",
+    });
+  }
+
+  if (draft.lineageKey === "chimera") {
+    return renderCreationFeatureFields({
+      title: "Hybrid Animal",
+      nameField: "lineageFeatureName",
+      abilityField: "lineageFeatureAbility",
+      nameValue: draft.lineageFeatureName,
+      abilityValue: draft.lineageFeatureAbility,
+      namePlaceholder: "Hybrid Animal",
+    });
+  }
+
+  return "";
+}
+
+function renderLineageAugmentFields(draft, title) {
+  return `
+    <section class="create-section">
+      <h3>${escapeHtml(title)}</h3>
+      ${renderAugmentPresetControls({
+        selectedKey: draft.lineageAugmentKey,
+        keyField: "lineageAugmentKey",
+        nameField: "lineageFeatureName",
+        abilityField: "lineageFeatureAbility",
+        nameValue: draft.lineageFeatureName,
+        abilityValue: draft.lineageFeatureAbility,
+        namePlaceholder: title,
+      })}
+    </section>
+  `;
+}
+
+function renderAugmentPresetControls({
+  selectedKey,
+  keyField,
+  nameField,
+  abilityField,
+  nameValue,
+  abilityValue,
+  namePlaceholder = "Augment",
+  disabled = false,
+}) {
+  const augment = getAugmentOption(selectedKey);
+  return `
+    <div class="create-grid create-grid-two">
+      <label>
+        <span>Preset</span>
+        <select name="${escapeAttribute(keyField)}" ${disabled ? "disabled" : ""}>
+          ${AUGMENT_OPTIONS.map(
+            (option) => `
+              <option value="${option.key}" ${option.key === augment.key ? "selected" : ""}>
+                ${escapeHtml(option.label)}
+              </option>
+            `
+          ).join("")}
+        </select>
+      </label>
+      <label>
+        <span>Name</span>
+        <input
+          type="text"
+          name="${escapeAttribute(nameField)}"
+          maxlength="72"
+          value="${escapeAttribute(nameValue || augment.label)}"
+          placeholder="${escapeAttribute(namePlaceholder)}"
+          ${disabled ? "disabled" : ""}
+        />
+      </label>
+    </div>
+    <label>
+      <span>Ability</span>
+      <textarea
+        rows="3"
+        maxlength="700"
+        name="${escapeAttribute(abilityField)}"
+        ${disabled ? "disabled" : ""}
+      >${escapeHtml(abilityValue || augment.ability)}</textarea>
+    </label>
+  `;
+}
+
+function renderCreationFeatureFields({ title, nameField, abilityField, nameValue, abilityValue, namePlaceholder }) {
+  return `
+    <section class="create-section">
+      <h3>${escapeHtml(title)}</h3>
+      <div class="create-grid create-grid-two">
+        <label>
+          <span>Name</span>
+          <input
+            type="text"
+            name="${escapeAttribute(nameField)}"
+            maxlength="72"
+            value="${escapeAttribute(nameValue)}"
+            placeholder="${escapeAttribute(namePlaceholder)}"
+          />
+        </label>
+      </div>
+      <label>
+        <span>Ability</span>
+        <textarea rows="3" maxlength="700" name="${escapeAttribute(abilityField)}">${escapeHtml(abilityValue)}</textarea>
+      </label>
+    </section>
+  `;
+}
+
+function renderBackgroundCreationFields(draft, slot) {
+  const prefix = slot === "secondary" ? "secondary" : "background";
+  const key = slot === "secondary" ? draft.secondaryBackgroundKey : draft.backgroundKey;
+  const title = slot === "secondary" ? "Second Background" : "Background";
+  const name = slot === "secondary" ? draft.secondaryBackgroundName : draft.backgroundName;
+  const ability = slot === "secondary" ? draft.secondaryBackgroundAbility : draft.backgroundAbility;
+
+  return `
+    <section class="create-section">
+      <h3>${escapeHtml(title)}</h3>
+      <div class="create-grid create-grid-two">
+        <label>
+          <span>Type</span>
+          <select name="${prefix}Key">
+            ${BACKGROUND_OPTIONS.map(
+              (option) => `
+                <option value="${option.key}" ${option.key === key ? "selected" : ""}>
+                  ${escapeHtml(option.label)}
+                </option>
+              `
+            ).join("")}
+          </select>
+        </label>
+        <label>
+          <span>Name</span>
+          <input
+            type="text"
+            name="${prefix}Name"
+            maxlength="60"
+            value="${escapeAttribute(name)}"
+            placeholder="${escapeAttribute(getBackgroundOption(key).label)}"
+          />
+        </label>
+      </div>
+      ${renderBackgroundAbilityFields(draft, slot, key, ability)}
+    </section>
+  `;
+}
+
+function renderBackgroundAbilityFields(draft, slot, key, ability) {
+  const prefix = slot === "secondary" ? "secondary" : "background";
+
+  return `
+    <label>
+      <span>Ability</span>
+      <textarea rows="3" maxlength="700" name="${prefix}Ability">${escapeHtml(ability)}</textarea>
+    </label>
+  `;
+}
+
+function renderOptionalCreationFeatureFields(draft) {
+  const baseTotal = getCreationTotalsForLineage(draft.lineageKey).specializations;
+  const isDisabled = baseTotal < 10;
+  const augmentCapacity = getAvailableCreationAugmentSlots(draft.lineageKey);
+
+  return `
+    <section class="create-section">
+      <div class="create-section-heading">
+        <h3>Optional Creation Features</h3>
+        <span class="creation-cost-note">-10 Specializations each</span>
+      </div>
+      <div class="create-note">Extra augment slots available: ${augmentCapacity}.</div>
+      <div class="optional-feature-grid">
+        ${renderOptionalAugmentFields(draft, isDisabled)}
+        ${renderOptionalAbilityFields({
+          checkedName: "takeTekhne",
+          checked: draft.takeTekhne,
+          title: "Tekhne",
+          nameField: "creationTekhneName",
+          abilityField: "creationTekhneAbility",
+          nameValue: draft.creationTekhneName,
+          abilityValue: draft.creationTekhneAbility,
+          options: TEKHNE_OPTIONS,
+          disabled: isDisabled,
+        })}
+        ${renderOptionalAbilityFields({
+          checkedName: "takeArkhemetry",
+          checked: draft.takeArkhemetry,
+          title: "Arkhemetry",
+          nameField: "creationArkhemetryName",
+          abilityField: "creationArkhemetryAbility",
+          nameValue: draft.creationArkhemetryName,
+          abilityValue: draft.creationArkhemetryAbility,
+          options: ARKHEMETRY_OPTIONS,
+          disabled: isDisabled,
+        })}
+        ${renderOptionalCosmoglossiaFields(draft, isDisabled)}
+      </div>
+    </section>
+  `;
+}
+
+function renderOptionalAugmentFields(draft, disabled) {
+  const capacity = getAvailableCreationAugmentSlots(draft.lineageKey);
+
+  if (!capacity) {
+    return "";
+  }
+
+  return Array.from({ length: capacity }, (_, index) => renderOptionalAugmentCard(draft, index, disabled)).join("");
+}
+
+function renderOptionalAugmentCard(draft, index, disabled) {
+  const augment = draft.creationAugments[index] || createDefaultCreationAugment(index);
+  const isEditable = augment.enabled && !disabled;
+
+  return `
+    <div class="optional-feature-card ${augment.enabled ? "is-active" : ""}">
+      <label class="inline-toggle">
+        <input
+          type="checkbox"
+          name="creationAugmentEnabled${index}"
+          ${augment.enabled ? "checked" : ""}
+          ${disabled ? "disabled" : ""}
+        />
+        <span>Augment ${index + 1}</span>
+      </label>
+      ${renderAugmentPresetControls({
+        selectedKey: augment.key,
+        keyField: `creationAugmentKey${index}`,
+        nameField: `creationAugmentName${index}`,
+        abilityField: `creationAugmentAbility${index}`,
+        nameValue: augment.name,
+        abilityValue: augment.ability,
+        namePlaceholder: `Augment ${index + 1}`,
+        disabled: !isEditable,
+      })}
+    </div>
+  `;
+}
+
+function renderOptionalAbilityFields({
+  checkedName,
+  checked,
+  title,
+  nameField,
+  abilityField,
+  nameValue,
+  abilityValue,
+  options = null,
+  disabled = false,
+}) {
+  return `
+    <div class="optional-feature-card ${checked ? "is-active" : ""}">
+      <label class="inline-toggle">
+        <input type="checkbox" name="${escapeAttribute(checkedName)}" ${checked ? "checked" : ""} ${
+          disabled ? "disabled" : ""
+        } />
+        <span>${escapeHtml(title)}</span>
+      </label>
+      <label>
+        <span>Name</span>
+        ${
+          options
+            ? `
+              <select name="${escapeAttribute(nameField)}" ${checked && !disabled ? "" : "disabled"}>
+                ${options
+                  .map(
+                    (option) => `
+                      <option value="${escapeAttribute(option)}" ${option === nameValue ? "selected" : ""}>
+                        ${escapeHtml(option)}
+                      </option>
+                    `
+                  )
+                  .join("")}
+              </select>
+            `
+            : `
+              <input
+                type="text"
+                name="${escapeAttribute(nameField)}"
+                maxlength="72"
+                value="${escapeAttribute(nameValue)}"
+                placeholder="${escapeAttribute(title)}"
+                ${checked && !disabled ? "" : "disabled"}
+              />
+            `
+        }
+      </label>
+      <label>
+        <span>Ability</span>
+        <textarea
+          rows="3"
+          maxlength="700"
+          name="${escapeAttribute(abilityField)}"
+          ${checked && !disabled ? "" : "disabled"}
+        >${escapeHtml(abilityValue)}</textarea>
+      </label>
+    </div>
+  `;
+}
+
+function renderOptionalCosmoglossiaFields(draft, disabled) {
+  const isEditable = draft.takeCosmoglossia && !disabled;
+
+  return `
+    <div class="optional-feature-card optional-feature-card-wide ${draft.takeCosmoglossia ? "is-active" : ""}">
+      <label class="inline-toggle">
+        <input type="checkbox" name="takeCosmoglossia" ${draft.takeCosmoglossia ? "checked" : ""} ${
+          disabled ? "disabled" : ""
+        } />
+        <span>Cosmoglossia</span>
+      </label>
+      ${renderCosmoglossiaPanelFields("creationCosmoglossia", draft.creationCosmoglossiaPanels, !isEditable)}
+    </div>
+  `;
+}
+
+function renderCosmoglossiaPanelFields(prefix, panels, disabled = false) {
+  return `
+    <div class="cosmoglossia-tile" aria-label="Cosmoglossia Einstein tile">
+      ${normalizeCosmoglossiaPanels(panels)
+        .map(
+          (panel, index) => `
+            <label class="cosmoglossia-panel cosmoglossia-panel-${escapeAttribute(panel.color.toLowerCase())}">
+              <span>${index + 1}</span>
+              <select name="${escapeAttribute(prefix)}Color${index}" ${disabled ? "disabled" : ""}>
+                ${COSMOGLOSSIA_COLORS.map(
+                  (color) => `
+                    <option value="${color.key}" ${color.key === panel.color ? "selected" : ""}>
+                      ${escapeHtml(color.key)}
+                    </option>
+                  `
+                ).join("")}
+              </select>
+              <input
+                type="text"
+                name="${escapeAttribute(prefix)}Word${index}"
+                maxlength="24"
+                value="${escapeAttribute(panel.word)}"
+                placeholder="Word"
+                ${disabled ? "disabled" : ""}
+              />
+            </label>
+          `
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function renderCreateSpecializationFields(draft, specializationMax, baseSpecializationTotal) {
+  const slots = getDraftSpecializationSlots(draft);
+  const activeSlots = slots.filter((slot) => slot.active);
+  const adjustedTotal = getAdjustedSpecializationTotal(baseSpecializationTotal, draft);
+
+  if (!activeSlots.length) {
+    return `<div class="create-note">This lineage starts with no specialization points.</div>`;
+  }
+
+  return `
+    <div class="create-note">Active slots: ${activeSlots.length}. Pool after feature costs: ${adjustedTotal}.</div>
+    <div class="create-specialization-groups">
+      ${renderCreateSpecializationGroup("Background Slots 1-6", slots.slice(0, 6), draft, specializationMax)}
+      ${renderCreateSpecializationGroup("Lineage Slots 7-8", slots.slice(6, 8), draft, specializationMax)}
+      ${renderCreateSpecializationGroup("Feature Slots 9-16", slots.slice(8), draft, specializationMax)}
+    </div>
+  `;
+}
+
+function renderCreateSpecializationGroup(title, slots, draft, specializationMax) {
+  const activeSlots = slots.filter((slot) => slot.active);
+  if (!activeSlots.length) {
+    return "";
+  }
+
+  return `
+    <section class="create-specialization-group">
+      <h4>${escapeHtml(title)}</h4>
+      <div class="create-specialization-grid">
+        ${activeSlots.map((slot) => renderCreateSpecializationSlot(slot, draft, specializationMax)).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderCreateSpecializationSlot(slot, draft, specializationMax) {
+  const nameControl = renderCreateSpecializationNameControl(slot, draft);
+  return `
+    <label class="create-specialization-row">
+      <span>${slot.index + 1}</span>
+      ${nameControl}
+      <input
+        type="number"
+        min="0"
+        max="${specializationMax}"
+        value="${draft.specializationValues[slot.index] || 0}"
+        name="specializationValue${slot.index}"
+        ${specializationMax === 0 ? "disabled" : ""}
+      />
+    </label>
+  `;
+}
+
+function renderCreateSpecializationNameControl(slot, draft) {
+  if (slot.kind === "background-custom") {
+    return `
+      <input
+        type="text"
+        maxlength="48"
+        value="${escapeAttribute(slot.name)}"
+        name="backgroundSpecializationName${slot.index}"
+        placeholder="${escapeAttribute(getSpecializationLabel(slot.index))}"
+      />
+    `;
+  }
+
+  if (slot.kind === "background-choice") {
+    return `
+      <select name="backgroundSpecializationName${slot.index}">
+        ${(slot.options || [])
+          .map(
+            (option) => `
+              <option value="${escapeAttribute(option)}" ${option === slot.name ? "selected" : ""}>
+                ${escapeHtml(option)}
+              </option>
+            `
+          )
+          .join("")}
+      </select>
+    `;
+  }
+
+  if (slot.kind === "lineage") {
+    const options = getLineageOption(draft.lineageKey).specializations;
+    return `
+      <select name="lineageSpecialization${slot.index - 6}">
+        ${options
+          .map(
+            (option) => `
+              <option value="${escapeAttribute(option)}" ${option === slot.name ? "selected" : ""}>
+                ${escapeHtml(option)}
+              </option>
+            `
+          )
+          .join("")}
+      </select>
+    `;
+  }
+
+  if (slot.kind === "corporate-custom") {
+    return `
+      <input
+        type="text"
+        maxlength="48"
+        value="${escapeAttribute(slot.name)}"
+        name="corporateSpecializationName${slot.index - 8}"
+        placeholder="${escapeAttribute(slot.sourceLabel)}"
+      />
+    `;
+  }
+
+  return `<input type="text" value="${escapeAttribute(slot.name)}" readonly />`;
+}
+
+function renderCreationPointStatus(current, expected) {
+  const isExact = current === expected;
+  return `<span class="creation-point-status ${isExact ? "is-complete" : "is-off"}">${current} / ${expected}</span>`;
 }
 
 function renderDicePanel() {
@@ -547,35 +1785,7 @@ function renderModal() {
 
   if (type === "create-character") {
     const preventClose = !state.characters.length;
-    return renderModalShell(
-      "New Character",
-      "",
-      `
-        <form class="modal-form" data-form="create-character">
-          <label>
-            <span>Name</span>
-            <input
-              type="text"
-              name="name"
-              maxlength="48"
-              placeholder="${escapeAttribute(getCreateCharacterNamePlaceholder())}"
-              required
-            />
-          </label>
-          <label>
-            <span>Gender</span>
-            <select name="gender">
-              ${GENDER_OPTIONS.map((option) => `<option value="${option.value}">${escapeHtml(option.label)}</option>`).join("")}
-            </select>
-          </label>
-          <div class="modal-actions">
-            ${preventClose ? "" : `<button class="secondary-button" data-action="close-modal" type="button">Cancel</button>`}
-            <button class="primary-button" type="submit">Create</button>
-          </div>
-        </form>
-      `,
-      { preventClose }
-    );
+    return renderCreateCharacterModal(payload, preventClose);
   }
 
   if (type === "bio-info") {
@@ -688,6 +1898,7 @@ function renderModal() {
     }
 
     const detail = normalizeAttributeDetail(attribute.detail);
+    const detailKind = getAttributeDetailKind(sectionId, attributeIndex);
 
     return renderModalShell(
       detail.name || attribute.subLabel,
@@ -696,27 +1907,8 @@ function renderModal() {
         <form class="modal-form" data-form="attribute-detail">
           <input type="hidden" name="sectionId" value="${escapeAttribute(sectionId)}" />
           <input type="hidden" name="attributeIndex" value="${attributeIndex}" />
-          <label>
-            <span>Name</span>
-            <input
-              type="text"
-              name="detailName"
-              maxlength="48"
-              value="${escapeAttribute(detail.name)}"
-              placeholder="${escapeAttribute(attribute.subLabel)}"
-              ${state.ui.editMode ? "" : "readonly"}
-            />
-          </label>
-          <label>
-            <span>Ability</span>
-            <textarea
-              rows="6"
-              name="detailDescription"
-              maxlength="600"
-              placeholder="Ability text"
-              ${state.ui.editMode ? "" : "readonly"}
-            >${escapeHtml(detail.description)}</textarea>
-          </label>
+          <input type="hidden" name="detailFallback" value="${escapeAttribute(attribute.subLabel)}" />
+          ${renderAttributeDetailFields(detailKind, detail, attribute)}
           <div class="modal-actions">
             <button class="secondary-button" data-action="close-modal" type="button">Close</button>
             ${state.ui.editMode ? `<button class="primary-button" type="submit">Save</button>` : ""}
@@ -781,9 +1973,9 @@ function renderModal() {
           </label>
           <fieldset class="checkbox-grid">
             <legend>Specializations</legend>
-            ${character.specializations
+            ${getVisibleSpecializationEntries(character)
               .map(
-                (specialization, index) => `
+                ({ specialization, index }) => `
                   <label class="check-row">
                     <input
                       type="checkbox"
@@ -792,7 +1984,7 @@ function renderModal() {
                       ${specialization.value === 0 ? "disabled" : ""}
                       ${rollState.specializationIndexes.includes(index) ? "checked" : ""}
                     />
-                    <span>${getSpecializationLabel(index)}</span>
+                    <span>${escapeHtml(getSpecializationName(specialization, index))}</span>
                     <strong>${formatSigned(specialization.value)}</strong>
                   </label>
                 `
@@ -901,7 +2093,7 @@ function renderModal() {
 function renderModalShell(title, subtitle, body, options = {}) {
   return `
     <div class="modal-backdrop" ${options.preventClose ? "" : 'data-close-backdrop="true"'}>
-      <section class="modal-card" role="dialog" aria-modal="true">
+      <section class="modal-card ${options.wide ? "modal-card-wide" : ""}" role="dialog" aria-modal="true">
         <div class="modal-header">
           <div>
             <h2>${escapeHtml(title)}</h2>
@@ -1017,9 +2209,18 @@ function handleClick(event) {
     return;
   }
 
-  if (action === "open-bio-modal") {
+  if (action === "open-profile-view") {
     state.ui.skillLossSelectionSection = null;
-    state.ui.activeModal = { type: "bio-info" };
+    state.ui.activeView = "profile";
+    renderApp();
+    return;
+  }
+
+  if (action === "remove-profile-image") {
+    updateCurrentCharacter((character) => {
+      character.profileImage = "";
+    });
+    showToast("Character image removed.");
     renderApp();
     return;
   }
@@ -1141,6 +2342,30 @@ function handleClick(event) {
 }
 
 function handleChange(event) {
+  const createCharacterForm = event.target.closest('[data-form="create-character"]');
+  if (createCharacterForm && state.ui.activeModal?.type === "create-character") {
+    const resetAllocationInputs = [
+      "lineage",
+      "homeworld",
+      "backgroundKey",
+      "secondaryKey",
+      "corporation",
+      "lineageAugmentKey",
+      "takeTekhne",
+      "takeArkhemetry",
+      "takeCosmoglossia",
+    ];
+    const isAugmentToggle = event.target.name?.startsWith("creationAugmentEnabled");
+    state.ui.activeModal = {
+      type: "create-character",
+      payload: getCreateCharacterDraftFromForm(createCharacterForm, {
+        resetAllocation: resetAllocationInputs.includes(event.target.name) || isAugmentToggle,
+      }),
+    };
+    renderApp();
+    return;
+  }
+
   const buildRollForm = event.target.closest('[data-form="build-roll"]');
   if (
     buildRollForm &&
@@ -1176,13 +2401,40 @@ function handleChange(event) {
     return;
   }
 
+  const attributeDetailForm = event.target.closest('[data-form="attribute-detail"]');
+  if (attributeDetailForm && event.target.name === "detailAugmentKey") {
+    updateAugmentDetailFields(attributeDetailForm, event.target.value);
+    return;
+  }
+
   const input = event.target.closest("[data-input]");
   if (!input) {
     return;
   }
 
+  if (input.dataset.input === "profile-image") {
+    const file = input.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    readImageFileAsDataUrl(file)
+      .then((dataUrl) => {
+        updateCurrentCharacter((character) => {
+          character.profileImage = dataUrl;
+        });
+        showToast("Character image saved.");
+        renderApp();
+      })
+      .catch(() => {
+        showToast("That image could not be loaded.");
+        renderApp();
+      });
+    return;
+  }
+
   updateCurrentCharacter((character) => {
-    const { input: inputType, section, index } = input.dataset;
+    const { input: inputType, section, index, field } = input.dataset;
 
     if (inputType === "health-current") {
       const sectionData = character.sections[section];
@@ -1191,7 +2443,11 @@ function handleChange(event) {
     }
 
     if (inputType === "attribute-score") {
-      character.sections[section].attributes[Number(index)].score = clampNumber(input.value, 4, 12);
+      character.sections[section].attributes[Number(index)].score = clampNumber(
+        input.value,
+        ATTRIBUTE_CREATION_MIN,
+        ATTRIBUTE_CREATION_MAX
+      );
       return;
     }
 
@@ -1202,10 +2458,72 @@ function handleChange(event) {
 
     if (inputType === "specialization-value") {
       character.specializations[Number(index)].value = clampNumber(input.value, 0, 100);
+      return;
+    }
+
+    if (inputType === "specialization-name") {
+      character.specializations[Number(index)].name = String(input.value || "").trim() || getSpecializationLabel(Number(index));
+      return;
+    }
+
+    if (inputType === "profile-name") {
+      character.name = String(input.value || "").trim() || character.name;
+      return;
+    }
+
+    if (inputType === "profile-gender") {
+      character.gender = normalizeGender(input.value);
+      return;
+    }
+
+    if (inputType === "lineage-label") {
+      character.lineage.label = String(input.value || "").trim() || getLineageOption(character.lineage.key).label;
+      return;
+    }
+
+    if (inputType === "background-name") {
+      character.background.name = String(input.value || "").trim() || getBackgroundOption(character.background.key).label;
+      return;
+    }
+
+    if (inputType === "biometric-field" && field) {
+      character.biometrics[field] = String(input.value || "").trim();
+      return;
+    }
+
+    if (inputType === "feature-name") {
+      const feature = character.features[Number(index)];
+      if (feature) {
+        feature.name = String(input.value || "").trim() || feature.name;
+      }
+      return;
+    }
+
+    if (inputType === "feature-ability") {
+      const feature = character.features[Number(index)];
+      if (feature) {
+        feature.ability = String(input.value || "").trim();
+      }
     }
   });
 
   renderApp();
+}
+
+function updateAugmentDetailFields(form, augmentKey) {
+  const augment = getAugmentOption(augmentKey);
+  const nameInput = form.elements.detailName;
+  const abilityInput = form.elements.detailDescription;
+  const knownNames = AUGMENT_OPTIONS.map((option) => option.label);
+  const knownAbilities = AUGMENT_OPTIONS.map((option) => option.ability);
+
+  if (nameInput && (!nameInput.value || knownNames.includes(nameInput.value))) {
+    nameInput.value = augment.key === "custom" ? String(form.elements.detailFallback?.value || "Augment") : augment.label;
+  }
+
+  if (abilityInput && (!abilityInput.value || knownAbilities.includes(abilityInput.value))) {
+    abilityInput.value = augment.ability;
+  }
 }
 
 function handleSubmit(event) {
@@ -1219,16 +2537,17 @@ function handleSubmit(event) {
   const formName = form.dataset.form;
 
   if (formName === "create-character") {
-    const name = String(formData.get("name") || "").trim();
-    const gender = String(formData.get("gender") || "male");
+    const draft = getCreateCharacterDraftFromForm(form);
+    const validationMessage = validateCreationDraft(draft);
 
-    if (!name) {
-      showToast("Character name is required.");
+    if (validationMessage) {
+      state.ui.activeModal = { type: "create-character", payload: draft };
+      showToast(validationMessage);
       renderApp();
       return;
     }
 
-    const character = createCharacter(name, gender);
+    const character = createCharacterFromDraft(draft);
     state.characters.unshift(character);
     state.ui.activeCharacterId = character.id;
     state.ui.activeView = "sheet";
@@ -1236,7 +2555,7 @@ function handleSubmit(event) {
     state.ui.activeModal = null;
     state.ui.skillLossSelectionSection = null;
     persistState();
-    showToast(`${name} created.`);
+    showToast(`${character.name} created.`);
     renderApp();
     return;
   }
@@ -1258,18 +2577,14 @@ function handleSubmit(event) {
   if (formName === "attribute-detail") {
     const sectionId = String(formData.get("sectionId") || "");
     const attributeIndex = Number(formData.get("attributeIndex"));
-    const detailName = String(formData.get("detailName") || "").trim();
-    const detailDescription = String(formData.get("detailDescription") || "").trim();
+    const detail = buildAttributeDetailFromFormData(formData);
 
     updateCurrentCharacter((character) => {
-      character.sections[sectionId].attributes[attributeIndex].detail = {
-        name: detailName,
-        description: detailDescription,
-      };
+      character.sections[sectionId].attributes[attributeIndex].detail = detail;
     });
 
     state.ui.activeModal = null;
-    showToast(`${detailName || "Ability"} saved.`);
+    showToast(`${detail.name || "Ability"} saved.`);
     renderApp();
     return;
   }
@@ -1394,12 +2709,29 @@ function handleMouseOut(event) {
 }
 
 function handleFocusIn(event) {
-  const createNameInput = event.target.closest('form[data-form="create-character"] input[name="name"]');
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target) {
+    return;
+  }
+
+  keepFocusedModalFieldInView(target);
+
+  const createNameInput = target.closest('form[data-form="create-character"] input[name="name"]');
   if (!createNameInput) {
     return;
   }
 
   rotateCreateCharacterNameSuggestion(event, createNameInput);
+}
+
+function keepFocusedModalFieldInView(target) {
+  if (!target.matches("input, select, textarea") || !target.closest(".modal-card")) {
+    return;
+  }
+
+  window.requestAnimationFrame(() => {
+    target.scrollIntoView({ block: "center", inline: "nearest" });
+  });
 }
 
 function handleKeydown(event) {
@@ -1427,16 +2759,20 @@ function buildCharacterRoll(attributeRef, skillRef, specializationIndexes, situa
     .map((index) => ({ index, specialization: character.specializations[index] }))
     .filter((entry) => Boolean(entry.specialization));
 
-  const skillBonus = skill.redacted ? 0 : skill.value;
+  const skillBonus = skill.redacted && character.lineage?.key !== "ghoul" ? 0 : skill.value;
   const specializationBonus = selectedSpecializations.reduce(
     (total, entry) => total + entry.specialization.value,
     0
   );
 
-  const bonusParts = [skill.redacted ? `${skill.label} redacted +0` : `${skill.label} ${formatSigned(skillBonus)}`];
+  const bonusParts = [
+    skill.redacted && character.lineage?.key !== "ghoul"
+      ? `${skill.label} redacted +0`
+      : `${skill.label} ${formatSigned(skillBonus)}`,
+  ];
 
   selectedSpecializations.forEach((entry) => {
-    bonusParts.push(`${getSpecializationLabel(entry.index)} ${formatSigned(entry.specialization.value)}`);
+    bonusParts.push(`${getSpecializationName(entry.specialization, entry.index)} ${formatSigned(entry.specialization.value)}`);
   });
 
   if (situationalBonus) {
@@ -1662,48 +2998,24 @@ function parseDiceFormula(formula) {
 }
 
 function createCharacter(name, gender = "male") {
-  const character = {
-    id: createId(),
-    name,
-    gender,
-    campaign: { space: "", code: "" },
-    sections: {},
-    specializations: Array.from({ length: MAX_SPECIALIZATIONS }, (_, index) => ({
-      id: createId(),
-      name: getSpecializationLabel(index),
-      value: 0,
-    })),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  SECTION_TEMPLATES.forEach((section) => {
-    character.sections[section.id] = {
-      health: { current: 0 },
-      attributes: section.attributes.map((attribute) => ({
-        ...attribute,
-        score: 8,
-        detail: { name: "", description: "" },
-      })),
-      skills: section.skills.map((skill) => ({
-        key: slugify(skill),
-        label: skill,
-        value: 0,
-        redacted: false,
-      })),
-    };
-  });
-
-  return normalizeCharacter(character);
+  return normalizeCharacter(createCharacterSkeleton(name, gender));
 }
 
 function normalizeCharacter(rawCharacter) {
   const base = createCharacterSkeleton(rawCharacter?.name || "Untitled Character", rawCharacter?.gender || "male");
   base.id = rawCharacter?.id || base.id;
+  base.name = String(rawCharacter?.name || base.name);
+  base.gender = normalizeGender(rawCharacter?.gender || base.gender);
   base.campaign = {
     space: String(rawCharacter?.campaign?.space || ""),
     code: String(rawCharacter?.campaign?.code || ""),
   };
+  base.lineage = normalizeLineageRecord(rawCharacter?.lineage);
+  base.background = normalizeBackgroundRecord(rawCharacter?.background);
+  base.creation = normalizeCreationRecord(rawCharacter?.creation, base.lineage.key);
+  base.biometrics = normalizeBiometrics(rawCharacter?.biometrics);
+  base.profileImage = String(rawCharacter?.profileImage || "");
+  base.features = normalizeFeatureList(rawCharacter?.features);
   base.createdAt = rawCharacter?.createdAt || base.createdAt;
   base.updatedAt = rawCharacter?.updatedAt || base.updatedAt;
 
@@ -1713,7 +3025,7 @@ function normalizeCharacter(rawCharacter) {
       (section.id === "spirit" ? rawCharacter?.sections?.rift : null);
     base.sections[section.id].attributes = section.attributes.map((attribute, index) => ({
       ...attribute,
-      score: clampNumber(sourceSection?.attributes?.[index]?.score ?? 8, 4, 12),
+      score: clampNumber(sourceSection?.attributes?.[index]?.score ?? 8, ATTRIBUTE_CREATION_MIN, ATTRIBUTE_CREATION_MAX),
       detail: normalizeAttributeDetail(
         sourceSection?.attributes?.[index]?.detail ?? sourceSection?.attributes?.[index]?.subValue
       ),
@@ -1731,19 +3043,40 @@ function normalizeCharacter(rawCharacter) {
     id: rawCharacter?.specializations?.[index]?.id || createId(),
     name: String(rawCharacter?.specializations?.[index]?.name || getSpecializationLabel(index)),
     value: clampNumber(rawCharacter?.specializations?.[index]?.value ?? 0, 0, 100),
+    active:
+      rawCharacter?.specializations?.[index]?.active === undefined
+        ? index < BASE_SPECIALIZATION_SLOTS
+        : Boolean(rawCharacter?.specializations?.[index]?.active),
+    source: String(rawCharacter?.specializations?.[index]?.source || ""),
+    sourceLabel: String(rawCharacter?.specializations?.[index]?.sourceLabel || ""),
   }));
 
   return base;
 }
 
 function createCharacterSkeleton(name, gender) {
+  const lineage = normalizeLineageRecord();
+  const background = normalizeBackgroundRecord();
   const skeleton = {
     id: createId(),
-    name,
-    gender,
+    name: String(name || "Untitled Character"),
+    gender: normalizeGender(gender),
     campaign: { space: "", code: "" },
+    lineage,
+    background,
+    creation: normalizeCreationRecord(null, lineage.key),
+    biometrics: normalizeBiometrics(),
+    profileImage: "",
+    features: [],
     sections: {},
-    specializations: [],
+    specializations: Array.from({ length: MAX_SPECIALIZATIONS }, (_, index) => ({
+      id: createId(),
+      name: getSpecializationLabel(index),
+      value: 0,
+      active: index < BASE_SPECIALIZATION_SLOTS,
+      source: index < 6 ? "background" : index < 8 ? "lineage" : "",
+      sourceLabel: "",
+    })),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -1766,6 +3099,1088 @@ function createCharacterSkeleton(name, gender) {
   });
 
   return skeleton;
+}
+
+function normalizeGender(value) {
+  const normalized = String(value || "male");
+  return GENDER_OPTIONS.some((option) => option.value === normalized) ? normalized : "male";
+}
+
+function normalizeLineageRecord(rawValue = {}) {
+  const raw = typeof rawValue === "string" ? { key: rawValue } : rawValue || {};
+  const option = getLineageOption(raw.key);
+
+  return {
+    key: option.key,
+    label: String(raw.label || option.label),
+    details: normalizeRecordDetails(raw.details),
+  };
+}
+
+function normalizeBackgroundRecord(rawValue = {}) {
+  const raw = typeof rawValue === "string" ? { key: rawValue } : rawValue || {};
+  const option = getBackgroundOption(raw.key);
+
+  return {
+    key: option.key,
+    name: String(raw.name || option.label),
+    ability: String(raw.ability || ""),
+    secondary: raw.secondary ? normalizeBackgroundSummary(raw.secondary) : null,
+  };
+}
+
+function normalizeBackgroundSummary(rawValue = {}) {
+  const raw = typeof rawValue === "string" ? { key: rawValue } : rawValue || {};
+  const option = getBackgroundOption(raw.key);
+
+  return {
+    key: option.key,
+    name: String(raw.name || option.label),
+    ability: String(raw.ability || ""),
+  };
+}
+
+function normalizeCreationRecord(rawValue = {}, lineageKey = "terran") {
+  const raw = rawValue || {};
+  const totals = getCreationTotalsForLineage(lineageKey);
+
+  return {
+    attributeTotal: clampMinimum(raw.attributeTotal ?? totals.attributes, 0),
+    skillTotal: clampMinimum(raw.skillTotal ?? totals.skills, 0),
+    specializationTotal: clampMinimum(raw.specializationTotal ?? totals.specializations, 0),
+    skillMax: clampMinimum(raw.skillMax ?? SKILL_CREATION_MAX, 0),
+    specializationMax: clampMinimum(raw.specializationMax ?? getSpecializationCreationMax(lineageKey), 0),
+  };
+}
+
+function normalizeBiometrics(rawValue = {}) {
+  const raw = rawValue || {};
+
+  return BIOMETRIC_FIELDS.reduce((fields, field) => {
+    fields[field.key] = String(raw[field.key] || "");
+    return fields;
+  }, {});
+}
+
+function normalizeFeatureList(rawValue = []) {
+  if (!Array.isArray(rawValue)) {
+    return [];
+  }
+
+  return rawValue.map((feature) => ({
+    id: feature?.id || createId(),
+    source: String(feature?.source || "character"),
+    sourceLabel: String(feature?.sourceLabel || ""),
+    category: String(feature?.category || "Feature"),
+    name: String(feature?.name || "Feature"),
+    ability: String(feature?.ability || ""),
+    slot: String(feature?.slot || ""),
+    details: normalizeRecordDetails(feature?.details),
+  }));
+}
+
+function normalizeRecordDetails(rawValue = {}) {
+  if (!rawValue || typeof rawValue !== "object") {
+    return {};
+  }
+
+  return Object.entries(rawValue).reduce((details, [key, value]) => {
+    if (value === null || value === undefined) {
+      details[key] = "";
+      return details;
+    }
+    details[key] = typeof value === "string" ? value : JSON.stringify(value);
+    return details;
+  }, {});
+}
+
+function normalizeCreateCharacterDraft(rawValue = {}, options = {}) {
+  const raw = rawValue || {};
+  const lineageKey = getLineageOption(raw.lineageKey || raw.lineage).key;
+  const backgroundKey = getBackgroundOption(raw.backgroundKey).key;
+  const secondaryBackgroundKey = getBackgroundOption(raw.secondaryBackgroundKey).key;
+  const corporationKey = getCorporationOption(raw.corporationKey).key;
+  const backgroundOption = getBackgroundOption(backgroundKey);
+  const secondaryBackgroundOption = getBackgroundOption(secondaryBackgroundKey);
+  const corporationOption = getCorporationOption(corporationKey);
+  const lineageAugmentOption = getAugmentOption(raw.lineageAugmentKey);
+  const totals = getCreationTotalsForLineage(lineageKey);
+  const specializationMax = getSpecializationCreationMax(lineageKey);
+  const homeworld = EXO_HOMEWORLD_OPTIONS.includes(raw.homeworld) ? raw.homeworld : EXO_HOMEWORLD_OPTIONS[0];
+  const isLineageAugment = hasLineageAugment(lineageKey);
+  const defaultLineageFeatureName = getDefaultLineageFeatureName(lineageKey);
+  const defaultAttributes = createBalancedValues(
+    getCreationAttributeEntries().length,
+    totals.attributes,
+    ATTRIBUTE_CREATION_MIN,
+    ATTRIBUTE_CREATION_MAX
+  );
+  const defaultSkills = createBalancedValues(getCreationSkillEntries().length, totals.skills, 0, SKILL_CREATION_MAX);
+  const shouldResetAllocation = Boolean(options.resetAllocation);
+  const ghoulDefaults = getCreationSkillEntries()
+    .map((entry) => entry.ref)
+    .slice(0, 9);
+  const draft = {
+    name: getDraftString(raw, "name", ""),
+    gender: normalizeGender(raw.gender || "male"),
+    lineageKey,
+    backgroundKey,
+    secondaryBackgroundKey,
+    corporationKey,
+    customCorporationName: getDraftString(raw, "customCorporationName", ""),
+    corporateAbility: normalizePresetText(raw.corporateAbility, corporationOption.ability, CORPORATION_OPTIONS.map((option) => option.ability)),
+    corporateSpecializationNames: normalizeFixedLengthStringList(raw.corporateSpecializationNames, 2, (index) =>
+      corporationOption.specializations[index] || `Corporate Tie ${index + 1}`
+    ),
+    homeworld,
+    homeworldAbility: normalizePresetText(
+      raw.homeworldAbility,
+      getHomeworldAbility(homeworld),
+      Object.values(HOMEWORLD_ABILITIES)
+    ),
+    lineageAugmentKey: isLineageAugment ? lineageAugmentOption.key : "custom",
+    lineageFeatureName: isLineageAugment
+      ? normalizePresetName(
+          raw.lineageFeatureName,
+          lineageAugmentOption.key === "custom" ? defaultLineageFeatureName : lineageAugmentOption.label,
+          [...AUGMENT_OPTIONS.map((option) => option.label), defaultLineageFeatureName]
+        )
+      : getDraftString(raw, "lineageFeatureName", defaultLineageFeatureName),
+    lineageFeatureAbility: isLineageAugment
+      ? normalizePresetText(raw.lineageFeatureAbility, lineageAugmentOption.ability, AUGMENT_OPTIONS.map((option) => option.ability))
+      : getDraftString(raw, "lineageFeatureAbility", ""),
+    backgroundName: normalizePresetName(raw.backgroundName, backgroundOption.label, BACKGROUND_OPTIONS.map((option) => option.label)),
+    backgroundAbility: normalizePresetText(raw.backgroundAbility, backgroundOption.ability, BACKGROUND_OPTIONS.map((option) => option.ability)),
+    backgroundSpecializationNames: normalizeFixedLengthStringList(raw.backgroundSpecializationNames, 6, (index) =>
+      backgroundOption.specializations[index] || `Background ${index + 1}`
+    ),
+    secondaryBackgroundName: normalizePresetName(
+      raw.secondaryBackgroundName,
+      secondaryBackgroundOption.label,
+      BACKGROUND_OPTIONS.map((option) => option.label)
+    ),
+    secondaryBackgroundAbility: normalizePresetText(
+      raw.secondaryBackgroundAbility,
+      secondaryBackgroundOption.ability,
+      BACKGROUND_OPTIONS.map((option) => option.ability)
+    ),
+    lineageSpecializations: normalizeLineageSpecializationChoices(raw.lineageSpecializations, lineageKey),
+    creationAugments: normalizeCreationAugments(raw.creationAugments, lineageKey, raw),
+    takeTekhne: normalizeBoolean(raw.takeTekhne),
+    creationTekhneName: TEKHNE_OPTIONS.includes(raw.creationTekhneName) ? raw.creationTekhneName : TEKHNE_OPTIONS[0],
+    creationTekhneAbility: getDraftString(raw, "creationTekhneAbility", ""),
+    takeArkhemetry: normalizeBoolean(raw.takeArkhemetry),
+    creationArkhemetryName: ARKHEMETRY_OPTIONS.includes(raw.creationArkhemetryName)
+      ? raw.creationArkhemetryName
+      : ARKHEMETRY_OPTIONS[0],
+    creationArkhemetryAbility: getDraftString(raw, "creationArkhemetryAbility", ""),
+    takeCosmoglossia: normalizeBoolean(raw.takeCosmoglossia),
+    creationCosmoglossiaName: "Cosmoglossia",
+    creationCosmoglossiaPanels: normalizeCosmoglossiaPanels(raw.creationCosmoglossiaPanels),
+    attributeScores: shouldResetAllocation
+      ? defaultAttributes
+      : normalizeNumberList(raw.attributeScores, defaultAttributes, ATTRIBUTE_CREATION_MIN, ATTRIBUTE_CREATION_MAX),
+    skillValues: shouldResetAllocation
+      ? defaultSkills
+      : normalizeNumberList(raw.skillValues, defaultSkills, 0, SKILL_CREATION_MAX),
+    ghoulRedactedSkillRefs:
+      lineageKey === "ghoul"
+        ? normalizeSkillRefs(raw.ghoulRedactedSkillRefs, ghoulDefaults)
+        : [],
+  };
+
+  draft.specializationNames = getDraftSpecializationSlots(draft).map((slot) => slot.name);
+  draft.specializationValues = normalizeDraftSpecializationValues(raw.specializationValues, draft, specializationMax, {
+    reset: shouldResetAllocation,
+  });
+
+  return draft;
+}
+
+function getCreateCharacterDraftFromForm(form, options = {}) {
+  const formData = new FormData(form);
+
+  return normalizeCreateCharacterDraft(
+    {
+      name: formData.get("name"),
+      gender: formData.get("gender"),
+      lineageKey: formData.get("lineage"),
+      corporationKey: formData.get("corporation"),
+      customCorporationName: formData.get("customCorporationName"),
+      corporateAbility: formData.get("corporateAbility"),
+      corporateSpecializationNames: [formData.get("corporateSpecializationName0"), formData.get("corporateSpecializationName1")],
+      homeworld: formData.get("homeworld"),
+      homeworldAbility: formData.get("homeworldAbility"),
+      lineageAugmentKey: formData.get("lineageAugmentKey"),
+      lineageFeatureName: formData.get("lineageFeatureName"),
+      lineageFeatureAbility: formData.get("lineageFeatureAbility"),
+      backgroundKey: formData.get("backgroundKey"),
+      backgroundName: formData.get("backgroundName"),
+      backgroundAbility: formData.get("backgroundAbility"),
+      backgroundSpecializationNames: Array.from({ length: 6 }, (_, index) =>
+        formData.get(`backgroundSpecializationName${index}`)
+      ),
+      secondaryBackgroundKey: formData.get("secondaryKey"),
+      secondaryBackgroundName: formData.get("secondaryName"),
+      secondaryBackgroundAbility: formData.get("secondaryAbility"),
+      lineageSpecializations: [formData.get("lineageSpecialization0"), formData.get("lineageSpecialization1")],
+      creationAugments: Array.from({ length: MAX_AUGMENT_SLOTS }, (_, index) => ({
+        enabled: formData.get(`creationAugmentEnabled${index}`),
+        key: formData.get(`creationAugmentKey${index}`),
+        name: formData.get(`creationAugmentName${index}`),
+        ability: formData.get(`creationAugmentAbility${index}`),
+      })),
+      takeTekhne: formData.get("takeTekhne"),
+      creationTekhneName: formData.get("creationTekhneName"),
+      creationTekhneAbility: formData.get("creationTekhneAbility"),
+      takeArkhemetry: formData.get("takeArkhemetry"),
+      creationArkhemetryName: formData.get("creationArkhemetryName"),
+      creationArkhemetryAbility: formData.get("creationArkhemetryAbility"),
+      takeCosmoglossia: formData.get("takeCosmoglossia"),
+      creationCosmoglossiaPanels: getCosmoglossiaPanelsFromFormData(formData, "creationCosmoglossia"),
+      attributeScores: getCreationAttributeEntries().map((entry) => formData.get(entry.inputName)),
+      skillValues: getCreationSkillEntries().map((entry) => formData.get(entry.inputName)),
+      specializationValues: Array.from({ length: MAX_SPECIALIZATIONS }, (_, index) =>
+        formData.get(`specializationValue${index}`)
+      ),
+      ghoulRedactedSkillRefs: formData.getAll("ghoulRedactedSkill"),
+    },
+    options
+  );
+}
+
+function validateCreationDraft(draft) {
+  const totals = getCreationTotalsForLineage(draft.lineageKey);
+  const specializationMax = getSpecializationCreationMax(draft.lineageKey);
+  const attributeTotal = getArrayTotal(draft.attributeScores);
+  const skillTotal = getArrayTotal(draft.skillValues);
+  const specializationTotal = getArrayTotal(draft.specializationValues);
+  const adjustedSpecializationTotal = getAdjustedSpecializationTotal(totals.specializations, draft);
+
+  if (attributeTotal !== totals.attributes) {
+    return `Attributes must total ${totals.attributes}.`;
+  }
+
+  if (skillTotal !== totals.skills) {
+    return `Skills must total ${totals.skills}.`;
+  }
+
+  if (draft.skillValues.some((value) => value > SKILL_CREATION_MAX)) {
+    return `No starting skill can exceed ${SKILL_CREATION_MAX}.`;
+  }
+
+  if (getOptionalCreationFeatureCount(draft) * 10 > totals.specializations) {
+    return "This lineage does not have enough specialization points for those optional features.";
+  }
+
+  if (specializationTotal !== adjustedSpecializationTotal) {
+    return `Specializations must total ${adjustedSpecializationTotal}.`;
+  }
+
+  if (draft.specializationValues.some((value) => value > specializationMax)) {
+    return `No starting specialization can exceed ${specializationMax}.`;
+  }
+
+  if (draft.lineageKey === "ghoul" && draft.ghoulRedactedSkillRefs.length !== 9) {
+    return "Ghoul characters must black out exactly 9 skills.";
+  }
+
+  if (draft.lineageSpecializations[0] === draft.lineageSpecializations[1]) {
+    return "Lineage specialization slots 7 and 8 must be different.";
+  }
+
+  return "";
+}
+
+function createCharacterFromDraft(draft) {
+  const finalName = draft.name.trim() || getCreateCharacterNamePlaceholder();
+  const lineageOption = getLineageOption(draft.lineageKey);
+  const backgroundOption = getBackgroundOption(draft.backgroundKey);
+  const totals = getCreationTotalsForLineage(draft.lineageKey);
+  const adjustedSpecializationTotal = getAdjustedSpecializationTotal(totals.specializations, draft);
+  const character = createCharacter(finalName, draft.gender);
+
+  character.lineage = normalizeLineageRecord({
+    key: lineageOption.key,
+    label: lineageOption.label,
+    details: buildLineageDetails(draft),
+  });
+  character.background = normalizeBackgroundRecord({
+    key: backgroundOption.key,
+    name: draft.backgroundName || backgroundOption.label,
+    ability: draft.backgroundAbility || backgroundOption.ability,
+    secondary:
+      draft.lineageKey === "aberrant"
+        ? {
+            key: draft.secondaryBackgroundKey,
+            name: draft.secondaryBackgroundName || getBackgroundOption(draft.secondaryBackgroundKey).label,
+            ability: draft.secondaryBackgroundAbility || getBackgroundOption(draft.secondaryBackgroundKey).ability,
+          }
+        : null,
+  });
+  character.creation = normalizeCreationRecord(
+    {
+      attributeTotal: totals.attributes,
+      skillTotal: totals.skills,
+      specializationTotal: adjustedSpecializationTotal,
+      skillMax: SKILL_CREATION_MAX,
+      specializationMax: getSpecializationCreationMax(draft.lineageKey),
+    },
+    draft.lineageKey
+  );
+
+  getCreationAttributeEntries().forEach((entry, index) => {
+    character.sections[entry.sectionId].attributes[entry.attributeIndex].score = draft.attributeScores[index];
+  });
+
+  getCreationSkillEntries().forEach((entry, index) => {
+    const skill = character.sections[entry.sectionId].skills[entry.skillIndex];
+    skill.value = draft.skillValues[index];
+    skill.redacted = draft.lineageKey === "ghoul" && draft.ghoulRedactedSkillRefs.includes(entry.ref);
+  });
+
+  character.specializations = getDraftSpecializationSlots(draft).map((slot) => ({
+    id: character.specializations[slot.index]?.id || createId(),
+    name: slot.name || getSpecializationLabel(slot.index),
+    value: draft.specializationValues[slot.index] || 0,
+    active: slot.active,
+    source: slot.source,
+    sourceLabel: slot.sourceLabel,
+  }));
+
+  character.features = buildCreationFeatures(draft);
+  applyFeatureSlotsToSheet(character);
+
+  return normalizeCharacter(character);
+}
+
+function buildLineageDetails(draft) {
+  if (draft.lineageKey === "terran") {
+    const corporation = getCorporationOption(draft.corporationKey);
+    return {
+      corporationKey: corporation.key,
+      corporationName: getCorporateDisplayName(draft),
+      optionalSpecializations: corporation.specializations.join(", "),
+    };
+  }
+
+  if (draft.lineageKey === "exo") {
+    return { homeworld: draft.homeworld };
+  }
+
+  return {};
+}
+
+function buildCreationFeatures(draft) {
+  return [
+    ...buildLineageFeatures(draft),
+    ...buildBackgroundFeatures(draft, "primary"),
+    ...(draft.lineageKey === "aberrant" ? buildBackgroundFeatures(draft, "secondary") : []),
+    ...buildOptionalCreationFeatures(draft),
+  ].map((feature) => ({
+    id: createId(),
+    ...feature,
+  }));
+}
+
+function buildLineageFeatures(draft) {
+  const lineage = getLineageOption(draft.lineageKey);
+
+  if (draft.lineageKey === "terran") {
+    return [
+      createFeatureRecord({
+        source: "lineage",
+        sourceLabel: lineage.label,
+        category: "Corporate Ties",
+        name: `Corporate Ties: ${getCorporateDisplayName(draft)}`,
+        ability: draft.corporateAbility,
+        details: buildLineageDetails(draft),
+      }),
+    ];
+  }
+
+  if (draft.lineageKey === "exo") {
+    return [
+      createFeatureRecord({
+        source: "lineage",
+        sourceLabel: lineage.label,
+        category: "Homeworld",
+        name: `Homeworld: ${draft.homeworld}`,
+        ability: draft.homeworldAbility,
+        details: { homeworld: draft.homeworld },
+      }),
+    ];
+  }
+
+  if (["voidborn", "aberrant", "ghoul", "cyborg"].includes(draft.lineageKey)) {
+    const categoryByLineage = {
+      voidborn: "Natural Augment",
+      aberrant: "Bio-Augment",
+      ghoul: "Radio-Augment",
+      cyborg: "Mech-Augment",
+    };
+    return [
+      createFeatureRecord({
+        source: "lineage",
+        sourceLabel: lineage.label,
+        category: categoryByLineage[draft.lineageKey],
+        name: draft.lineageFeatureName || categoryByLineage[draft.lineageKey],
+        ability: draft.lineageFeatureAbility,
+        slot: "augment",
+        details: { presetKey: draft.lineageAugmentKey },
+      }),
+    ];
+  }
+
+  if (draft.lineageKey === "golem") {
+    return [
+      createFeatureRecord({
+        source: "lineage",
+        sourceLabel: lineage.label,
+        category: "Configuration",
+        name: draft.lineageFeatureName || "Configuration",
+        ability: draft.lineageFeatureAbility,
+        slot: "configuration",
+      }),
+    ];
+  }
+
+  if (draft.lineageKey === "android") {
+    return [
+      createFeatureRecord({
+        source: "lineage",
+        sourceLabel: lineage.label,
+        category: "Protocol",
+        name: draft.lineageFeatureName || "Protocol",
+        ability: draft.lineageFeatureAbility,
+        slot: "protocol",
+      }),
+    ];
+  }
+
+  if (draft.lineageKey === "chimera") {
+    return [
+      createFeatureRecord({
+        source: "lineage",
+        sourceLabel: lineage.label,
+        category: "Hybrid Animal",
+        name: draft.lineageFeatureName || "Hybrid Animal",
+        ability: draft.lineageFeatureAbility,
+        slot: "hybrid",
+      }),
+    ];
+  }
+
+  return [];
+}
+
+function buildBackgroundFeatures(draft, slot) {
+  const isSecondary = slot === "secondary";
+  const key = isSecondary ? draft.secondaryBackgroundKey : draft.backgroundKey;
+  const option = getBackgroundOption(key);
+  const backgroundName = isSecondary
+    ? draft.secondaryBackgroundName || option.label
+    : draft.backgroundName || option.label;
+  const ability =
+    (isSecondary ? draft.secondaryBackgroundAbility : draft.backgroundAbility) || option.ability;
+  const sourceLabel = isSecondary ? `Second Background: ${backgroundName}` : `Background: ${backgroundName}`;
+
+  return [
+    createFeatureRecord({
+      source: isSecondary ? "secondary-background" : "background",
+      sourceLabel,
+      category: "Background",
+      name: backgroundName,
+      ability,
+    }),
+  ];
+}
+
+function buildOptionalCreationFeatures(draft) {
+  const features = [];
+
+  getEnabledCreationAugments(draft).forEach((augment) => {
+    features.push(
+      createFeatureRecord({
+        source: "creation-feature",
+        sourceLabel: "Creation Feature",
+        category: "Augment",
+        name: augment.name,
+        ability: augment.ability,
+        slot: "augment",
+        details: { presetKey: augment.key },
+      })
+    );
+  });
+
+  if (draft.takeTekhne) {
+    features.push(
+      createFeatureRecord({
+        source: "creation-feature",
+        sourceLabel: "Creation Feature",
+        category: "Tekhne",
+        name: `Tekhne: ${draft.creationTekhneName}`,
+        ability: draft.creationTekhneAbility,
+        slot: "tekhne",
+      })
+    );
+  }
+
+  if (draft.takeArkhemetry) {
+    features.push(
+      createFeatureRecord({
+        source: "creation-feature",
+        sourceLabel: "Creation Feature",
+        category: "Arkhemetry",
+        name: draft.creationArkhemetryName || "Arkhemetry",
+        ability: draft.creationArkhemetryAbility,
+        slot: "arkhemetry",
+      })
+    );
+  }
+
+  if (draft.takeCosmoglossia) {
+    const panels = normalizeCosmoglossiaPanels(draft.creationCosmoglossiaPanels);
+    features.push(
+      createFeatureRecord({
+        source: "creation-feature",
+        sourceLabel: "Creation Feature",
+        category: "Cosmoglossia",
+        name: draft.creationCosmoglossiaName || "Cosmoglossia",
+        ability: formatCosmoglossiaPanels(panels),
+        slot: "cosmoglossia",
+        details: { cosmoglossiaPanels: serializeCosmoglossiaPanels(panels) },
+      })
+    );
+  }
+
+  return features;
+}
+
+function createFeatureRecord({ source, sourceLabel, category, name, ability, slot = "", details = {} }) {
+  return {
+    source,
+    sourceLabel,
+    category,
+    name: name || category,
+    ability: ability || "",
+    slot,
+    details,
+  };
+}
+
+function applyFeatureSlotsToSheet(character) {
+  const augmentAttributes = character.sections.soul.attributes;
+
+  character.features.forEach((feature) => {
+    if (feature.slot === "augment") {
+      const target = augmentAttributes.find((attribute) => !normalizeAttributeDetail(attribute.detail).name);
+      if (target) {
+        target.detail = {
+          name: feature.name,
+          description: feature.ability,
+          presetKey: feature.details?.presetKey || "custom",
+        };
+      }
+      return;
+    }
+
+    if (feature.slot === "tekhne") {
+      character.sections.spirit.attributes[0].detail = { name: feature.name, description: feature.ability };
+      return;
+    }
+
+    if (feature.slot === "arkhemetry") {
+      character.sections.spirit.attributes[1].detail = { name: feature.name, description: feature.ability };
+      return;
+    }
+
+    if (feature.slot === "cosmoglossia") {
+      character.sections.spirit.attributes[2].detail = {
+        name: feature.name,
+        description: feature.ability,
+        cosmoglossiaPanels: feature.details?.cosmoglossiaPanels || "",
+      };
+    }
+  });
+}
+
+function getCreationTotalsForLineage(lineageKey) {
+  if (lineageKey === "golem") {
+    return { attributes: 90, skills: 0, specializations: 0 };
+  }
+
+  if (lineageKey === "android") {
+    return { attributes: 72, skills: 50, specializations: 100 };
+  }
+
+  if (lineageKey === "cyborg") {
+    return { attributes: 72, skills: 150, specializations: 0 };
+  }
+
+  return { attributes: 72, skills: 100, specializations: 50 };
+}
+
+function getSpecializationCreationMax(lineageKey) {
+  return lineageKey === "android" ? ANDROID_SPECIALIZATION_CREATION_MAX : DEFAULT_SPECIALIZATION_CREATION_MAX;
+}
+
+function getCreationAttributeEntries() {
+  return SECTION_TEMPLATES.flatMap((section) =>
+    section.attributes.map((attribute, attributeIndex) => ({
+      sectionId: section.id,
+      attributeIndex,
+      label: attribute.label,
+      inputName: `attribute-${section.id}-${attributeIndex}`,
+    }))
+  );
+}
+
+function getCreationSkillEntries() {
+  return SECTION_TEMPLATES.flatMap((section) =>
+    section.skills.map((skill, skillIndex) => ({
+      sectionId: section.id,
+      skillIndex,
+      label: skill,
+      ref: `${section.id}:${skillIndex}`,
+      inputName: `skill-${section.id}-${skillIndex}`,
+    }))
+  );
+}
+
+function createBalancedValues(count, total, minimum, maximum) {
+  const values = Array.from({ length: count }, () => minimum);
+  let remaining = Math.max(0, total - minimum * count);
+
+  values.forEach((_, index) => {
+    if (remaining <= 0) {
+      return;
+    }
+    const slotsRemaining = count - index;
+    const increment = Math.min(maximum - minimum, Math.ceil(remaining / slotsRemaining));
+    values[index] += increment;
+    remaining -= increment;
+  });
+
+  return values;
+}
+
+function normalizeNumberList(rawValues, fallbackValues, minimum, maximum) {
+  const source = Array.isArray(rawValues) ? rawValues : [];
+
+  return fallbackValues.map((fallback, index) => {
+    const rawValue = source[index];
+    if (rawValue === undefined || rawValue === null || rawValue === "") {
+      return fallback;
+    }
+    return clampNumber(rawValue, minimum, maximum);
+  });
+}
+
+function normalizeSkillRefs(rawValues, fallbackValues) {
+  const validRefs = new Set(getCreationSkillEntries().map((entry) => entry.ref));
+  const source = Array.isArray(rawValues) && rawValues.length ? rawValues : fallbackValues;
+
+  return [...new Set(source.map((value) => String(value)).filter((value) => validRefs.has(value)))];
+}
+
+function getDraftString(raw, key, fallback) {
+  if (Object.prototype.hasOwnProperty.call(raw, key) && raw[key] !== null && raw[key] !== undefined) {
+    return String(raw[key]);
+  }
+  return fallback;
+}
+
+function getLineageOption(key) {
+  return LINEAGE_OPTIONS.find((option) => option.key === key) || LINEAGE_OPTIONS[0];
+}
+
+function getCorporationOption(key) {
+  return CORPORATION_OPTIONS.find((option) => option.key === key) || CORPORATION_OPTIONS[0];
+}
+
+function getBackgroundOption(key) {
+  return BACKGROUND_OPTIONS.find((option) => option.key === key) || BACKGROUND_OPTIONS[0];
+}
+
+function getCorporateDisplayName(draft) {
+  const corporation = getCorporationOption(draft.corporationKey);
+  if (corporation.key === "custom") {
+    return draft.customCorporationName || corporation.label;
+  }
+  return corporation.label;
+}
+
+function getDefaultLineageFeatureName(lineageKey) {
+  const names = {
+    voidborn: "Natural Augment",
+    aberrant: "Bio-Augment",
+    ghoul: "Radio-Augment",
+    cyborg: "Mech-Augment",
+    golem: "Configuration",
+    android: "Protocol",
+    chimera: "Hybrid Animal",
+  };
+
+  return names[lineageKey] || "";
+}
+
+function getAugmentOption(key) {
+  return AUGMENT_OPTIONS.find((option) => option.key === key) || AUGMENT_OPTIONS[0];
+}
+
+function getHomeworldAbility(homeworld) {
+  return HOMEWORLD_ABILITIES[homeworld] || "";
+}
+
+function hasLineageAugment(lineageKey) {
+  return ["voidborn", "aberrant", "ghoul", "cyborg"].includes(lineageKey);
+}
+
+function getAvailableCreationAugmentSlots(lineageKey) {
+  return Math.max(0, MAX_AUGMENT_SLOTS - (hasLineageAugment(lineageKey) ? 1 : 0));
+}
+
+function createDefaultCreationAugment(index = 0) {
+  return {
+    enabled: false,
+    key: "custom",
+    name: `Augment ${index + 1}`,
+    ability: "",
+  };
+}
+
+function normalizeCreationAugments(rawAugments, lineageKey, legacyRaw = {}) {
+  const capacity = getAvailableCreationAugmentSlots(lineageKey);
+  let source = Array.isArray(rawAugments) ? rawAugments : [];
+
+  if (!source.length && normalizeBoolean(legacyRaw.takeAugment)) {
+    source = [
+      {
+        enabled: true,
+        key: legacyRaw.creationAugmentKey,
+        name: legacyRaw.creationAugmentName,
+        ability: legacyRaw.creationAugmentAbility,
+      },
+    ];
+  }
+
+  return Array.from({ length: capacity }, (_, index) => normalizeCreationAugment(source[index], index));
+}
+
+function normalizeCreationAugment(rawValue, index) {
+  const raw = rawValue || {};
+  const option = getAugmentOption(raw.key);
+  const fallbackName = option.key === "custom" ? `Augment ${index + 1}` : option.label;
+
+  return {
+    enabled: normalizeBoolean(raw.enabled),
+    key: option.key,
+    name: normalizePresetName(raw.name, fallbackName, [
+      ...AUGMENT_OPTIONS.map((augment) => augment.label),
+      `Augment ${index + 1}`,
+    ]),
+    ability: normalizePresetText(raw.ability, option.ability, AUGMENT_OPTIONS.map((augment) => augment.ability)),
+  };
+}
+
+function getEnabledCreationAugments(draft) {
+  return (draft.creationAugments || []).filter((augment) => augment.enabled);
+}
+
+function getCosmoglossiaColor(key) {
+  return COSMOGLOSSIA_COLORS.find((color) => color.key === key) || COSMOGLOSSIA_COLORS[0];
+}
+
+function normalizeSingleWord(value) {
+  return String(value || "").trim().split(/\s+/)[0] || "";
+}
+
+function parseCosmoglossiaPanels(rawValue) {
+  if (Array.isArray(rawValue)) {
+    return rawValue;
+  }
+
+  if (typeof rawValue === "string" && rawValue.trim()) {
+    try {
+      const parsed = JSON.parse(rawValue);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
+}
+
+function normalizeCosmoglossiaPanels(rawValue) {
+  const source = parseCosmoglossiaPanels(rawValue);
+  return Array.from({ length: COSMOGLOSSIA_PANEL_COUNT }, (_, index) => {
+    const panel = source[index] || {};
+    const defaultColor = COSMOGLOSSIA_COLORS[index % COSMOGLOSSIA_COLORS.length].key;
+    const color = getCosmoglossiaColor(panel.color || defaultColor).key;
+    return {
+      color,
+      word: normalizeSingleWord(panel.word),
+    };
+  });
+}
+
+function serializeCosmoglossiaPanels(panels) {
+  return JSON.stringify(normalizeCosmoglossiaPanels(panels));
+}
+
+function formatCosmoglossiaPanels(panels) {
+  const filledPanels = normalizeCosmoglossiaPanels(panels)
+    .filter((panel) => panel.word)
+    .map((panel) => `${panel.color}: ${panel.word}`);
+  return filledPanels.join("; ");
+}
+
+function getCosmoglossiaPanelsFromFormData(formData, prefix) {
+  return Array.from({ length: COSMOGLOSSIA_PANEL_COUNT }, (_, index) => ({
+    color: formData.get(`${prefix}Color${index}`),
+    word: formData.get(`${prefix}Word${index}`),
+  }));
+}
+
+function normalizeBoolean(value) {
+  return value === true || value === "true" || value === "on";
+}
+
+function normalizePresetName(rawValue, presetValue, knownValues) {
+  const value = String(rawValue || "").trim();
+  if (!value || knownValues.some((knownValue) => knownValue && knownValue === value && value !== presetValue)) {
+    return presetValue || "";
+  }
+  return value;
+}
+
+function normalizePresetText(rawValue, presetValue, knownValues) {
+  const value = String(rawValue || "").trim();
+  if (!value || knownValues.some((knownValue) => knownValue && knownValue === value && value !== presetValue)) {
+    return presetValue || "";
+  }
+  return value;
+}
+
+function normalizeFixedLengthStringList(rawValues, length, fallbackFactory) {
+  const source = Array.isArray(rawValues) ? rawValues : [];
+  return Array.from({ length }, (_, index) => {
+    const value = String(source[index] || "").trim();
+    return value || fallbackFactory(index);
+  });
+}
+
+function normalizeLineageSpecializationChoices(rawValues, lineageKey) {
+  const options = getLineageOption(lineageKey).specializations;
+  const source = Array.isArray(rawValues) ? rawValues : [];
+  const first = options.includes(source[0]) ? source[0] : options[0];
+  const fallbackSecond = options.find((option) => option !== first) || options[1] || first;
+  const second = options.includes(source[1]) && source[1] !== first ? source[1] : fallbackSecond;
+  return [first, second];
+}
+
+function getOptionalCreationFeatureCount(draft) {
+  return (
+    getEnabledCreationAugments(draft).length +
+    [draft.takeTekhne, draft.takeArkhemetry, draft.takeCosmoglossia].filter(Boolean).length
+  );
+}
+
+function getAdjustedSpecializationTotal(baseTotal, draft) {
+  return Math.max(0, baseTotal - getOptionalCreationFeatureCount(draft) * 10);
+}
+
+function getBackgroundSpecializationOptionsForDraft(draft) {
+  const primary = getBackgroundOption(draft.backgroundKey).specializations;
+  const secondary = draft.lineageKey === "aberrant" ? getBackgroundOption(draft.secondaryBackgroundKey).specializations : [];
+  return [...new Set([...primary, ...secondary].filter(Boolean))];
+}
+
+function getDraftSpecializationSlots(draft) {
+  const baseTotal = getCreationTotalsForLineage(draft.lineageKey).specializations;
+  const backgroundOption = getBackgroundOption(draft.backgroundKey);
+  const corporation = getCorporationOption(draft.corporationKey);
+  const hasSpecializationPool = baseTotal > 0;
+  const backgroundChoiceOptions = getBackgroundSpecializationOptionsForDraft(draft);
+  const usesBackgroundChoices = draft.lineageKey === "aberrant" && backgroundChoiceOptions.length > 0;
+  const slots = Array.from({ length: MAX_SPECIALIZATIONS }, (_, index) => ({
+    index,
+    active: false,
+    name: getSpecializationLabel(index),
+    source: "",
+    sourceLabel: "",
+    kind: "static",
+  }));
+
+  if (!hasSpecializationPool) {
+    return slots;
+  }
+
+  for (let index = 0; index < 6; index += 1) {
+    const isCustom = draft.backgroundKey === "custom";
+    const savedName = draft.backgroundSpecializationNames[index] || "";
+    const presetName = backgroundOption.specializations[index] || getSpecializationLabel(index);
+    const backgroundChoiceName = backgroundChoiceOptions.includes(savedName)
+      ? savedName
+      : backgroundChoiceOptions[index % backgroundChoiceOptions.length] || presetName;
+    slots[index] = {
+      index,
+      active: true,
+      name: usesBackgroundChoices
+        ? backgroundChoiceName
+        : isCustom
+          ? savedName || getSpecializationLabel(index)
+          : presetName,
+      source: "background",
+      sourceLabel: usesBackgroundChoices ? "Aberrant Backgrounds" : draft.backgroundName || backgroundOption.label,
+      kind: usesBackgroundChoices ? "background-choice" : isCustom ? "background-custom" : "background",
+      options: usesBackgroundChoices ? backgroundChoiceOptions : [],
+    };
+  }
+
+  draft.lineageSpecializations.forEach((name, offset) => {
+    const index = 6 + offset;
+    slots[index] = {
+      index,
+      active: true,
+      name,
+      source: "lineage",
+      sourceLabel: getLineageOption(draft.lineageKey).label,
+      kind: "lineage",
+    };
+  });
+
+  if (draft.lineageKey === "terran") {
+    const corporateNames = corporation.specializations.length
+      ? corporation.specializations
+      : draft.corporateSpecializationNames;
+    for (let offset = 0; offset < 2; offset += 1) {
+      const index = 8 + offset;
+      slots[index] = {
+        index,
+        active: true,
+        name: corporateNames[offset] || `Corporate Tie ${offset + 1}`,
+        source: "corporate",
+        sourceLabel: getCorporateDisplayName(draft),
+        kind: corporation.specializations.length ? "corporate" : "corporate-custom",
+      };
+    }
+  }
+
+  getDraftAugmentSpecializationNames(draft).forEach((name, offset) => {
+    const index = 10 + offset;
+    if (index > 12) {
+      return;
+    }
+    slots[index] = {
+      index,
+      active: true,
+      name,
+      source: "augment",
+      sourceLabel: name,
+      kind: "feature",
+    };
+  });
+
+  if (draft.takeTekhne) {
+    slots[13] = {
+      index: 13,
+      active: true,
+      name: draft.creationTekhneName,
+      source: "tekhne",
+      sourceLabel: draft.creationTekhneName,
+      kind: "feature",
+    };
+  }
+
+  if (draft.takeArkhemetry) {
+    slots[14] = {
+      index: 14,
+      active: true,
+      name: draft.creationArkhemetryName || "Arkhemetry",
+      source: "arkhemetry",
+      sourceLabel: draft.creationArkhemetryName || "Arkhemetry",
+      kind: "feature",
+    };
+  }
+
+  if (draft.takeCosmoglossia) {
+    slots[15] = {
+      index: 15,
+      active: true,
+      name: draft.creationCosmoglossiaName || "Cosmoglossia",
+      source: "cosmoglossia",
+      sourceLabel: draft.creationCosmoglossiaName || "Cosmoglossia",
+      kind: "feature",
+    };
+  }
+
+  return slots;
+}
+
+function getDraftAugmentSpecializationNames(draft) {
+  const names = [];
+  if (hasLineageAugment(draft.lineageKey)) {
+    names.push(draft.lineageFeatureName || getDefaultLineageFeatureName(draft.lineageKey));
+  }
+  getEnabledCreationAugments(draft).forEach((augment) => {
+    names.push(augment.name || getAugmentOption(augment.key).label);
+  });
+  return names.slice(0, 3);
+}
+
+function normalizeDraftSpecializationValues(rawValues, draft, specializationMax, options = {}) {
+  const activeIndexes = getDraftSpecializationSlots(draft)
+    .filter((slot) => slot.active)
+    .map((slot) => slot.index);
+  const adjustedTotal = getAdjustedSpecializationTotal(
+    getCreationTotalsForLineage(draft.lineageKey).specializations,
+    draft
+  );
+  const fallback = createSpecializationValueDefaults(activeIndexes, adjustedTotal, specializationMax);
+
+  if (options.reset || !Array.isArray(rawValues)) {
+    return fallback;
+  }
+
+  return Array.from({ length: MAX_SPECIALIZATIONS }, (_, index) => {
+    if (!activeIndexes.includes(index)) {
+      return 0;
+    }
+    const rawValue = rawValues[index];
+    if (rawValue === undefined || rawValue === null || rawValue === "") {
+      return fallback[index];
+    }
+    return clampNumber(rawValue, 0, specializationMax);
+  });
+}
+
+function createSpecializationValueDefaults(activeIndexes, total, maximum) {
+  const values = Array.from({ length: MAX_SPECIALIZATIONS }, () => 0);
+  if (!activeIndexes.length || total <= 0) {
+    return values;
+  }
+
+  let remaining = total;
+  activeIndexes.forEach((slotIndex, orderIndex) => {
+    if (remaining <= 0) {
+      return;
+    }
+    const slotsRemaining = activeIndexes.length - orderIndex;
+    const value = Math.min(maximum, Math.ceil(remaining / slotsRemaining));
+    values[slotIndex] = value;
+    remaining -= value;
+  });
+
+  return values;
+}
+
+function getVisibleSpecializationEntries(character) {
+  return character.specializations
+    .map((specialization, index) => ({ specialization, index }))
+    .filter((entry) => entry.specialization.active || entry.specialization.value > 0);
 }
 
 function getActiveCharacter() {
@@ -1928,6 +4343,8 @@ function normalizeAttributeDetail(rawValue) {
     return {
       name: String(rawValue.name || ""),
       description: String(rawValue.description || ""),
+      presetKey: String(rawValue.presetKey || "custom"),
+      cosmoglossiaPanels: normalizeCosmoglossiaPanels(rawValue.cosmoglossiaPanels),
     };
   }
 
@@ -1935,20 +4352,110 @@ function normalizeAttributeDetail(rawValue) {
     return {
       name: rawValue.trim(),
       description: "",
+      presetKey: "custom",
+      cosmoglossiaPanels: normalizeCosmoglossiaPanels([]),
     };
   }
 
-  return { name: "", description: "" };
+  return { name: "", description: "", presetKey: "custom", cosmoglossiaPanels: normalizeCosmoglossiaPanels([]) };
 }
 
-function getBodyDerivedValue(attribute) {
+function getAttributeDetailKind(sectionId, attributeIndex) {
+  if (sectionId === "soul") {
+    return "augment";
+  }
+
+  if (sectionId === "spirit" && attributeIndex === 0) {
+    return "tekhne";
+  }
+
+  if (sectionId === "spirit" && attributeIndex === 1) {
+    return "arkhemetry";
+  }
+
+  if (sectionId === "spirit" && attributeIndex === 2) {
+    return "cosmoglossia";
+  }
+
+  return "generic";
+}
+
+function buildAttributeDetailFromFormData(formData) {
+  const sectionId = String(formData.get("sectionId") || "");
+  const attributeIndex = Number(formData.get("attributeIndex"));
+  const fallbackName = String(formData.get("detailFallback") || "Ability");
+  const kind = getAttributeDetailKind(sectionId, attributeIndex);
+
+  if (kind === "augment") {
+    const option = getAugmentOption(formData.get("detailAugmentKey"));
+    return {
+      name: normalizePresetName(
+        formData.get("detailName"),
+        option.key === "custom" ? fallbackName : option.label,
+        AUGMENT_OPTIONS.map((augment) => augment.label)
+      ),
+      description: normalizePresetText(
+        formData.get("detailDescription"),
+        option.ability,
+        AUGMENT_OPTIONS.map((augment) => augment.ability)
+      ),
+      presetKey: option.key,
+      cosmoglossiaPanels: normalizeCosmoglossiaPanels([]),
+    };
+  }
+
+  if (kind === "tekhne") {
+    const name = TEKHNE_OPTIONS.includes(formData.get("detailName")) ? formData.get("detailName") : TEKHNE_OPTIONS[0];
+    return {
+      name,
+      description: String(formData.get("detailDescription") || "").trim(),
+      presetKey: "custom",
+      cosmoglossiaPanels: normalizeCosmoglossiaPanels([]),
+    };
+  }
+
+  if (kind === "arkhemetry") {
+    const name = ARKHEMETRY_OPTIONS.includes(formData.get("detailName"))
+      ? formData.get("detailName")
+      : ARKHEMETRY_OPTIONS[0];
+    return {
+      name,
+      description: String(formData.get("detailDescription") || "").trim(),
+      presetKey: "custom",
+      cosmoglossiaPanels: normalizeCosmoglossiaPanels([]),
+    };
+  }
+
+  if (kind === "cosmoglossia") {
+    const panels = normalizeCosmoglossiaPanels(getCosmoglossiaPanelsFromFormData(formData, "detailCosmoglossia"));
+    return {
+      name: "Cosmoglossia",
+      description: formatCosmoglossiaPanels(panels),
+      presetKey: "custom",
+      cosmoglossiaPanels: panels,
+    };
+  }
+
+  return {
+    name: String(formData.get("detailName") || "").trim(),
+    description: String(formData.get("detailDescription") || "").trim(),
+    presetKey: "custom",
+    cosmoglossiaPanels: normalizeCosmoglossiaPanels([]),
+  };
+}
+
+function getBodyDerivedValue(attribute, character) {
+  const lineageKey = character?.lineage?.key || "";
+
   if (attribute.key === "power") {
-    return attribute.score * 2;
+    const bulk = attribute.score * 2;
+    return lineageKey === "golem" ? bulk * 2 : bulk;
   }
   if (attribute.key === "control") {
-    return 12 - attribute.score;
+    const accuracy = 12 - attribute.score;
+    return lineageKey === "cyborg" ? Math.floor(accuracy / 2) : accuracy;
   }
-  return attribute.score;
+  return lineageKey === "android" ? attribute.score + 2 : attribute.score;
 }
 
 function getDisplayedDice(lastRoll) {
@@ -2125,6 +4632,47 @@ function getSpecializationLabel(index) {
   return `Specialization ${index + 1}`;
 }
 
+function getSpecializationName(specialization, index) {
+  return String(specialization?.name || "").trim() || getSpecializationLabel(index);
+}
+
+function getGenderLabel(value) {
+  return GENDER_OPTIONS.find((option) => option.value === value)?.label || "Male";
+}
+
+function getArrayTotal(values) {
+  return values.reduce((total, value) => total + Number(value || 0), 0);
+}
+
+function getAttributeTotal(character) {
+  return SECTION_TEMPLATES.reduce(
+    (total, section) =>
+      total + character.sections[section.id].attributes.reduce((sectionTotal, attribute) => sectionTotal + attribute.score, 0),
+    0
+  );
+}
+
+function getSkillTotal(character) {
+  return SECTION_TEMPLATES.reduce(
+    (total, section) =>
+      total + character.sections[section.id].skills.reduce((sectionTotal, skill) => sectionTotal + skill.value, 0),
+    0
+  );
+}
+
+function getSpecializationTotal(character) {
+  return character.specializations.reduce((total, specialization) => total + specialization.value, 0);
+}
+
+function readImageFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(String(reader.result || "")));
+    reader.addEventListener("error", reject);
+    reader.readAsDataURL(file);
+  });
+}
+
 function getSectionTitle(sectionId) {
   return SECTION_TEMPLATES.find((section) => section.id === sectionId)?.title || "Section";
 }
@@ -2166,8 +4714,15 @@ function pickNextNameSuggestionIndex(currentIndex) {
     return 0;
   }
 
-  const randomOffset = Math.floor(Math.random() * (NAME_PLACEHOLDER_SUGGESTIONS.length - 1)) + 1;
-  return (currentIndex + randomOffset + NAME_PLACEHOLDER_SUGGESTIONS.length) % NAME_PLACEHOLDER_SUGGESTIONS.length;
+  const usedNames = new Set((state?.characters || []).map((character) => character.name.toLowerCase()));
+  const availableIndexes = NAME_PLACEHOLDER_SUGGESTIONS.map((name, index) => ({ name, index }))
+    .filter((entry) => entry.index !== currentIndex)
+    .filter((entry) => !usedNames.has(entry.name.toLowerCase()))
+    .map((entry) => entry.index);
+  const fallbackIndexes = NAME_PLACEHOLDER_SUGGESTIONS.map((_, index) => index).filter((index) => index !== currentIndex);
+  const candidates = availableIndexes.length ? availableIndexes : fallbackIndexes;
+
+  return candidates[Math.floor(Math.random() * candidates.length)] ?? 0;
 }
 
 function getCreateCharacterNamePlaceholder() {

@@ -41,8 +41,8 @@ body {
     radial-gradient(circle at 15% 15%, rgba(16, 94, 104, 0.22), transparent 28%),
     radial-gradient(circle at 85% 20%, rgba(255, 159, 67, 0.16), transparent 24%),
     linear-gradient(145deg, #031017 0%, #081a23 48%, #02080c 100%);
-  overflow: hidden;
   overflow-x: hidden;
+  overflow-y: auto;
 }
 
 body::before {
@@ -87,19 +87,17 @@ svg {
 }
 
 #app {
-  height: 100dvh;
   min-height: 100dvh;
 }
 
 .app-shell {
   position: relative;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
   gap: var(--app-gap);
-  height: 100dvh;
   min-height: 100dvh;
   padding: 0.65rem;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .backdrop-orbit {
@@ -132,6 +130,7 @@ svg {
 .utility-panel,
 .specializations-panel,
 .inventory-panel,
+.profile-panel,
 .welcome-panel {
   border: 1px solid var(--line-soft);
   border-radius: var(--radius-lg);
@@ -283,7 +282,7 @@ svg {
   gap: var(--app-gap);
   align-items: start;
   min-height: 0;
-  height: 100%;
+  height: auto;
 }
 
 .workspace-empty {
@@ -333,6 +332,10 @@ svg {
   overflow: visible;
 }
 
+.character-title-button.is-active h1 {
+  color: var(--accent);
+}
+
 .character-title-button h1,
 .stat-header h2,
 .utility-title-row h2,
@@ -345,6 +348,21 @@ svg {
 .character-title-button h1 {
   font-size: 2.2rem;
   line-height: 1;
+}
+
+.character-title-meta {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.character-title-button:hover .character-title-meta,
+.character-title-button.is-active .character-title-meta {
+  color: var(--accent);
 }
 
 .character-hover-hint {
@@ -935,6 +953,183 @@ svg {
   padding: 0.8rem;
 }
 
+.profile-panel {
+  display: grid;
+  grid-template-columns: minmax(13rem, 17rem) minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 0.8rem;
+  min-height: 0;
+  background:
+    linear-gradient(135deg, rgba(8, 22, 31, 0.96), rgba(7, 17, 24, 0.92)),
+    radial-gradient(circle at top left, rgba(255, 179, 94, 0.08), transparent 28%);
+}
+
+.profile-image-panel,
+.profile-detail,
+.feature-editor {
+  border: 1px solid rgba(157, 205, 216, 0.12);
+  border-radius: var(--radius-md);
+  background: var(--bg-panel-soft);
+}
+
+.profile-image-panel {
+  display: grid;
+  gap: 0.65rem;
+  align-content: start;
+  padding: 0.7rem;
+}
+
+.profile-image-slot {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 3 / 4;
+  min-height: 16rem;
+  border: 1px dashed rgba(157, 205, 216, 0.2);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(180deg, rgba(9, 19, 27, 0.82), rgba(6, 13, 19, 0.9)),
+    radial-gradient(circle at top, rgba(123, 231, 207, 0.08), transparent 35%);
+  color: var(--text-muted);
+  font-weight: 800;
+  text-align: center;
+  overflow: hidden;
+}
+
+.profile-image-slot.has-image {
+  border-style: solid;
+}
+
+.profile-image-slot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-image-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+}
+
+.profile-upload-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-upload-button input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.profile-stack,
+.feature-editor-list,
+.feature-editor-fields {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.profile-detail {
+  padding: 0.05rem 0.7rem 0.7rem;
+}
+
+.profile-detail summary,
+.feature-editor summary {
+  cursor: pointer;
+  padding: 0.68rem 0;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.feature-editor {
+  padding: 0.05rem 0.65rem 0.65rem;
+}
+
+.feature-editor summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.feature-editor small,
+.profile-empty {
+  color: var(--text-muted);
+}
+
+.profile-field-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.profile-field-grid label,
+.feature-editor-fields label,
+.profile-specialization-row {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.profile-field-grid label span,
+.feature-editor-fields label span {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.profile-field-grid input,
+.profile-field-grid select,
+.feature-editor-fields input,
+.feature-editor-fields textarea,
+.profile-specialization-row input {
+  width: 100%;
+  padding: 0.58rem 0.64rem;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--bg-field);
+  color: var(--text-main);
+}
+
+.feature-editor-fields textarea {
+  resize: vertical;
+}
+
+.creation-total-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.creation-total-card {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.65rem;
+  border: 1px solid rgba(157, 205, 216, 0.12);
+  border-radius: var(--radius-sm);
+  background: rgba(7, 17, 24, 0.72);
+}
+
+.creation-total-card span {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
+.profile-specialization-grid {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.profile-specialization-row {
+  grid-template-columns: 1.5rem minmax(0, 1fr) 4.5rem;
+  align-items: end;
+}
+
+.profile-specialization-row > span {
+  align-self: center;
+  color: var(--text-muted);
+  font-weight: 800;
+  text-align: center;
+}
+
 .welcome-panel {
   min-height: 68vh;
   display: grid;
@@ -966,8 +1161,10 @@ svg {
   inset: 0;
   z-index: 20;
   display: grid;
-  place-items: center;
+  place-items: start center;
   padding: 0.75rem;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   background: rgba(2, 8, 12, 0.74);
   backdrop-filter: blur(10px);
 }
@@ -975,12 +1172,18 @@ svg {
 .modal-card {
   width: min(34rem, 100%);
   max-height: calc(100vh - 1.5rem);
+  max-height: calc(100dvh - 1.5rem);
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 1rem;
   border: 1px solid var(--line-soft);
   border-radius: var(--radius-lg);
   background: rgba(8, 18, 26, 0.97);
   box-shadow: var(--shadow);
+}
+
+.modal-card-wide {
+  width: min(74rem, 100%);
 }
 
 .modal-header {
@@ -1011,6 +1214,266 @@ svg {
 
 .modal-form-tight {
   gap: 0.55rem;
+}
+
+.create-character-form {
+  gap: 0.85rem;
+}
+
+.create-section {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.7rem;
+  border: 1px solid rgba(157, 205, 216, 0.12);
+  border-radius: var(--radius-md);
+  background: rgba(12, 24, 33, 0.58);
+}
+
+.create-section h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1rem;
+}
+
+.create-section-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.create-grid,
+.create-attribute-grid,
+.create-skill-grid,
+.create-specialization-grid,
+.optional-feature-grid,
+.create-specialization-groups {
+  display: grid;
+  gap: 0.48rem;
+}
+
+.create-grid-two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.create-grid-three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.create-attribute-grid {
+  grid-template-columns: repeat(9, minmax(4.6rem, 1fr));
+}
+
+.create-skill-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.create-specialization-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.optional-feature-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.optional-feature-card,
+.create-specialization-group {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.6rem;
+  border: 1px solid rgba(157, 205, 216, 0.12);
+  border-radius: var(--radius-sm);
+  background: rgba(7, 17, 24, 0.52);
+}
+
+.optional-feature-card.is-active {
+  border-color: rgba(123, 231, 207, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(123, 231, 207, 0.12);
+}
+
+.optional-feature-card label {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.optional-feature-card .inline-toggle {
+  display: inline-flex;
+}
+
+.optional-feature-card-wide {
+  grid-column: 1 / -1;
+}
+
+.cosmoglossia-tile {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+  padding: 0.35rem 0.1rem 0.15rem;
+}
+
+.cosmoglossia-panel {
+  position: relative;
+  display: grid;
+  gap: 0.28rem;
+  place-items: center;
+  min-height: 7rem;
+  padding: 0.7rem;
+  overflow: hidden;
+  border: 1px solid rgba(157, 205, 216, 0.12);
+  border-radius: var(--radius-sm);
+}
+
+.cosmoglossia-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0.95rem;
+  z-index: 0;
+  transform: rotate(45deg);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(123, 231, 207, 0.14);
+}
+
+.cosmoglossia-panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+.cosmoglossia-panel span {
+  color: var(--text-main);
+  font-size: 0.74rem;
+  font-weight: 900;
+}
+
+.cosmoglossia-panel select,
+.cosmoglossia-panel input {
+  text-align: center;
+}
+
+.cosmoglossia-panel-c::before {
+  background: rgba(0, 210, 255, 0.24);
+}
+
+.cosmoglossia-panel-m::before {
+  background: rgba(255, 64, 180, 0.22);
+}
+
+.cosmoglossia-panel-y::before {
+  background: rgba(255, 220, 64, 0.24);
+}
+
+.cosmoglossia-panel-k::before {
+  background: rgba(1, 5, 8, 0.64);
+}
+
+.cosmoglossia-panel-w::before {
+  background: rgba(245, 250, 250, 0.22);
+}
+
+.cosmoglossia-panel-r::before {
+  background: rgba(255, 79, 79, 0.22);
+}
+
+.cosmoglossia-panel-g::before {
+  background: rgba(80, 230, 128, 0.2);
+}
+
+.cosmoglossia-panel-b::before {
+  background: rgba(64, 112, 255, 0.22);
+}
+
+.creation-cost-note {
+  color: var(--accent-warm);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.create-specialization-groups {
+  gap: 0.65rem;
+}
+
+.create-specialization-group h4 {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.create-compact-field,
+.create-skill-row,
+.create-specialization-row {
+  display: grid;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+.create-compact-field span,
+.create-skill-row span,
+.create-specialization-row span,
+.create-note {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
+.create-compact-field span,
+.create-skill-row span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.create-skill-row {
+  grid-template-columns: auto minmax(0, 1fr) 4.2rem;
+  align-items: center;
+}
+
+.create-skill-row span:first-child {
+  grid-column: 1 / 3;
+}
+
+.create-skill-row input[type="checkbox"] + span {
+  grid-column: auto;
+}
+
+.create-specialization-row {
+  grid-template-columns: 1.4rem minmax(0, 1fr) 4.5rem;
+  align-items: center;
+}
+
+.create-specialization-row > span {
+  justify-self: center;
+  font-weight: 800;
+}
+
+.creation-point-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 5.2rem;
+  padding: 0.28rem 0.5rem;
+  border: 1px solid rgba(157, 205, 216, 0.12);
+  border-radius: 999px;
+  background: rgba(7, 17, 24, 0.78);
+  color: var(--text-muted);
+  font-weight: 800;
+}
+
+.creation-point-status.is-complete {
+  border-color: rgba(123, 231, 207, 0.34);
+  color: var(--accent);
+}
+
+.creation-point-status.is-off {
+  border-color: rgba(255, 179, 94, 0.36);
+  color: var(--accent-warm);
+}
+
+.corporate-override-grid {
+  padding: 0.55rem;
+  border: 1px dashed rgba(157, 205, 216, 0.16);
+  border-radius: var(--radius-sm);
 }
 
 .modal-form label,
@@ -1241,13 +1704,13 @@ svg {
   .specialization-strip {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
+
+  .create-attribute-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 960px) {
-  body {
-    overflow-y: auto;
-  }
-
   #app,
   .app-shell {
     height: auto;
@@ -1265,8 +1728,14 @@ svg {
   }
 
   .skills-grid,
-  .attribute-strip {
+  .attribute-strip,
+  .profile-field-grid,
+  .creation-total-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .profile-panel {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1314,8 +1783,30 @@ svg {
   .attribute-strip,
   .skills-grid,
   .specialization-strip,
-  .checkbox-grid {
+  .checkbox-grid,
+  .create-grid-two,
+  .create-grid-three,
+  .create-attribute-grid,
+  .create-skill-grid,
+  .create-specialization-grid,
+  .optional-feature-grid,
+  .profile-field-grid,
+  .creation-total-grid {
     grid-template-columns: 1fr;
+  }
+
+  .profile-specialization-row,
+  .create-specialization-row {
+    grid-template-columns: 1.4rem minmax(0, 1fr);
+  }
+
+  .cosmoglossia-tile {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .profile-specialization-row input[type="number"],
+  .create-specialization-row input[type="number"] {
+    grid-column: 2;
   }
 
   .character-menu-actions {
