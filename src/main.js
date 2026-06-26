@@ -277,6 +277,56 @@ const AUGMENT_OPTIONS = [
   },
 ];
 
+const GEAR_SHIELD_TYPES = [
+  { key: "energy", label: "Energy Shield" },
+  { key: "ballistic", label: "Ballistic Shield" },
+  { key: "radiation", label: "Radiation Shield" },
+];
+
+const GEAR_ABILITY_KEYWORDS = [
+  { label: "Active Armor #", kind: "armor", timing: "Active" },
+  { label: "Passive Armor #", kind: "armor", timing: "Passive" },
+  { label: "Active Energy Shield #", kind: "shield", timing: "Active", shield: "Energy" },
+  { label: "Active Ballistic Shield #", kind: "shield", timing: "Active", shield: "Ballistic" },
+  { label: "Active Radiation Shield #", kind: "shield", timing: "Active", shield: "Radiation" },
+  { label: "Passive Energy Shield #", kind: "shield", timing: "Passive", shield: "Energy" },
+  { label: "Passive Ballistic Shield #", kind: "shield", timing: "Passive", shield: "Ballistic" },
+  { label: "Passive Radiation Shield #", kind: "shield", timing: "Passive", shield: "Radiation" },
+  { label: "Active Skill + #", kind: "bonus", timing: "Active", targetKind: "skill" },
+  { label: "Passive Skill + #", kind: "bonus", timing: "Passive", targetKind: "skill" },
+  { label: "Active Attribute + #", kind: "bonus", timing: "Active", targetKind: "attribute" },
+  { label: "Passive Attribute + #", kind: "bonus", timing: "Passive", targetKind: "attribute" },
+  { label: "Active Specialization + #", kind: "bonus", timing: "Active", targetKind: "specialization" },
+  { label: "Passive Specialization + #", kind: "bonus", timing: "Passive", targetKind: "specialization" },
+  { label: "Flip", kind: "simple", template: "Flip" },
+  { label: "Damage ___", kind: "text", prefix: "Damage", placeholder: "2d8" },
+  { label: "Melee", kind: "simple", template: "Melee" },
+  { label: "Ranged", kind: "simple", template: "Ranged" },
+  { label: "Thrown", kind: "simple", template: "Thrown" },
+  { label: "Pistol", kind: "simple", template: "Pistol" },
+  { label: "Long Ranged", kind: "simple", template: "Long Ranged" },
+  { label: "Indirect", kind: "simple", template: "Indirect" },
+  { label: "Anti ___", kind: "text", prefix: "Anti", placeholder: "Armor" },
+  { label: "Silent", kind: "simple", template: "Silent" },
+  { label: "Burn #", kind: "number", prefix: "Burn", allowInfinity: true },
+  { label: "Blast", kind: "simple", template: "Blast" },
+  { label: "Stun", kind: "simple", template: "Stun" },
+  { label: "Energy", kind: "simple", template: "Energy" },
+  { label: "Ballistic", kind: "simple", template: "Ballistic" },
+  { label: "Radiation", kind: "simple", template: "Radiation" },
+  { label: "Delirium", kind: "simple", template: "Delirium" },
+  { label: "Theurgic", kind: "simple", template: "Theurgic" },
+  { label: "Madness #", kind: "number", prefix: "Madness" },
+  { label: "Rift #", kind: "number", prefix: "Rift" },
+  { label: "Hazard", kind: "simple", template: "Hazard" },
+  { label: "Limited #", kind: "number", prefix: "Limited" },
+  { label: "Recharge ___", kind: "text", prefix: "Recharge", placeholder: "Scene" },
+  { label: "Heavy", kind: "simple", template: "Heavy" },
+  { label: "Rapid", kind: "simple", template: "Rapid" },
+  { label: "Offhand ___", kind: "text", prefix: "Offhand", placeholder: "Light" },
+  { label: "Custom", kind: "custom" },
+];
+
 const BIOMETRIC_FIELDS = [
   { key: "height", label: "Height" },
   { key: "weight", label: "Weight" },
@@ -352,7 +402,7 @@ function renderApp() {
               <aside class="utility-column">
                 ${renderCharacterActionsPanel(character)}
                 ${renderDicePanel()}
-                ${renderGearPanel()}
+                ${renderGearPanel(character)}
               </aside>
             `
             : renderWelcomePanel()
@@ -503,19 +553,24 @@ function renderPrimaryView(character) {
   }
 
   if (state.ui.activeView === "inventory") {
-    return renderInventoryView();
+    return renderInventoryView(character);
   }
+
+  const gearState = calculateGearState(character);
 
   return `
     <div class="sheet-grid">
-      ${SECTION_TEMPLATES.map((section) => renderSectionBlock(character, section)).join("")}
+      ${SECTION_TEMPLATES.map((section) => renderSectionBlock(character, section, gearState)).join("")}
     </div>
     <section class="specializations-panel">
       <div class="subsection-title">Specializations</div>
       <div class="specialization-strip">
         ${getVisibleSpecializationEntries(character)
           .map(
-            ({ specialization, index }) => `
+            ({ specialization, index }) => {
+              const effectiveValue = getEffectiveSpecializationValue(character, index, gearState);
+              const gearBonus = effectiveValue - specialization.value;
+              return `
               <label class="specialization-box">
                 <span>${escapeHtml(getSpecializationName(specialization, index))}</span>
                 <input
@@ -527,8 +582,10 @@ function renderPrimaryView(character) {
                   data-index="${index}"
                   ${state.ui.editMode ? "" : "disabled"}
                 />
+                ${gearBonus ? `<em class="gear-bonus-chip">${escapeHtml(formatSigned(gearBonus))} gear</em>` : ""}
               </label>
-            `
+            `;
+            }
           )
           .join("")}
       </div>
@@ -536,9 +593,9 @@ function renderPrimaryView(character) {
   `;
 }
 
-function renderSectionBlock(character, template) {
+function renderSectionBlock(character, template, gearState) {
   const section = character.sections[template.id];
-  const maxHealth = getSectionMax(section);
+  const maxHealth = getSectionMax(section, character, template.id, gearState);
   const isSkillLossMode = state.ui.skillLossSelectionSection === template.id;
 
   return `
@@ -577,18 +634,20 @@ function renderSectionBlock(character, template) {
       </div>
       <div class="subsection-title">Attributes</div>
       <div class="attribute-strip">
-        ${section.attributes.map((attribute, index) => renderAttributeCard(character, template, attribute, index)).join("")}
+        ${section.attributes.map((attribute, index) => renderAttributeCard(character, template, attribute, index, gearState)).join("")}
       </div>
       <div class="subsection-title">Skills</div>
       <div class="skills-grid">
-        ${section.skills.map((skill, index) => renderSkillCard(template.id, skill, index, isSkillLossMode)).join("")}
+        ${section.skills.map((skill, index) => renderSkillCard(character, template.id, skill, index, isSkillLossMode, gearState)).join("")}
       </div>
     </section>
   `;
 }
 
-function renderSkillCard(sectionId, skill, index, isSkillLossMode) {
+function renderSkillCard(character, sectionId, skill, index, isSkillLossMode, gearState) {
   const classes = `skill-box ${skill.redacted ? "is-redacted" : ""} ${isSkillLossMode ? "is-armed" : ""}`.trim();
+  const effectiveValue = getEffectiveSkillValue(character, sectionId, index, gearState);
+  const gearBonus = effectiveValue - skill.value;
 
   if (isSkillLossMode) {
     return `
@@ -601,6 +660,7 @@ function renderSkillCard(sectionId, skill, index, isSkillLossMode) {
       >
         <span>${escapeHtml(skill.label)}</span>
         <div class="skill-value-display">${skill.value}</div>
+        ${gearBonus ? `<em class="gear-bonus-chip">${escapeHtml(formatSigned(gearBonus))} gear</em>` : ""}
       </button>
     `;
   }
@@ -618,14 +678,19 @@ function renderSkillCard(sectionId, skill, index, isSkillLossMode) {
         data-index="${index}"
         ${state.ui.editMode ? "" : "disabled"}
       />
+      ${gearBonus ? `<em class="gear-bonus-chip">${escapeHtml(formatSigned(gearBonus))} gear</em>` : ""}
     </label>
   `;
 }
 
-function renderAttributeCard(character, template, attribute, index) {
+function renderAttributeCard(character, template, attribute, index, gearState) {
   const detail = normalizeAttributeDetail(attribute.detail);
+  const effectiveScore = getEffectiveAttributeScore(character, template.id, index, gearState);
+  const gearBonus = effectiveScore - attribute.score;
   const subboxLabel =
-    template.id === "body" ? `${attribute.subLabel} ${getBodyDerivedValue(attribute, character)}` : detail.name || attribute.subLabel;
+    template.id === "body"
+      ? `${attribute.subLabel} ${getBodyDerivedValue(attribute, character, gearState)}`
+      : detail.name || attribute.subLabel;
   const isTight = attribute.label.length > 9 || subboxLabel.length > 11;
 
   return `
@@ -642,7 +707,10 @@ function renderAttributeCard(character, template, attribute, index) {
           (value) => `<option value="${value}" ${value === attribute.score ? "selected" : ""}>${value}</option>`
         ).join("")}
       </select>
-      <div class="attribute-dice">(${escapeHtml(formatDiceNotation(scoreToDice(attribute.score)))})</div>
+      <div class="attribute-dice">
+        (${escapeHtml(formatDiceNotation(scoreToDice(effectiveScore)))})
+        ${gearBonus ? `<em class="gear-bonus-chip">${escapeHtml(formatSigned(gearBonus))} gear</em>` : ""}
+      </div>
       ${
         template.id === "body"
           ? `
@@ -666,10 +734,56 @@ function renderAttributeCard(character, template, attribute, index) {
   `;
 }
 
-function renderInventoryView() {
+function renderInventoryView(character) {
+  const gearState = calculateGearState(character);
+  const gear = gearState.gear;
+
   return `
     <section class="inventory-panel">
-      <div class="inventory-blank"></div>
+      <div class="inventory-header">
+        <div>
+          <h2>Gear Inventory</h2>
+          <span>${gear.items.length} ${gear.items.length === 1 ? "card" : "cards"}</span>
+        </div>
+        <button class="primary-button" data-action="open-gear-modal" type="button">
+          ${iconPlus()}
+          <span>Add Card</span>
+        </button>
+      </div>
+      ${renderGearSummary(gearState, { placement: "inventory" })}
+      <div class="inventory-layout">
+        <section class="inventory-section">
+          <div class="inventory-section-heading">
+            <h3>Focus</h3>
+            <span>${gearState.focusedItems.length}/${gearState.focusLimit}</span>
+          </div>
+          <div class="focus-slot-grid">
+            ${renderFocusSlots(gearState, { mode: "inventory" })}
+          </div>
+        </section>
+        <section class="inventory-section">
+          <div class="inventory-section-heading">
+            <h3>Pack</h3>
+            <span>Bulk ${formatGearNumber(gearState.totalBulk)}</span>
+          </div>
+          ${
+            gear.items.length
+              ? `<div class="inventory-card-grid">
+                  ${getAlphabetizedGearItems(gear.items)
+                    .map((item) =>
+                      renderGearCard(item, {
+                        mode: "inventory",
+                        gearState,
+                        showControls: true,
+                        showRules: true,
+                      })
+                    )
+                    .join("")}
+                </div>`
+              : `<div class="inventory-empty">No gear cards yet.</div>`
+          }
+        </section>
+      </div>
     </section>
   `;
 }
@@ -1728,14 +1842,284 @@ function renderDie(die, index, canReroll) {
   return `<div class="${className}" aria-hidden="true">${artMarkup}</div>`;
 }
 
-function renderGearPanel() {
+function renderGearPanel(character) {
+  const gearState = calculateGearState(character);
+
   return `
     <section class="utility-panel gear-panel">
       <div class="utility-title-row">
         <h2>Gear</h2>
+        <div class="utility-title-actions">
+          <button
+            class="icon-button toolbar-icon-button"
+            data-action="switch-view"
+            data-view="inventory"
+            type="button"
+            aria-label="Open inventory"
+            title="Open inventory"
+          >
+            ${iconBackpack()}
+          </button>
+        </div>
       </div>
-      <div class="gear-blank"></div>
+      <div class="gear-hotbar">
+        ${renderGearSummary(gearState, { placement: "hotbar" })}
+        <div class="hotbar-card-grid">
+          ${renderFocusSlots(gearState, { mode: "hotbar" })}
+        </div>
+      </div>
     </section>
+  `;
+}
+
+function renderGearSummary(gearState, options = {}) {
+  const placement = options.placement || "inventory";
+  const bulkClass =
+    gearState.encumbranceLevel === "overloaded"
+      ? "is-danger"
+      : gearState.encumbranceLevel === "strained"
+        ? "is-warning"
+        : "";
+  const statusLabel =
+    gearState.encumbranceLevel === "overloaded"
+      ? "Incidental-only turns"
+      : gearState.encumbranceLevel === "strained"
+        ? "Half speed / no Incidentals"
+        : "Clear";
+  const shieldChips = GEAR_SHIELD_TYPES.map((shieldType) => {
+    const shield = gearState.shields[shieldType.key];
+    if (!shield?.max) {
+      return "";
+    }
+
+    return `
+      <button
+        class="gear-summary-chip gear-shield-chip"
+        data-action="adjust-shield"
+        data-shield-key="${shieldType.key}"
+        type="button"
+        aria-label="${escapeAttribute(shieldType.label)} ${shield.current} of ${shield.max}"
+        title="${escapeAttribute(shieldType.label)}"
+      >
+        <span>${escapeHtml(shieldType.label)}</span>
+        <strong>${shield.current}/${shield.max}</strong>
+      </button>
+    `;
+  }).join("");
+
+  return `
+    <div class="gear-summary gear-summary-${placement}">
+      <div class="gear-summary-chip ${bulkClass}">
+        <span>Bulk</span>
+        <strong>${formatGearNumber(gearState.totalBulk)}/${formatGearNumber(gearState.bulkCapacity)}</strong>
+      </div>
+      <div class="gear-summary-chip">
+        <span>Focus</span>
+        <strong>${gearState.focusedItems.length}/${gearState.focusLimit}</strong>
+      </div>
+      <div class="gear-summary-chip">
+        <span>Armor</span>
+        <strong>${gearState.armor}</strong>
+      </div>
+      ${shieldChips}
+      <div class="gear-summary-chip gear-summary-status ${bulkClass}">
+        <span>Status</span>
+        <strong>${escapeHtml(statusLabel)}</strong>
+      </div>
+    </div>
+  `;
+}
+
+function renderFocusSlots(gearState, options = {}) {
+  const mode = options.mode || "inventory";
+  const focusLimit = Math.max(0, gearState.focusLimit);
+
+  if (!focusLimit) {
+    return `<div class="focus-slot-empty">No Focus slots.</div>`;
+  }
+
+  return Array.from({ length: focusLimit }, (_, index) => {
+    const item = gearState.focusedItems[index];
+    const slotLabel = index + 1;
+
+    return `
+      <div class="focus-slot ${item ? "has-card" : ""}">
+        <div class="focus-slot-label">${slotLabel}</div>
+        ${
+          item
+            ? renderGearCard(item, {
+                mode: mode === "hotbar" ? "hotbar" : "focus",
+                gearState,
+                showControls: mode !== "hotbar",
+                expanded: false,
+              })
+            : `<div class="focus-slot-empty">Empty</div>`
+        }
+      </div>
+    `;
+  }).join("");
+}
+
+function renderGearCard(item, options = {}) {
+  const mode = options.mode || "inventory";
+  const gearState = options.gearState || calculateGearState(getActiveCharacter());
+  const face = getGearItemFace(item);
+  const isBroken = isGearItemBroken(item);
+  const isFocused = gearState.focusIds.includes(item.id);
+  const showControls = Boolean(options.showControls);
+  const isExpanded = Boolean(options.expanded);
+  const cardClasses = [
+    "gear-card",
+    `gear-card-${mode}`,
+    isExpanded ? "gear-card-expanded" : "gear-card-compact",
+    isBroken ? "is-broken" : "",
+    isFocused ? "is-focused" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const actionAttributes = isExpanded
+    ? ""
+    : `data-action="open-gear-view-modal" data-item-id="${escapeAttribute(item.id)}"`;
+
+  return `
+    <article class="${cardClasses}" data-item-id="${escapeAttribute(item.id)}" ${actionAttributes}>
+      <div class="gear-card-banner">
+        <span>${escapeHtml(getGearCardName(item))}</span>
+        ${item.hasFlip ? `<strong>${item.activeFace === "back" ? "II" : "I"}</strong>` : ""}
+      </div>
+      ${renderGearCardArt(item)}
+      ${
+        isExpanded
+          ? renderGearCardRules(face, {
+              hideRulesText: isBroken && mode === "hotbar",
+              isBroken,
+            })
+          : ""
+      }
+      ${renderDurabilityBoxes(item, { compactProgress: mode === "hotbar" && !isExpanded })}
+      ${showControls || (mode === "hotbar" && item.hasFlip) ? renderGearCardActions(item, options, gearState) : ""}
+    </article>
+  `;
+}
+
+function renderGearCardArt(item) {
+  const face = getGearItemFace(item);
+
+  return `
+    <div class="gear-card-art">
+      ${
+        face.image
+          ? `<img src="${escapeAttribute(face.image)}" alt="${escapeAttribute(getGearCardName(item))}" />`
+          : `<div class="gear-card-art-placeholder">${iconBackpack()}</div>`
+      }
+      <div class="gear-card-bulk">${formatGearNumber(getGearCardBulk(item))}</div>
+    </div>
+  `;
+}
+
+function renderGearCardRules(face, options = {}) {
+  const abilityLines = normalizeGearAbilityList([...face.abilities, ...getLegacyGearRules(face)]);
+  const abilityMarkup = abilityLines.length
+    ? `<div class="gear-ability-line-list">
+        ${abilityLines.map((ability) => `<div>${escapeHtml(ability)}</div>`).join("")}
+      </div>`
+    : "";
+
+  if (options.isBroken && options.hideRulesText) {
+    return `<div class="gear-card-rules gear-card-rules-muted">Disabled</div>`;
+  }
+
+  return `
+    <div class="gear-card-rules">
+      ${abilityMarkup || `<div class="gear-card-rules-empty">No abilities.</div>`}
+    </div>
+  `;
+}
+
+function renderDurabilityBoxes(item, options = {}) {
+  const durabilityTone = getDurabilityTone(item);
+
+  if (options.compactProgress) {
+    const marked = clampNumber(item.durabilityMarked, 0, item.durabilityMax);
+    const percentage = item.durabilityMax ? (marked / item.durabilityMax) * 100 : 0;
+
+    return `
+      <button
+        class="gear-durability-progress gear-durability-${durabilityTone}"
+        data-action="advance-gear-durability"
+        data-item-id="${escapeAttribute(item.id)}"
+        type="button"
+        aria-label="Durability ${marked} of ${item.durabilityMax}"
+        title="Durability ${marked}/${item.durabilityMax}"
+      >
+        <span style="width: ${percentage}%"></span>
+      </button>
+    `;
+  }
+
+  return `
+    <div class="gear-durability-row gear-durability-${durabilityTone}" aria-label="Durability">
+      ${Array.from({ length: item.durabilityMax }, (_, index) => {
+        const isFilled = index < item.durabilityMarked;
+        return `
+          <button
+            class="gear-durability-box ${isFilled ? "is-filled" : `is-${durabilityTone}`}"
+            data-action="set-gear-durability"
+            data-item-id="${escapeAttribute(item.id)}"
+            data-durability-index="${index}"
+            type="button"
+            aria-label="Durability ${index + 1}"
+          ></button>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function renderGearCardActions(item, options, gearState) {
+  const mode = options.mode || "inventory";
+
+  if (mode === "hotbar") {
+    return item.hasFlip
+      ? `
+        <div class="gear-card-actions gear-card-actions-hotbar">
+          <button class="gear-card-tool" data-action="flip-gear-card" data-item-id="${escapeAttribute(item.id)}" type="button" title="Flip">
+            ${iconFlipCard()}
+          </button>
+        </div>
+      `
+      : "";
+  }
+
+  if (mode === "focus") {
+    return `
+      <div class="gear-card-actions">
+        ${
+          item.hasFlip
+            ? `<button class="gear-card-tool" data-action="flip-gear-card" data-item-id="${escapeAttribute(item.id)}" type="button" title="Flip">${iconFlipCard()}</button>`
+            : ""
+        }
+        <button class="gear-card-tool" data-action="toggle-gear-focus" data-item-id="${escapeAttribute(item.id)}" type="button" title="Remove from Focus">
+          ${iconMinus()}
+        </button>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="gear-card-actions">
+      ${
+        item.hasFlip
+          ? `<button class="gear-card-tool" data-action="flip-gear-card" data-item-id="${escapeAttribute(item.id)}" type="button" title="Flip">${iconFlipCard()}</button>`
+          : ""
+      }
+      <button class="gear-card-tool ${gearState.focusIds.includes(item.id) ? "is-active" : ""}" data-action="toggle-gear-focus" data-item-id="${escapeAttribute(item.id)}" type="button" title="Focus">
+        ${iconFocus()}
+      </button>
+      <button class="gear-card-tool gear-card-tool-danger" data-action="delete-gear-card" data-item-id="${escapeAttribute(item.id)}" type="button" title="Delete">
+        ${iconTrash()}
+      </button>
+    </div>
   `;
 }
 
@@ -1849,6 +2233,14 @@ function renderModal() {
         </div>
       `
     );
+  }
+
+  if (type === "gear-card") {
+    return renderGearCardModal(character, payload);
+  }
+
+  if (type === "gear-view") {
+    return renderGearViewModal(character, payload);
   }
 
   if (type === "attribute-detail") {
@@ -2054,6 +2446,288 @@ function renderModal() {
   return "";
 }
 
+function renderGearCardModal(character, payload = {}) {
+  const existingItem = character?.gear?.items?.find((item) => item.id === payload?.itemId);
+  const draft = normalizeGearItem(payload?.draft || existingItem || createDefaultGearItem());
+  const face = getGearItemFace(draft);
+  const title = existingItem ? `Edit ${face.name}` : "Add Gear Card";
+
+  return renderModalShell(
+    title,
+    "",
+    `
+      <form class="modal-form gear-card-form" data-form="gear-card">
+        <input type="hidden" name="itemId" value="${escapeAttribute(existingItem?.id || payload?.itemId || "")}" />
+        <input type="hidden" name="durabilityMarked" value="${draft.durabilityMarked}" />
+        <div class="gear-modal-topline">
+          <label>
+            <span>Durability Boxes</span>
+            <input type="number" name="durabilityMax" min="1" max="12" value="${draft.durabilityMax}" />
+          </label>
+          ${
+            draft.hasFlip
+              ? `
+                <label>
+                  <span>Current Face</span>
+                  <select name="activeFace">
+                    <option value="front" ${draft.activeFace === "front" ? "selected" : ""}>Front</option>
+                    <option value="back" ${draft.activeFace === "back" ? "selected" : ""}>Back</option>
+                  </select>
+                </label>
+              `
+              : `<input type="hidden" name="activeFace" value="front" />`
+          }
+        </div>
+        ${payload?.keywordBuilder ? renderGearKeywordBuilder(character, payload.keywordBuilder) : ""}
+        <div class="gear-face-editor-grid ${draft.hasFlip ? "" : "gear-face-editor-grid-single"}">
+          ${renderGearFaceEditor("front", "Front", draft.faces.front, { primary: true })}
+          ${draft.hasFlip ? renderGearFaceEditor("back", "Back", draft.faces.back, { primary: false }) : ""}
+        </div>
+        <div class="modal-actions">
+          <button class="secondary-button" data-action="close-modal" type="button">Cancel</button>
+          <button class="primary-button" type="submit">Save</button>
+        </div>
+      </form>
+    `,
+    { wide: true }
+  );
+}
+
+function renderGearViewModal(character, payload = {}) {
+  const gearState = calculateGearState(character);
+  const item = gearState.gear.items.find((entry) => entry.id === payload?.itemId);
+
+  if (!item) {
+    return "";
+  }
+
+  const isFocused = gearState.focusIds.includes(item.id);
+
+  return renderModalShell(
+    getGearCardName(item),
+    item.hasFlip ? `Face ${item.activeFace === "back" ? "II" : "I"}` : "",
+    `
+      <div class="gear-view-modal">
+        ${renderGearCard(item, {
+          mode: "view",
+          gearState,
+          expanded: true,
+          showControls: false,
+        })}
+        <div class="modal-actions">
+          <button class="secondary-button" data-action="close-modal" type="button">Close</button>
+          ${
+            item.hasFlip
+              ? `<button class="secondary-button" data-action="flip-gear-card" data-item-id="${escapeAttribute(item.id)}" type="button">${iconFlipCard()} <span>Flip</span></button>`
+              : ""
+          }
+          <button class="secondary-button" data-action="toggle-gear-focus" data-item-id="${escapeAttribute(item.id)}" type="button">
+            ${isFocused ? iconMinus() : iconFocus()}
+            <span>${isFocused ? "Remove Focus" : "Focus"}</span>
+          </button>
+          <button class="primary-button" data-action="open-gear-modal" data-item-id="${escapeAttribute(item.id)}" type="button">
+            ${iconEdit()}
+            <span>Edit</span>
+          </button>
+        </div>
+      </div>
+    `
+  );
+}
+
+function renderGearKeywordBuilder(character, builder) {
+  const keyword = GEAR_ABILITY_KEYWORDS[Number(builder.keywordIndex)];
+  if (!keyword) {
+    return "";
+  }
+
+  return `
+    <section class="gear-keyword-builder">
+      <div class="gear-keyword-builder-heading">
+        <h3>${escapeHtml(keyword.label)}</h3>
+        <button class="icon-button" data-action="close-gear-keyword" type="button" aria-label="Close keyword builder">x</button>
+      </div>
+      <input type="hidden" name="keywordIndex" value="${Number(builder.keywordIndex)}" />
+      <input type="hidden" name="keywordTargetName" value="${escapeAttribute(builder.targetName)}" />
+      ${renderGearKeywordBuilderFields(character, keyword)}
+      <div class="modal-actions modal-actions-end">
+        <button class="primary-button" data-action="apply-gear-keyword" type="button">Add Keyword</button>
+      </div>
+    </section>
+  `;
+}
+
+function renderGearKeywordBuilderFields(character, keyword) {
+  if (keyword.kind === "armor" || keyword.kind === "shield" || keyword.kind === "number") {
+    return `
+      <label>
+        <span>${escapeHtml(keyword.kind === "number" ? keyword.prefix : "Value")}</span>
+        <input
+          type="${keyword.allowInfinity ? "text" : "number"}"
+          name="keywordAmount"
+          min="0"
+          max="999"
+          value="1"
+          placeholder="${keyword.allowInfinity ? "1 or infinity" : "1"}"
+        />
+      </label>
+    `;
+  }
+
+  if (keyword.kind === "text") {
+    return `
+      <label>
+        <span>${escapeHtml(keyword.prefix)}</span>
+        <input type="text" name="keywordText" maxlength="80" placeholder="${escapeAttribute(keyword.placeholder || "")}" />
+      </label>
+    `;
+  }
+
+  if (keyword.kind === "bonus") {
+    return `
+      ${renderGearKeywordTargetField(character, keyword.targetKind)}
+      <label>
+        <span>Bonus</span>
+        <input type="number" name="keywordAmount" min="-100" max="100" value="1" />
+      </label>
+    `;
+  }
+
+  if (keyword.kind === "custom") {
+    return `
+      <label>
+        <span>Custom Ability</span>
+        <input type="text" name="keywordText" maxlength="120" placeholder="Write ability text" />
+      </label>
+    `;
+  }
+
+  return "";
+}
+
+function renderGearKeywordTargetField(character, targetKind) {
+  if (targetKind === "attribute") {
+    return `
+      <label>
+        <span>Attribute</span>
+        <select name="keywordTarget">
+          ${SECTION_TEMPLATES.flatMap((section) =>
+            character.sections[section.id].attributes.map(
+              (attribute) => `<option value="${escapeAttribute(attribute.label)}">${escapeHtml(attribute.label)}</option>`
+            )
+          ).join("")}
+        </select>
+      </label>
+    `;
+  }
+
+  if (targetKind === "skill") {
+    return `
+      <label>
+        <span>Skill</span>
+        <select name="keywordTarget">
+          ${SECTION_TEMPLATES.flatMap((section) =>
+            character.sections[section.id].skills.map(
+              (skill) => `<option value="${escapeAttribute(skill.label)}">${escapeHtml(skill.label)}</option>`
+            )
+          ).join("")}
+        </select>
+      </label>
+    `;
+  }
+
+  return `
+    <label>
+      <span>Specialization</span>
+      <input
+        type="text"
+        name="keywordTarget"
+        list="gear-specialization-options"
+        maxlength="80"
+        placeholder="Specialization name"
+      />
+      <datalist id="gear-specialization-options">
+        ${getVisibleSpecializationEntries(character)
+          .map(({ specialization, index }) => {
+            const name = getSpecializationName(specialization, index);
+            return `<option value="${escapeAttribute(name)}"></option>`;
+          })
+          .join("")}
+      </datalist>
+    </label>
+  `;
+}
+
+function renderGearFaceEditor(faceKey, title, face, options = {}) {
+  const imagePreview = face.image
+    ? `<img src="${escapeAttribute(face.image)}" alt="${escapeAttribute(title)} preview" />`
+    : `<span>${escapeHtml(title)}</span>`;
+  const abilitiesName = `${faceKey}Abilities`;
+  const imageName = `${faceKey}Image`;
+
+  return `
+    <section class="gear-face-editor">
+      <div class="gear-face-heading">
+        <h3>${escapeHtml(title)}</h3>
+        <div class="gear-image-preview" data-image-preview="${escapeAttribute(imageName)}">
+          ${imagePreview}
+        </div>
+      </div>
+      ${
+        options.primary
+          ? `
+            <div class="gear-face-field-grid">
+              <label>
+                <span>Name</span>
+                <input type="text" name="${faceKey}Name" maxlength="64" value="${escapeAttribute(face.name)}" required />
+              </label>
+              <label>
+                <span>Bulk</span>
+                <input type="number" name="${faceKey}Bulk" min="0" max="999" step="0.5" value="${formatGearNumber(face.bulk)}" />
+              </label>
+            </div>
+          `
+          : `
+            <input type="hidden" name="${faceKey}Name" value="${escapeAttribute(face.name)}" />
+            <input type="hidden" name="${faceKey}Bulk" value="${formatGearNumber(face.bulk)}" />
+          `
+      }
+      <label>
+        <span>Image</span>
+        <input type="text" name="${imageName}" maxlength="200000" value="${escapeAttribute(face.image)}" />
+      </label>
+      <label class="secondary-button gear-upload-button">
+        <span>Upload Image</span>
+        <input
+          data-input="gear-image"
+          data-image-field="${escapeAttribute(imageName)}"
+          type="file"
+          accept="image/*"
+        />
+      </label>
+      <label>
+        <span>Abilities</span>
+        <textarea name="${abilitiesName}" rows="7" maxlength="2000">${escapeHtml(
+          normalizeGearAbilityList([...face.abilities, ...getLegacyGearRules(face)]).join("\n")
+        )}</textarea>
+      </label>
+      <div class="gear-keyword-grid">
+        ${GEAR_ABILITY_KEYWORDS.map((keyword, index) => `
+            <button
+              class="gear-keyword-button"
+              data-action="append-gear-keyword"
+              data-target-name="${escapeAttribute(abilitiesName)}"
+              data-keyword-index="${index}"
+              type="button"
+            >
+              ${escapeHtml(keyword.label)}
+            </button>
+          `).join("")}
+      </div>
+    </section>
+  `;
+}
+
 function renderModalShell(title, subtitle, body, options = {}) {
   return `
     <div class="modal-backdrop" ${options.preventClose ? "" : 'data-close-backdrop="true"'}>
@@ -2181,6 +2855,75 @@ function handleClick(event) {
     });
     showToast("Character image removed.");
     renderApp();
+    return;
+  }
+
+  if (action === "open-gear-modal") {
+    state.ui.skillLossSelectionSection = null;
+    state.ui.activeModal = {
+      type: "gear-card",
+      payload: {
+        itemId: actionTarget.dataset.itemId || "",
+      },
+    };
+    renderApp();
+    return;
+  }
+
+  if (action === "open-gear-view-modal") {
+    state.ui.skillLossSelectionSection = null;
+    state.ui.activeModal = {
+      type: "gear-view",
+      payload: {
+        itemId: actionTarget.dataset.itemId || "",
+      },
+    };
+    renderApp();
+    return;
+  }
+
+  if (action === "append-gear-keyword") {
+    appendGearKeywordToForm(actionTarget);
+    return;
+  }
+
+  if (action === "apply-gear-keyword") {
+    applyGearKeywordToForm(actionTarget);
+    return;
+  }
+
+  if (action === "close-gear-keyword") {
+    closeGearKeywordBuilder(actionTarget);
+    return;
+  }
+
+  if (action === "delete-gear-card") {
+    deleteGearCard(actionTarget.dataset.itemId);
+    return;
+  }
+
+  if (action === "toggle-gear-focus") {
+    toggleGearFocus(actionTarget.dataset.itemId);
+    return;
+  }
+
+  if (action === "flip-gear-card") {
+    flipGearCard(actionTarget.dataset.itemId);
+    return;
+  }
+
+  if (action === "set-gear-durability") {
+    setGearDurability(actionTarget.dataset.itemId, Number(actionTarget.dataset.durabilityIndex));
+    return;
+  }
+
+  if (action === "advance-gear-durability") {
+    advanceGearDurability(actionTarget.dataset.itemId);
+    return;
+  }
+
+  if (action === "adjust-shield") {
+    adjustGearShield(actionTarget.dataset.shieldKey, -1);
     return;
   }
 
@@ -2376,6 +3119,19 @@ function handleChange(event) {
     return;
   }
 
+  const gearCardForm = event.target.closest('[data-form="gear-card"]');
+  if (gearCardForm && ["activeFace", "frontAbilities", "backAbilities"].includes(event.target.name)) {
+    state.ui.activeModal = {
+      type: "gear-card",
+      payload: {
+        itemId: String(gearCardForm.elements.itemId?.value || ""),
+        draft: getGearDraftFromForm(gearCardForm),
+      },
+    };
+    renderApp();
+    return;
+  }
+
   const input = event.target.closest("[data-input]");
   if (!input) {
     return;
@@ -2394,6 +3150,30 @@ function handleChange(event) {
         });
         showToast("Character image saved.");
         renderApp();
+      })
+      .catch(() => {
+        showToast("That image could not be loaded.");
+        renderApp();
+      });
+    return;
+  }
+
+  if (input.dataset.input === "gear-image") {
+    const file = input.files?.[0];
+    const form = input.closest('[data-form="gear-card"]');
+    const imageFieldName = input.dataset.imageField;
+    const imageField = form?.elements?.[imageFieldName];
+    if (!file || !form || !imageField) {
+      return;
+    }
+
+    readImageFileAsDataUrl(file)
+      .then((dataUrl) => {
+        imageField.value = dataUrl;
+        const preview = form.querySelector(`[data-image-preview="${CSS.escape(imageFieldName)}"]`);
+        if (preview) {
+          preview.innerHTML = `<img src="${escapeAttribute(dataUrl)}" alt="Gear preview" />`;
+        }
       })
       .catch(() => {
         showToast("That image could not be loaded.");
@@ -2558,6 +3338,28 @@ function handleSubmit(event) {
     return;
   }
 
+  if (formName === "gear-card") {
+    const itemId = String(formData.get("itemId") || "");
+    const savedItem = buildGearItemFromFormData(formData);
+    const savedName = getGearItemFace(savedItem).name;
+
+    updateCurrentCharacter((character) => {
+      const existingIndex = character.gear.items.findIndex((item) => item.id === itemId);
+      if (existingIndex === -1) {
+        character.gear.items.push(savedItem);
+      } else {
+        savedItem.id = itemId;
+        character.gear.items[existingIndex] = savedItem;
+      }
+      character.gear.focusIds = normalizeFocusIds(character.gear.focusIds, character.gear.items);
+    });
+
+    state.ui.activeModal = null;
+    showToast(`${savedName} saved.`);
+    renderApp();
+    return;
+  }
+
   if (formName === "build-roll") {
     const attributeRef = String(formData.get("attributeRef") || "");
     const skillRef = String(formData.get("skillRef") || "");
@@ -2623,6 +3425,20 @@ function handleSubmit(event) {
 }
 
 function handleContextMenu(event) {
+  const shieldTarget = event.target.closest('[data-action="adjust-shield"]');
+  if (shieldTarget) {
+    event.preventDefault();
+    adjustGearShield(shieldTarget.dataset.shieldKey, 1);
+    return;
+  }
+
+  const durabilityTarget = event.target.closest('[data-action="set-gear-durability"], [data-action="advance-gear-durability"]');
+  if (durabilityTarget) {
+    event.preventDefault();
+    reduceGearDurability(durabilityTarget.dataset.itemId);
+    return;
+  }
+
   if (!event.target.closest(".dice-panel-surface")) {
     return;
   }
@@ -2676,6 +3492,7 @@ function buildCharacterRoll(attributeRef, skillRef, specializationIndexes, situa
     return null;
   }
 
+  const gearState = calculateGearState(character);
   const [attributeSectionId, attributeIndex] = attributeRef.split(":");
   const [skillSectionId, skillIndex] = skillRef.split(":");
   const attribute = character.sections[attributeSectionId]?.attributes?.[Number(attributeIndex)];
@@ -2689,10 +3506,19 @@ function buildCharacterRoll(attributeRef, skillRef, specializationIndexes, situa
     .map((index) => ({ index, specialization: character.specializations[index] }))
     .filter((entry) => Boolean(entry.specialization));
 
-  const skillBonus = skill.redacted && character.lineage?.key !== "ghoul" ? 0 : skill.value;
+  const skillBonus =
+    skill.redacted && character.lineage?.key !== "ghoul"
+      ? 0
+      : getEffectiveSkillValue(character, skillSectionId, Number(skillIndex), gearState);
   const specializationBonus = selectedSpecializations.reduce(
-    (total, entry) => total + entry.specialization.value,
+    (total, entry) => total + getEffectiveSpecializationValue(character, entry.index, gearState),
     0
+  );
+  const effectiveAttributeScore = getEffectiveAttributeScore(
+    character,
+    attributeSectionId,
+    Number(attributeIndex),
+    gearState
   );
 
   const bonusParts = [
@@ -2702,7 +3528,11 @@ function buildCharacterRoll(attributeRef, skillRef, specializationIndexes, situa
   ];
 
   selectedSpecializations.forEach((entry) => {
-    bonusParts.push(`${getSpecializationName(entry.specialization, entry.index)} ${formatSigned(entry.specialization.value)}`);
+    bonusParts.push(
+      `${getSpecializationName(entry.specialization, entry.index)} ${formatSigned(
+        getEffectiveSpecializationValue(character, entry.index, gearState)
+      )}`
+    );
   });
 
   if (situationalBonus) {
@@ -2711,8 +3541,8 @@ function buildCharacterRoll(attributeRef, skillRef, specializationIndexes, situa
 
   return executeRoll({
     label: `${attribute.label} + ${skill.label}`,
-    notation: formatDiceNotation(scoreToDice(attribute.score)),
-    diceSides: scoreToDice(attribute.score),
+    notation: formatDiceNotation(scoreToDice(effectiveAttributeScore)),
+    diceSides: scoreToDice(effectiveAttributeScore),
     flatBonus: skillBonus + specializationBonus + situationalBonus,
     bonusParts,
     tone: getCharacterRollTone(attributeSectionId, skillSectionId, outsideIdentity),
@@ -2962,6 +3792,7 @@ function normalizeCharacter(rawCharacter) {
   base.biometrics = normalizeBiometrics(rawCharacter?.biometrics);
   base.profileImage = String(rawCharacter?.profileImage || "");
   base.features = normalizeFeatureList(rawCharacter?.features);
+  base.gear = normalizeGearRecord(rawCharacter?.gear || { items: rawCharacter?.inventory || [] });
   base.createdAt = rawCharacter?.createdAt || base.createdAt;
   base.updatedAt = rawCharacter?.updatedAt || base.updatedAt;
 
@@ -3014,6 +3845,7 @@ function createCharacterSkeleton(name, gender) {
     biometrics: normalizeBiometrics(),
     profileImage: "",
     features: [],
+    gear: normalizeGearRecord(),
     sections: {},
     specializations: Array.from({ length: MAX_SPECIALIZATIONS }, (_, index) => ({
       id: createId(),
@@ -3123,6 +3955,529 @@ function normalizeFeatureList(rawValue = []) {
     slot: String(feature?.slot || ""),
     details: normalizeRecordDetails(feature?.details),
   }));
+}
+
+function normalizeGearRecord(rawValue = {}) {
+  const raw = rawValue || {};
+  const rawItems = Array.isArray(raw.items) ? raw.items : Array.isArray(raw.cards) ? raw.cards : [];
+  const items = rawItems.map((item) => normalizeGearItem(item));
+
+  return {
+    items,
+    focusIds: normalizeFocusIds(raw.focusIds || raw.focus || [], items),
+    shields: normalizeGearShieldPools(raw.shields),
+  };
+}
+
+function normalizeGearItem(rawValue = {}) {
+  const raw = rawValue || {};
+  const front = normalizeGearFace(raw.faces?.front || raw.front || raw, "Gear Card");
+  const back = normalizeGearFace(raw.faces?.back || raw.back || {}, `${front.name} Reverse`);
+  const hasBackFace = Boolean(raw.faces?.back || raw.back);
+  const hasMeaningfulBackFace =
+    hasBackFace &&
+    (back.abilities.length > 0 ||
+      Boolean(back.image) ||
+      normalizeGearLookup(back.name) !== normalizeGearLookup(front.name) ||
+      Number(back.bulk) !== Number(front.bulk));
+  const legacyFlip =
+    raw.hasFlip === undefined && raw.flip === undefined ? hasMeaningfulBackFace : Boolean(raw.hasFlip ?? raw.flip);
+  if (legacyFlip && !gearFaceHasFlip(front) && !gearFaceHasFlip(back)) {
+    front.abilities.push("Flip");
+  }
+  back.name = front.name;
+  back.bulk = front.bulk;
+  const hasFlip = gearFaceHasFlip(front) || gearFaceHasFlip(back);
+  const activeFace = hasFlip && String(raw.activeFace || "front") === "back" ? "back" : "front";
+  const durabilityMax = clampNumber(raw.durabilityMax ?? raw.durability?.max ?? raw.maxDurability ?? 4, 1, 12);
+  const durabilityMarked = clampNumber(
+    raw.durabilityMarked ?? raw.durability?.marked ?? raw.damage ?? 0,
+    0,
+    durabilityMax
+  );
+
+  return {
+    id: String(raw.id || createId()),
+    hasFlip,
+    activeFace,
+    durabilityMax,
+    durabilityMarked,
+    faces: {
+      front,
+      back,
+    },
+  };
+}
+
+function normalizeGearFace(rawValue = {}, fallbackName = "Gear Card") {
+  const raw = rawValue || {};
+  const name = String(raw.name || raw.title || fallbackName).trim() || fallbackName;
+  const abilities = normalizeGearAbilityList(raw.abilities ?? raw.keywords ?? "");
+  const legacyRules = normalizeGearAbilityList(raw.rulesText ?? raw.rules ?? raw.description ?? "");
+
+  return {
+    name,
+    bulk: clampMinimum(raw.bulk ?? 0, 0),
+    image: String(raw.image || raw.imageUrl || ""),
+    rulesText: "",
+    abilities: normalizeGearAbilityList([...abilities, ...legacyRules]),
+  };
+}
+
+function normalizeGearAbilityList(rawValue = []) {
+  const source = Array.isArray(rawValue) ? rawValue : String(rawValue || "").split(/\r?\n/);
+  return source.map((ability) => String(ability || "").trim()).filter(Boolean).slice(0, 60);
+}
+
+function normalizeGearShieldPools(rawValue = {}) {
+  const raw = rawValue || {};
+
+  return GEAR_SHIELD_TYPES.reduce((pools, shieldType) => {
+    const entry = raw[shieldType.key];
+    const rawCurrent = entry && typeof entry === "object" ? entry.current : entry;
+    const rawMax = entry && typeof entry === "object" ? entry.max : 0;
+
+    pools[shieldType.key] = {
+      current: rawCurrent === null || rawCurrent === undefined || rawCurrent === "" ? null : clampMinimum(rawCurrent, 0),
+      max: clampMinimum(rawMax ?? 0, 0),
+    };
+    return pools;
+  }, {});
+}
+
+function normalizeFocusIds(rawValue = [], items = []) {
+  const itemIds = new Set(items.map((item) => item.id));
+  const seenIds = new Set();
+  const source = Array.isArray(rawValue) ? rawValue : [];
+
+  return source
+    .map((value) => String(value || ""))
+    .filter((id) => {
+      if (!id || seenIds.has(id) || !itemIds.has(id)) {
+        return false;
+      }
+      seenIds.add(id);
+      return true;
+    });
+}
+
+function createDefaultGearItem() {
+  return normalizeGearItem({
+    name: "New Gear",
+    bulk: 1,
+    durabilityMax: 4,
+    durabilityMarked: 0,
+    faces: {
+      front: {
+        name: "New Gear",
+        bulk: 1,
+        image: "",
+        abilities: [],
+      },
+    },
+  });
+}
+
+function getGearDraftFromForm(form) {
+  return buildGearItemFromFormData(new FormData(form));
+}
+
+function buildGearItemFromFormData(formData) {
+  const durabilityMax = clampNumber(formData.get("durabilityMax"), 1, 12);
+  const front = normalizeGearFace(
+    {
+      name: formData.get("frontName"),
+      bulk: formData.get("frontBulk"),
+      image: formData.get("frontImage"),
+      abilities: formData.get("frontAbilities"),
+    },
+    "Gear Card"
+  );
+  const back = normalizeGearFace(
+    {
+      name: front.name,
+      bulk: front.bulk,
+      image: formData.get("backImage"),
+      abilities: formData.get("backAbilities"),
+    },
+    front.name
+  );
+  back.name = front.name;
+  back.bulk = front.bulk;
+
+  return normalizeGearItem({
+    id: String(formData.get("itemId") || createId()),
+    activeFace: formData.get("activeFace"),
+    durabilityMax,
+    durabilityMarked: clampNumber(formData.get("durabilityMarked"), 0, durabilityMax),
+    faces: {
+      front,
+      back,
+    },
+  });
+}
+
+function calculateGearState(character) {
+  if (!character) {
+    const gear = normalizeGearRecord();
+    return {
+      gear,
+      effects: createEmptyGearEffects(),
+      focusLimit: 0,
+      focusIds: [],
+      focusedItems: [],
+      totalBulk: 0,
+      bulkCapacity: 0,
+      encumbranceLevel: "normal",
+      armor: 0,
+      shields: normalizeGearShieldPools(),
+    };
+  }
+
+  const gear = normalizeGearRecord(character.gear);
+  const passiveEffects = collectGearEffects(character, gear, 0);
+  const initialFocusLimit = getFocusLimitFromEffects(character, passiveEffects);
+  const firstPassEffects = collectGearEffects(character, gear, initialFocusLimit);
+  const focusLimit = getFocusLimitFromEffects(character, firstPassEffects);
+  const effects = collectGearEffects(character, gear, focusLimit);
+  const focusIds = getAlphabetizedFocusIds(normalizeFocusIds(gear.focusIds, gear.items), gear.items).slice(0, focusLimit);
+  const focusedItems = focusIds.map((id) => gear.items.find((item) => item.id === id)).filter(Boolean);
+  const totalBulk = gear.items.reduce((total, item) => total + getGearCardBulk(item), 0);
+  const bulkCapacity = getBulkCapacityFromEffects(character, effects);
+  const shields = GEAR_SHIELD_TYPES.reduce((pools, shieldType) => {
+    pools[shieldType.key] = getShieldPoolDisplay(gear, effects, shieldType.key);
+    return pools;
+  }, {});
+
+  return {
+    gear,
+    effects,
+    focusLimit,
+    focusIds,
+    focusedItems,
+    totalBulk,
+    bulkCapacity,
+    encumbranceLevel: getEncumbranceLevel(totalBulk, bulkCapacity),
+    armor: Math.max(0, effects.armor),
+    shields,
+  };
+}
+
+function collectGearEffects(character, gear, activeLimit) {
+  const effects = createEmptyGearEffects();
+  const activeIds = new Set(
+    getAlphabetizedFocusIds(normalizeFocusIds(gear.focusIds, gear.items), gear.items).slice(0, Math.max(0, activeLimit))
+  );
+
+  gear.items.forEach((item) => {
+    if (isGearItemBroken(item)) {
+      return;
+    }
+    addGearEffectsFromItem(effects, item, "passive", character);
+    if (activeIds.has(item.id)) {
+      addGearEffectsFromItem(effects, item, "active", character);
+    }
+  });
+
+  return effects;
+}
+
+function createEmptyGearEffects() {
+  return {
+    armor: 0,
+    shields: GEAR_SHIELD_TYPES.reduce((pools, shieldType) => {
+      pools[shieldType.key] = 0;
+      return pools;
+    }, {}),
+    attributeBonuses: {},
+    skillBonuses: {},
+    specializationBonuses: {},
+  };
+}
+
+function addGearEffectsFromItem(effects, item, timing, character) {
+  getGearAbilityLines(item).forEach((line) => {
+    const parsed = parseGearMechanicalAbility(line, character);
+    if (!parsed || parsed.timing !== timing) {
+      return;
+    }
+
+    if (parsed.kind === "armor") {
+      effects.armor += parsed.amount;
+      return;
+    }
+
+    if (parsed.kind === "shield") {
+      effects.shields[parsed.shieldKey] = (effects.shields[parsed.shieldKey] || 0) + parsed.amount;
+      return;
+    }
+
+    if (parsed.kind === "attribute") {
+      effects.attributeBonuses[parsed.ref] = (effects.attributeBonuses[parsed.ref] || 0) + parsed.amount;
+      return;
+    }
+
+    if (parsed.kind === "skill") {
+      effects.skillBonuses[parsed.ref] = (effects.skillBonuses[parsed.ref] || 0) + parsed.amount;
+      return;
+    }
+
+    if (parsed.kind === "specialization") {
+      effects.specializationBonuses[parsed.key] = (effects.specializationBonuses[parsed.key] || 0) + parsed.amount;
+    }
+  });
+}
+
+function parseGearMechanicalAbility(rawLine, character) {
+  const line = String(rawLine || "").trim().replace(/[.;:,]+$/g, "").replace(/\s+/g, " ");
+  if (!line) {
+    return null;
+  }
+
+  const armorMatch = line.match(/^(active|passive)\s+armor\s+([+-]?\d+)$/i);
+  if (armorMatch) {
+    return {
+      kind: "armor",
+      timing: armorMatch[1].toLowerCase(),
+      amount: Number(armorMatch[2]),
+    };
+  }
+
+  const shieldMatch = line.match(/^(active|passive)\s+(energy|ballistic|radiation)\s+shield\s+([+-]?\d+)$/i);
+  if (shieldMatch) {
+    return {
+      kind: "shield",
+      timing: shieldMatch[1].toLowerCase(),
+      shieldKey: shieldMatch[2].toLowerCase(),
+      amount: Number(shieldMatch[3]),
+    };
+  }
+
+  const bonusMatch = line.match(/^(active|passive)\s+(.+?)\s*\+\s*([+-]?\d+)$/i);
+  if (!bonusMatch) {
+    return null;
+  }
+
+  const target = resolveGearBonusTarget(bonusMatch[2], character);
+  if (!target) {
+    return null;
+  }
+
+  return {
+    ...target,
+    timing: bonusMatch[1].toLowerCase(),
+    amount: Number(bonusMatch[3]),
+  };
+}
+
+function resolveGearBonusTarget(rawTarget, character) {
+  const target = normalizeGearLookup(String(rawTarget || "").replace(/^(attribute|skill|specialization)\s+/i, ""));
+  if (!target || !character) {
+    return null;
+  }
+
+  for (const section of SECTION_TEMPLATES) {
+    const attributes = character.sections?.[section.id]?.attributes || [];
+    for (let index = 0; index < attributes.length; index += 1) {
+      const attribute = attributes[index];
+      const names = [attribute.label, attribute.key, attribute.subLabel].map(normalizeGearLookup);
+      if (names.includes(target)) {
+        return { kind: "attribute", ref: `${section.id}:${index}` };
+      }
+    }
+  }
+
+  for (const section of SECTION_TEMPLATES) {
+    const skills = character.sections?.[section.id]?.skills || [];
+    for (let index = 0; index < skills.length; index += 1) {
+      const skill = skills[index];
+      const names = [skill.label, skill.key].map(normalizeGearLookup);
+      if (names.includes(target)) {
+        return { kind: "skill", ref: `${section.id}:${index}` };
+      }
+    }
+  }
+
+  const matchingSpecialization = character.specializations?.find((specialization) =>
+    normalizeGearLookup(specialization.name) === target
+  );
+  return { kind: "specialization", key: normalizeGearLookup(matchingSpecialization?.name || rawTarget) };
+}
+
+function getGearAbilityLines(item) {
+  const face = getGearItemFace(item);
+
+  return normalizeGearAbilityList([...face.abilities, ...getLegacyGearRules(face)]);
+}
+
+function getGearItemFace(item) {
+  return item?.faces?.[item.activeFace] || item?.faces?.front || normalizeGearFace({}, "Gear Card");
+}
+
+function getGearCardName(item) {
+  return item?.faces?.front?.name || getGearItemFace(item).name || "Gear Card";
+}
+
+function getGearCardBulk(item) {
+  return clampMinimum(item?.faces?.front?.bulk ?? getGearItemFace(item).bulk ?? 0, 0);
+}
+
+function getLegacyGearRules(face) {
+  return String(face?.rulesText || "")
+    .split(/\r?\n|;/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function gearFaceHasFlip(face) {
+  return face.abilities.some((ability) => normalizeGearLookup(ability) === "flip");
+}
+
+function isGearItemBroken(item) {
+  return item.durabilityMax > 0 && item.durabilityMarked >= item.durabilityMax;
+}
+
+function getDurabilityTone(item) {
+  if (isGearItemBroken(item)) {
+    return "black";
+  }
+
+  const remaining = Math.max(0, item.durabilityMax - item.durabilityMarked);
+  const ratio = item.durabilityMax ? remaining / item.durabilityMax : 1;
+
+  if (ratio <= 0.25) {
+    return "red";
+  }
+  if (ratio <= 0.5) {
+    return "yellow";
+  }
+  return "green";
+}
+
+function getFocusLimitFromEffects(character, effects) {
+  const senses = getBodyAttributeByKey(character, "senses");
+  const bonus = effects.attributeBonuses[`body:${senses.index}`] || 0;
+  return Math.max(0, Math.floor(getBodyDerivedValueFromScore("senses", senses.attribute.score + bonus, character)));
+}
+
+function getBulkCapacityFromEffects(character, effects) {
+  const power = getBodyAttributeByKey(character, "power");
+  const bonus = effects.attributeBonuses[`body:${power.index}`] || 0;
+  return Math.max(0, getBodyDerivedValueFromScore("power", power.attribute.score + bonus, character));
+}
+
+function getBodyAttributeByKey(character, key) {
+  const attributes = character?.sections?.body?.attributes || [];
+  const index = attributes.findIndex((attribute) => attribute.key === key);
+  return {
+    index: index === -1 ? 0 : index,
+    attribute: attributes[index === -1 ? 0 : index] || { score: 0, key },
+  };
+}
+
+function getShieldPoolDisplay(gear, effects, shieldKey) {
+  const max = Math.max(0, effects.shields[shieldKey] || 0);
+  const stored = gear.shields[shieldKey] || { current: null, max: 0 };
+  let current = stored.current === null || stored.current === undefined ? max : stored.current;
+
+  if (stored.max > 0 && stored.current >= stored.max && max > stored.max) {
+    current = max;
+  }
+
+  return {
+    current: clampNumber(current, 0, max),
+    max,
+  };
+}
+
+function getEncumbranceLevel(totalBulk, bulkCapacity) {
+  if (bulkCapacity <= 0) {
+    return totalBulk > 0 ? "overloaded" : "normal";
+  }
+
+  if (totalBulk >= bulkCapacity * 1.5) {
+    return "overloaded";
+  }
+
+  if (totalBulk > bulkCapacity) {
+    return "strained";
+  }
+
+  return "normal";
+}
+
+function getEffectiveAttributeScore(character, sectionId, attributeIndex, gearState = null) {
+  const attribute = character?.sections?.[sectionId]?.attributes?.[attributeIndex];
+  if (!attribute) {
+    return 0;
+  }
+
+  const stateForGear = gearState || calculateGearState(character);
+  return clampMinimum(attribute.score + (stateForGear.effects.attributeBonuses[`${sectionId}:${attributeIndex}`] || 0), 0);
+}
+
+function getEffectiveSkillValue(character, sectionId, skillIndex, gearState = null) {
+  const skill = character?.sections?.[sectionId]?.skills?.[skillIndex];
+  if (!skill) {
+    return 0;
+  }
+
+  const stateForGear = gearState || calculateGearState(character);
+  return clampMinimum(skill.value + (stateForGear.effects.skillBonuses[`${sectionId}:${skillIndex}`] || 0), 0);
+}
+
+function getEffectiveSpecializationValue(character, specializationIndex, gearState = null) {
+  const specialization = character?.specializations?.[specializationIndex];
+  if (!specialization) {
+    return 0;
+  }
+
+  const stateForGear = gearState || calculateGearState(character);
+  const bonus = stateForGear.effects.specializationBonuses[normalizeGearLookup(specialization.name)] || 0;
+  return clampMinimum(specialization.value + bonus, 0);
+}
+
+function getGearAttributeBonus(character, sectionId, attributeIndex, gearState = null) {
+  const attribute = character?.sections?.[sectionId]?.attributes?.[attributeIndex];
+  return attribute ? getEffectiveAttributeScore(character, sectionId, attributeIndex, gearState) - attribute.score : 0;
+}
+
+function normalizeGearLookup(value) {
+  return String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function formatGearNumber(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return "0";
+  }
+  return Number.isInteger(numeric) ? String(numeric) : numeric.toFixed(1).replace(/\.0$/, "");
+}
+
+function getAlphabetizedGearItems(items = []) {
+  return [...items].sort(compareGearItemsByName);
+}
+
+function getAlphabetizedFocusIds(focusIds = [], items = []) {
+  const itemById = new Map(items.map((item) => [item.id, item]));
+
+  return [...focusIds].sort((leftId, rightId) => {
+    const leftItem = itemById.get(leftId);
+    const rightItem = itemById.get(rightId);
+    const byName = compareGearItemsByName(leftItem, rightItem);
+    return byName || String(leftId).localeCompare(String(rightId), undefined, { sensitivity: "base", numeric: true });
+  });
+}
+
+function compareGearItemsByName(leftItem, rightItem) {
+  const leftName = leftItem ? getGearCardName(leftItem) : "";
+  const rightName = rightItem ? getGearCardName(rightItem) : "";
+  const byName = leftName.localeCompare(rightName, undefined, { sensitivity: "base", numeric: true });
+
+  return byName || String(leftItem?.id || "").localeCompare(String(rightItem?.id || ""), undefined, {
+    sensitivity: "base",
+    numeric: true,
+  });
 }
 
 function normalizeRecordDetails(rawValue = {}) {
@@ -4147,6 +5502,300 @@ function updateCurrentCharacter(mutator) {
   persistState();
 }
 
+function appendGearKeywordToForm(actionTarget) {
+  const form = actionTarget.closest('[data-form="gear-card"]');
+  const targetName = actionTarget.dataset.targetName;
+  const textarea = form?.elements?.[targetName];
+  const keywordIndex = Number(actionTarget.dataset.keywordIndex);
+  const keyword = GEAR_ABILITY_KEYWORDS[keywordIndex];
+
+  if (!textarea || !keyword) {
+    return;
+  }
+
+  if (keyword.kind === "custom") {
+    openGearKeywordBuilder(form, targetName, keywordIndex);
+    return;
+  }
+
+  if (keyword.kind !== "simple") {
+    openGearKeywordBuilder(form, targetName, keywordIndex);
+    return;
+  }
+
+  appendGearAbilityLineToTextarea(textarea, keyword.template);
+  if (normalizeGearLookup(keyword.template) === "flip") {
+    state.ui.activeModal = {
+      type: "gear-card",
+      payload: {
+        itemId: String(form.elements.itemId?.value || ""),
+        draft: getGearDraftFromForm(form),
+      },
+    };
+    renderApp();
+    return;
+  }
+
+  textarea.focus();
+}
+
+function openGearKeywordBuilder(form, targetName, keywordIndex) {
+  state.ui.activeModal = {
+    type: "gear-card",
+    payload: {
+      itemId: String(form.elements.itemId?.value || ""),
+      draft: getGearDraftFromForm(form),
+      keywordBuilder: {
+        targetName,
+        keywordIndex,
+      },
+    },
+  };
+  renderApp();
+}
+
+function applyGearKeywordToForm(actionTarget) {
+  const form = actionTarget.closest('[data-form="gear-card"]');
+  if (!form) {
+    return;
+  }
+
+  const formData = new FormData(form);
+  const keyword = GEAR_ABILITY_KEYWORDS[Number(formData.get("keywordIndex"))];
+  const targetName = String(formData.get("keywordTargetName") || "");
+  const line = buildGearKeywordLine(keyword, formData);
+  const draft = getGearDraftFromForm(form);
+  const faceKey = targetName.startsWith("back") ? "back" : "front";
+
+  if (!line || !draft.faces?.[faceKey]) {
+    return;
+  }
+
+  draft.faces[faceKey].abilities = normalizeGearAbilityList([...draft.faces[faceKey].abilities, line]);
+  state.ui.activeModal = {
+    type: "gear-card",
+    payload: {
+      itemId: String(form.elements.itemId?.value || ""),
+      draft,
+    },
+  };
+  renderApp();
+}
+
+function closeGearKeywordBuilder(actionTarget) {
+  const form = actionTarget.closest('[data-form="gear-card"]');
+  if (!form) {
+    return;
+  }
+
+  state.ui.activeModal = {
+    type: "gear-card",
+    payload: {
+      itemId: String(form.elements.itemId?.value || ""),
+      draft: getGearDraftFromForm(form),
+    },
+  };
+  renderApp();
+}
+
+function buildGearKeywordLine(keyword, formData) {
+  if (!keyword) {
+    return "";
+  }
+
+  if (keyword.kind === "armor") {
+    return `${keyword.timing} Armor ${normalizeGearKeywordAmount(formData.get("keywordAmount"))}`;
+  }
+
+  if (keyword.kind === "shield") {
+    return `${keyword.timing} ${keyword.shield} Shield ${normalizeGearKeywordAmount(formData.get("keywordAmount"))}`;
+  }
+
+  if (keyword.kind === "bonus") {
+    const target = String(formData.get("keywordTarget") || "").trim();
+    const amount = normalizeGearKeywordAmount(formData.get("keywordAmount"), { allowNegative: true });
+    return target ? `${keyword.timing} ${target} + ${amount}` : "";
+  }
+
+  if (keyword.kind === "text" || keyword.kind === "custom") {
+    const text = String(formData.get("keywordText") || "").trim();
+    return keyword.kind === "custom" ? text : text ? `${keyword.prefix} ${text}` : "";
+  }
+
+  if (keyword.kind === "number") {
+    const amount = normalizeGearKeywordAmount(formData.get("keywordAmount"), {
+      allowInfinity: keyword.allowInfinity,
+    });
+    return `${keyword.prefix} ${amount}`;
+  }
+
+  return keyword.template || "";
+}
+
+function normalizeGearKeywordAmount(value, options = {}) {
+  const text = String(value || "").trim();
+  if (options.allowInfinity && (text === "∞" || text.toLowerCase() === "infinity")) {
+    return "∞";
+  }
+
+  const numeric = Number(text);
+  if (!Number.isFinite(numeric)) {
+    return "1";
+  }
+
+  const minimum = options.allowNegative ? -100 : 0;
+  return String(clampNumber(numeric, minimum, 999));
+}
+
+function appendGearAbilityLineToTextarea(textarea, line) {
+  if (!textarea || !line) {
+    return;
+  }
+
+  const currentValue = String(textarea.value || "").trimEnd();
+  const existingLines = normalizeGearAbilityList(currentValue);
+  if (existingLines.some((existingLine) => normalizeGearLookup(existingLine) === normalizeGearLookup(line))) {
+    textarea.focus();
+    return;
+  }
+
+  textarea.value = currentValue ? `${currentValue}\n${line}` : line;
+  textarea.focus();
+  textarea.selectionStart = textarea.value.length;
+  textarea.selectionEnd = textarea.value.length;
+}
+
+function deleteGearCard(itemId) {
+  if (!itemId) {
+    return;
+  }
+
+  let deletedName = "Gear card";
+  updateCurrentCharacter((character) => {
+    const item = character.gear.items.find((entry) => entry.id === itemId);
+    if (item) {
+      deletedName = getGearItemFace(item).name;
+    }
+    character.gear.items = character.gear.items.filter((entry) => entry.id !== itemId);
+    character.gear.focusIds = normalizeFocusIds(character.gear.focusIds.filter((id) => id !== itemId), character.gear.items);
+  });
+  showToast(`${deletedName} deleted.`);
+  renderApp();
+}
+
+function toggleGearFocus(itemId) {
+  const character = getActiveCharacter();
+  if (!character || !itemId) {
+    return;
+  }
+
+  const gearState = calculateGearState(character);
+  const isFocused = gearState.focusIds.includes(itemId);
+
+  if (!isFocused && gearState.focusIds.length >= gearState.focusLimit) {
+    showToast("Focus slots are full.");
+    renderApp();
+    return;
+  }
+
+  updateCurrentCharacter((workingCharacter) => {
+    const gear = workingCharacter.gear;
+    if (isFocused) {
+      gear.focusIds = gear.focusIds.filter((id) => id !== itemId);
+      return;
+    }
+    if (gear.items.some((item) => item.id === itemId)) {
+      gear.focusIds = normalizeFocusIds([...gear.focusIds, itemId], gear.items);
+    }
+  });
+  renderApp();
+}
+
+function flipGearCard(itemId) {
+  if (!itemId) {
+    return;
+  }
+
+  updateCurrentCharacter((character) => {
+    const item = character.gear.items.find((entry) => entry.id === itemId);
+    if (!item?.hasFlip) {
+      return;
+    }
+    item.activeFace = item.activeFace === "front" ? "back" : "front";
+  });
+  renderApp();
+}
+
+function setGearDurability(itemId, boxIndex) {
+  if (!itemId || !Number.isInteger(boxIndex)) {
+    return;
+  }
+
+  updateCurrentCharacter((character) => {
+    const item = character.gear.items.find((entry) => entry.id === itemId);
+    if (!item) {
+      return;
+    }
+    const selectedValue = clampNumber(boxIndex + 1, 0, item.durabilityMax);
+    item.durabilityMarked = item.durabilityMarked === selectedValue ? Math.max(0, selectedValue - 1) : selectedValue;
+  });
+  renderApp();
+}
+
+function advanceGearDurability(itemId) {
+  if (!itemId) {
+    return;
+  }
+
+  updateCurrentCharacter((character) => {
+    const item = character.gear.items.find((entry) => entry.id === itemId);
+    if (item) {
+      item.durabilityMarked = Math.min(item.durabilityMax, item.durabilityMarked + 1);
+    }
+  });
+  renderApp();
+}
+
+function reduceGearDurability(itemId) {
+  if (!itemId) {
+    return;
+  }
+
+  updateCurrentCharacter((character) => {
+    const item = character.gear.items.find((entry) => entry.id === itemId);
+    if (item) {
+      item.durabilityMarked = Math.max(0, item.durabilityMarked - 1);
+    }
+  });
+  renderApp();
+}
+
+function adjustGearShield(shieldKey, delta) {
+  if (!GEAR_SHIELD_TYPES.some((shieldType) => shieldType.key === shieldKey)) {
+    return;
+  }
+
+  const character = getActiveCharacter();
+  if (!character) {
+    return;
+  }
+
+  const gearState = calculateGearState(character);
+  const shield = gearState.shields[shieldKey];
+  if (!shield?.max) {
+    return;
+  }
+
+  updateCurrentCharacter((workingCharacter) => {
+    const current = clampNumber(shield.current + delta, 0, shield.max);
+    workingCharacter.gear.shields[shieldKey] = {
+      current,
+      max: shield.max,
+    };
+  });
+  renderApp();
+}
+
 function deleteCurrentCharacter() {
   if (!state.ui.activeCharacterId) {
     return;
@@ -4281,8 +5930,15 @@ function formatDiceNotation(diceSides) {
     .join(" + ");
 }
 
-function getSectionMax(section) {
-  return section.attributes.reduce((total, attribute) => total + attribute.score, 0);
+function getSectionMax(section, character = null, sectionId = "", gearState = null) {
+  if (!character || !sectionId) {
+    return section.attributes.reduce((total, attribute) => total + attribute.score, 0);
+  }
+
+  return section.attributes.reduce(
+    (total, attribute, index) => total + getEffectiveAttributeScore(character, sectionId, index, gearState),
+    0
+  );
 }
 
 function normalizeAttributeDetail(rawValue) {
@@ -4391,18 +6047,28 @@ function buildAttributeDetailFromFormData(formData) {
   };
 }
 
-function getBodyDerivedValue(attribute, character) {
+function getBodyDerivedValue(attribute, character, gearState = null) {
+  const attributeIndex = character?.sections?.body?.attributes?.findIndex((entry) => entry.key === attribute.key) ?? -1;
+  const score =
+    attributeIndex === -1
+      ? attribute.score
+      : getEffectiveAttributeScore(character, "body", attributeIndex, gearState);
+
+  return getBodyDerivedValueFromScore(attribute.key, score, character);
+}
+
+function getBodyDerivedValueFromScore(attributeKey, score, character) {
   const lineageKey = character?.lineage?.key || "";
 
-  if (attribute.key === "power") {
-    const bulk = attribute.score * 2;
+  if (attributeKey === "power") {
+    const bulk = score * 2;
     return lineageKey === "golem" ? bulk * 2 : bulk;
   }
-  if (attribute.key === "control") {
-    const accuracy = 12 - attribute.score;
+  if (attributeKey === "control") {
+    const accuracy = Math.max(0, 12 - score);
     return lineageKey === "cyborg" ? Math.floor(accuracy / 2) : accuracy;
   }
-  return lineageKey === "android" ? attribute.score + 2 : attribute.score;
+  return lineageKey === "android" ? score + 2 : score;
 }
 
 function getDisplayedDice(lastRoll) {
@@ -4735,6 +6401,55 @@ function escapeHtml(value) {
 
 function escapeAttribute(value) {
   return escapeHtml(value).replaceAll("\n", "&#10;");
+}
+
+function iconPlus() {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 5v14"></path>
+      <path d="M5 12h14"></path>
+    </svg>
+  `;
+}
+
+function iconMinus() {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M5 12h14"></path>
+    </svg>
+  `;
+}
+
+function iconEdit() {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 20h4l11-11a2.1 2.1 0 0 0-3-3L5 17z"></path>
+      <path d="m14 6 4 4"></path>
+    </svg>
+  `;
+}
+
+function iconFlipCard() {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M7 7h8a4 4 0 0 1 0 8H9"></path>
+      <path d="m11 11-4 4 4 4"></path>
+      <path d="M17 3v4h4"></path>
+      <path d="M20.4 7A8 8 0 0 0 6.8 5.2"></path>
+    </svg>
+  `;
+}
+
+function iconFocus() {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="3"></circle>
+      <path d="M12 3v3"></path>
+      <path d="M12 18v3"></path>
+      <path d="M3 12h3"></path>
+      <path d="M18 12h3"></path>
+    </svg>
+  `;
 }
 
 function iconFolder() {

@@ -7,7 +7,9 @@ The first playable foundation for the Empyrean web app lives in this repository.
 - Browser-style top toolbar with character switching, creation, save, share, edit lock, campaign linking, and deletion
 - Local multi-character persistence through `localStorage`
 - Three-panel character sheet for `Body`, `Soul`, and `Rift`
-- Inventory placeholder view and disabled world/VTT tab for future integration
+- Gear inventory card screen with Focus slots, durability, bulk tracking, armor/shields, and active/passive equipment bonuses
+- Bottom-right gear hotbar showing Focus cards on every character screen
+- Disabled world/VTT tab for future integration
 - Empyrean dice roller with attribute-based rolls, skill and specialization bonuses, and custom formula support
 - Share/export flow using a portable import code and hosted share-link support when the app is served over HTTP
 
@@ -32,6 +34,5 @@ Then visit [http://localhost:4173](http://localhost:4173).
 ## Next milestones
 
 - Flesh out character creation and biography details
-- Design the inventory card system and right-side gear display
 - Connect campaign codes to a real multiplayer/VTT layer
 - Add map, encounter, and shared table tools
