@@ -1868,11 +1868,7 @@ button.gear-summary-chip {
 .developer-main-panel,
 .developer-content-form,
 .developer-entry-list,
-.developer-entry-fields,
-.developer-bottom-grid,
-.developer-tool-panel,
-.developer-import-form,
-.developer-github-form {
+.developer-entry-fields {
   display: grid;
   gap: 0.65rem;
 }
@@ -1919,8 +1915,7 @@ button.gear-summary-chip {
   background: linear-gradient(135deg, rgba(22, 59, 66, 0.96), rgba(16, 43, 54, 0.96));
 }
 
-.developer-content-form,
-.developer-tool-panel {
+.developer-content-form {
   padding: 0.8rem;
   border: 1px solid var(--line-soft);
   border-radius: var(--radius-lg);
@@ -1935,8 +1930,7 @@ button.gear-summary-chip {
   border-bottom: 1px solid rgba(157, 205, 216, 0.12);
 }
 
-.developer-panel-heading span,
-.developer-status {
+.developer-panel-heading span {
   color: var(--text-muted);
   font-size: 0.8rem;
   font-weight: 800;
@@ -1981,27 +1975,19 @@ button.gear-summary-chip {
 }
 
 .developer-entry-fields label,
-.developer-tool-panel label,
-.developer-github-form label,
-.developer-import-form label,
 .developer-specialization-grid label {
   display: grid;
   gap: 0.3rem;
 }
 
 .developer-entry-fields label span,
-.developer-tool-panel label span,
-.developer-github-form label span,
-.developer-import-form label span,
 .developer-specialization-grid label span {
   color: var(--text-muted);
   font-size: 0.8rem;
 }
 
 .developer-entry-fields input,
-.developer-entry-fields textarea,
-.developer-tool-panel input,
-.developer-tool-panel textarea {
+.developer-entry-fields textarea {
   width: 100%;
   padding: 0.62rem 0.68rem;
   border: 1px solid var(--line-soft);
@@ -2010,8 +1996,7 @@ button.gear-summary-chip {
   color: var(--text-main);
 }
 
-.developer-entry-fields textarea,
-.developer-tool-panel textarea {
+.developer-entry-fields textarea {
   resize: vertical;
 }
 
@@ -2028,8 +2013,7 @@ button.gear-summary-chip {
   font-size: 0.8rem;
 }
 
-.developer-specialization-grid,
-.developer-github-grid {
+.developer-specialization-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.55rem;
@@ -2043,16 +2027,6 @@ button.gear-summary-chip {
 .developer-specialization-grid label span {
   justify-self: center;
   font-weight: 900;
-}
-
-.developer-bottom-grid {
-  grid-template-columns: minmax(0, 1fr) minmax(20rem, 0.85fr);
-  align-items: start;
-}
-
-.developer-tool-panel label.inline-toggle,
-.developer-github-form label.inline-toggle {
-  display: inline-flex;
 }
 
 .modal-backdrop {
@@ -2732,8 +2706,7 @@ button.gear-summary-chip {
     grid-template-columns: 1fr;
   }
 
-  .developer-layout,
-  .developer-bottom-grid {
+  .developer-layout {
     grid-template-columns: 1fr;
   }
 
@@ -2803,7 +2776,6 @@ button.gear-summary-chip {
   .specialization-strip,
   .checkbox-grid,
   .developer-category-list,
-  .developer-github-grid,
   .developer-specialization-grid,
   .create-grid-two,
   .create-grid-three,

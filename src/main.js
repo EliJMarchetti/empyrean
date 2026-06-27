@@ -1,6 +1,6 @@
 const STORAGE_KEY = "empyrean.characters.v1";
 const SYSTEM_CONTENT_KEY = "empyrean.systemContent.v1";
-const DEVELOPER_GITHUB_KEY = "empyrean.developerGithub.v1";
+const SYSTEM_CONTENT_DIRTY_KEY = "empyrean.systemContent.dirty.v1";
 const MAX_SPECIALIZATIONS = 16;
 const BASE_SPECIALIZATION_SLOTS = 8;
 const MAX_AUGMENT_SLOTS = 3;
@@ -281,25 +281,16 @@ let AUGMENT_OPTIONS = [
   },
 ];
 
-let NATURAL_AUGMENT_OPTIONS = [
-  { key: "custom", label: "Custom Natural Augment", ability: "" },
-  ...AUGMENT_OPTIONS.slice(1).map((option) => ({ ...option })),
-];
+let NATURAL_AUGMENT_OPTIONS = [{ key: "custom", label: "Custom Natural Augment", ability: "" }];
 let HYBRID_ANIMAL_OPTIONS = [{ key: "custom", label: "Custom Hybrid Animal", ability: "" }];
 let BIO_AUGMENT_OPTIONS = [
   { key: "custom", label: "Custom Bio-Augment", ability: "" },
   ...AUGMENT_OPTIONS.slice(1).map((option) => ({ ...option })),
 ];
-let RADIO_AUGMENT_OPTIONS = [
-  { key: "custom", label: "Custom Radio-Augment", ability: "" },
-  ...AUGMENT_OPTIONS.slice(1).map((option) => ({ ...option })),
-];
+let RADIO_AUGMENT_OPTIONS = [{ key: "custom", label: "Custom Radio-Augment", ability: "" }];
 let PROTOCOL_OPTIONS = [{ key: "custom", label: "Custom Protocol", ability: "" }];
 let CONFIGURATION_OPTIONS = [{ key: "custom", label: "Custom Configuration", ability: "" }];
-let MECH_AUGMENT_OPTIONS = [
-  { key: "custom", label: "Custom Mech-Augment", ability: "" },
-  ...AUGMENT_OPTIONS.slice(1).map((option) => ({ ...option })),
-];
+let MECH_AUGMENT_OPTIONS = [{ key: "custom", label: "Custom Mech-Augment", ability: "" }];
 
 const GEAR_SHIELD_TYPES = [
   { key: "energy", label: "Energy Shield" },
@@ -362,6 +353,8 @@ const BIOMETRIC_FIELDS = [
 
 const SYSTEM_CONTENT_VERSION = 1;
 const DEFAULT_GITHUB_EXPORT_PATH = "data/empyrean-system-content.json";
+const SYSTEM_CONTENT_REPOSITORY_URL = `./${DEFAULT_GITHUB_EXPORT_PATH}`;
+const SYSTEM_CONTENT_GITHUB_EDIT_URL = "https://github.com/EliJMarchetti/empyrean/edit/main/data/empyrean-system-content.json";
 const DEVELOPER_ROUTE_KEYS = ["dev", "developer"];
 const DEVELOPER_CONTENT_CATEGORIES = [
   { key: "corporateTies", label: "Corporate Ties", specializationCount: 2, requiredKeys: ["none", "custom"] },
@@ -392,7 +385,6 @@ const app = document.querySelector("#app");
 
 let systemContent = loadSystemContent();
 applySystemContent(systemContent);
-let developerGithubSettings = loadDeveloperGithubSettings();
 
 const storedState = loadStoredState();
 
@@ -412,7 +404,6 @@ const state = {
     skillLossSelectionSection: null,
     createCharacterNameSuggestionIndex: -1,
     activeDeveloperCategory: getDeveloperCategoryKeyFromUrl(),
-    developerGithubStatus: "",
   },
 };
 
@@ -431,6 +422,7 @@ if (!isDeveloperRoute() && !state.characters.length && !state.ui.activeModal) {
 }
 
 renderApp();
+syncSystemContentFromRepositoryIfClean();
 
 document.addEventListener("click", handleClick);
 document.addEventListener("change", handleChange);
@@ -578,7 +570,6 @@ function renderWelcomePanel() {
 function renderDeveloperPage() {
   const category = getDeveloperCategory(state.ui.activeDeveloperCategory);
   const records = getSystemCategoryRecords(category.key);
-  const exportJson = getSystemContentExportJson();
 
   return `
     <main class="developer-workspace">
@@ -588,9 +579,8 @@ function renderDeveloperPage() {
           <span class="character-title-meta">Empyrean System Content</span>
         </div>
         <div class="developer-header-actions">
-          <button class="secondary-button" data-action="dev-copy-json" type="button">${iconCopy()}<span>Copy JSON</span></button>
-          <button class="secondary-button" data-action="dev-download-json" type="button">${iconDownload()}<span>Download</span></button>
           <button class="danger-button" data-action="dev-reset-defaults" type="button">${iconRepeat()}<span>Defaults</span></button>
+          <button class="primary-button" data-action="dev-confirm-changes" type="button">${iconUpload()}<span>Confirm Changes</span></button>
         </div>
       </section>
       <div class="developer-layout">
@@ -626,10 +616,6 @@ function renderDeveloperPage() {
               ${records.map((entry, index) => renderDeveloperEntryEditor(category, entry, index)).join("")}
             </div>
           </form>
-          <div class="developer-bottom-grid">
-            ${renderDeveloperJsonPanel(exportJson)}
-            ${renderDeveloperGithubPanel()}
-          </div>
         </section>
       </div>
     </main>
@@ -734,92 +720,6 @@ function renderDeveloperEntryEditor(category, entry, index) {
         </div>
       </div>
     </details>
-  `;
-}
-
-function renderDeveloperJsonPanel(exportJson) {
-  return `
-    <section class="developer-tool-panel">
-      <div class="utility-title-row">
-        <h2>Import / Export</h2>
-        <div class="utility-title-actions">
-          <button class="secondary-button" data-action="dev-copy-json" type="button">${iconCopy()}<span>Copy</span></button>
-        </div>
-      </div>
-      <label>
-        <span>System Content JSON</span>
-        <textarea rows="10" readonly>${escapeHtml(exportJson)}</textarea>
-      </label>
-      <form class="developer-import-form" data-form="developer-json-import">
-        <label>
-          <span>Paste JSON</span>
-          <textarea rows="5" name="importJson" placeholder="Paste exported system content"></textarea>
-        </label>
-        <div class="modal-actions modal-actions-end">
-          <button class="primary-button" type="submit">${iconUpload()}<span>Import</span></button>
-        </div>
-      </form>
-    </section>
-  `;
-}
-
-function renderDeveloperGithubPanel() {
-  const settings = developerGithubSettings;
-
-  return `
-    <section class="developer-tool-panel">
-      <div class="utility-title-row">
-        <h2>GitHub Export</h2>
-        ${state.ui.developerGithubStatus ? `<span class="developer-status">${escapeHtml(state.ui.developerGithubStatus)}</span>` : ""}
-      </div>
-      <form class="developer-github-form" data-form="developer-github">
-        <div class="developer-github-grid">
-          <label>
-            <span>Owner</span>
-            <input type="text" name="owner" maxlength="80" value="${escapeAttribute(settings.owner)}" placeholder="account" />
-          </label>
-          <label>
-            <span>Repository</span>
-            <input type="text" name="repo" maxlength="100" value="${escapeAttribute(settings.repo)}" placeholder="repository" />
-          </label>
-          <label>
-            <span>Branch</span>
-            <input type="text" name="branch" maxlength="80" value="${escapeAttribute(settings.branch)}" placeholder="main" />
-          </label>
-          <label>
-            <span>Path</span>
-            <input type="text" name="path" maxlength="180" value="${escapeAttribute(settings.path)}" />
-          </label>
-        </div>
-        <label>
-          <span>Commit Message</span>
-          <input
-            type="text"
-            name="message"
-            maxlength="160"
-            value="${escapeAttribute(settings.message)}"
-          />
-        </label>
-        <label>
-          <span>Token</span>
-          <input
-            type="password"
-            name="token"
-            maxlength="240"
-            value="${escapeAttribute(settings.rememberToken ? settings.token : "")}"
-            autocomplete="off"
-          />
-        </label>
-        <label class="inline-toggle">
-          <input type="checkbox" name="rememberToken" ${settings.rememberToken ? "checked" : ""} />
-          <span>Remember token locally</span>
-        </label>
-        <div class="modal-actions">
-          <button class="secondary-button" name="githubAction" value="save" type="submit">${iconSave()}<span>Save Settings</span></button>
-          <button class="primary-button" name="githubAction" value="push" type="submit">${iconUpload()}<span>Push JSON</span></button>
-        </div>
-      </form>
-    </section>
   `;
 }
 
@@ -3088,7 +2988,7 @@ function renderToast() {
   return `<div class="toast">${escapeHtml(state.ui.toast)}</div>`;
 }
 
-function handleClick(event) {
+async function handleClick(event) {
   if (event.target.matches('.modal-backdrop[data-close-backdrop="true"]')) {
     closeModal();
     return;
@@ -3107,7 +3007,7 @@ function handleClick(event) {
   const action = actionTarget.dataset.action;
 
   if (action.startsWith("dev-")) {
-    handleDeveloperClickAction(action, actionTarget);
+    await handleDeveloperClickAction(action, actionTarget);
     return;
   }
 
@@ -3627,18 +3527,6 @@ async function handleSubmit(event) {
   if (formName === "developer-content") {
     saveDeveloperContentFromForm(form);
     showToast(`${getDeveloperCategory(formData.get("categoryKey")).label} saved.`);
-    renderApp();
-    return;
-  }
-
-  if (formName === "developer-json-import") {
-    importDeveloperJson(formData.get("importJson"));
-    renderApp();
-    return;
-  }
-
-  if (formName === "developer-github") {
-    await handleDeveloperGithubSubmit(form, event.submitter?.value || "save");
     renderApp();
     return;
   }
@@ -6352,11 +6240,29 @@ function applySystemContent(content) {
   replaceArray(PROTOCOL_OPTIONS, normalized.protocols.map(systemRecordToOption));
   replaceArray(CONFIGURATION_OPTIONS, normalized.configurations.map(systemRecordToOption));
   replaceArray(MECH_AUGMENT_OPTIONS, normalized.mechAugments.map(systemRecordToOption));
+  replaceArray(AUGMENT_OPTIONS, getAggregateAugmentOptions(normalized));
   replaceArray(BACKGROUND_OPTIONS, normalized.backgrounds.map(systemRecordToOption));
   replaceArray(TEKHNE_OPTIONS, normalized.tekhne.map((record) => record.label));
   replaceObject(TEKHNE_ABILITIES, recordsToAbilityMap(normalized.tekhne));
   replaceArray(ARKHEMETRY_OPTIONS, normalized.arkhemetry.map((record) => record.label));
   replaceObject(ARKHEMETRY_ABILITIES, recordsToAbilityMap(normalized.arkhemetry));
+}
+
+function getAggregateAugmentOptions(content) {
+  const options = [{ key: "custom", label: "Custom Augment", ability: "", specializations: [] }];
+  const seenKeys = new Set(options.map((option) => option.key));
+
+  ["naturalAugments", "bioAugments", "radioAugments", "mechAugments"].forEach((categoryKey) => {
+    (content[categoryKey] || []).forEach((record) => {
+      if (!record.key || record.key === "custom" || seenKeys.has(record.key)) {
+        return;
+      }
+      seenKeys.add(record.key);
+      options.push(systemRecordToOption(record));
+    });
+  });
+
+  return options;
 }
 
 function systemRecordToOption(record) {
@@ -6390,8 +6296,10 @@ function replaceObject(target, values) {
   });
 }
 
-function persistSystemContent() {
+function persistSystemContent(options = {}) {
+  const isDirty = options.dirty !== undefined ? Boolean(options.dirty) : true;
   window.localStorage.setItem(SYSTEM_CONTENT_KEY, JSON.stringify(systemContent));
+  window.localStorage.setItem(SYSTEM_CONTENT_DIRTY_KEY, isDirty ? "true" : "false");
 }
 
 function getSystemContentExportPayload() {
@@ -6453,9 +6361,30 @@ function updateSystemCategoryRecords(categoryKey, records) {
   persistSystemContent();
 }
 
-function handleDeveloperClickAction(action, actionTarget) {
+async function syncSystemContentFromRepositoryIfClean() {
+  if (window.localStorage.getItem(SYSTEM_CONTENT_DIRTY_KEY) === "true" || typeof fetch !== "function") {
+    return;
+  }
+
+  try {
+    const repositoryContent = await fetchSystemContentFromRepository();
+    applySystemContent(repositoryContent);
+    persistSystemContent({ dirty: false });
+    renderApp();
+  } catch {
+    // The bundled defaults keep the app usable when the repository JSON is unavailable.
+  }
+}
+
+async function handleDeveloperClickAction(action, actionTarget) {
   const activeForm = document.querySelector('form[data-form="developer-content"]');
-  const shouldPreserveEdits = ["dev-select-category", "dev-add-entry", "dev-delete-entry", "dev-duplicate-entry"].includes(action);
+  const shouldPreserveEdits = [
+    "dev-select-category",
+    "dev-add-entry",
+    "dev-delete-entry",
+    "dev-duplicate-entry",
+    "dev-confirm-changes",
+  ].includes(action);
   if (shouldPreserveEdits) {
     saveDeveloperContentFromForm(activeForm);
   }
@@ -6489,33 +6418,16 @@ function handleDeveloperClickAction(action, actionTarget) {
   }
 
   if (action === "dev-reset-defaults") {
-    if (!window.confirm("Reset developer content to defaults?")) {
+    if (!window.confirm("Reset local editor changes to the content currently published in the GitHub repository?")) {
       return;
     }
-    applySystemContent({ ...cloneSystemContent(DEFAULT_SYSTEM_CONTENT), updatedAt: new Date().toISOString() });
-    persistSystemContent();
-    showToast("Developer content reset.");
-    renderApp();
+    await resetDeveloperContentFromRepository();
     return;
   }
 
-  if (action === "dev-copy-json") {
-    copyText(getSystemContentExportJson())
-      .then(() => {
-        showToast("System content JSON copied.");
-        renderApp();
-      })
-      .catch(() => {
-        showToast("Clipboard access was blocked.");
-        renderApp();
-      });
+  if (action === "dev-confirm-changes") {
+    await confirmDeveloperChanges();
     return;
-  }
-
-  if (action === "dev-download-json") {
-    downloadDeveloperJson();
-    showToast("System content JSON downloaded.");
-    renderApp();
   }
 }
 
@@ -6573,27 +6485,43 @@ function makeUniqueSystemRecordKey(records, baseKey) {
   return key;
 }
 
-function importDeveloperJson(rawJson) {
+async function resetDeveloperContentFromRepository() {
   try {
-    const parsed = JSON.parse(String(rawJson || ""));
-    applySystemContent({ ...normalizeSystemContent(parsed), updatedAt: new Date().toISOString() });
-    persistSystemContent();
-    showToast("System content imported.");
+    const repositoryContent = await fetchSystemContentFromRepository();
+    applySystemContent({ ...repositoryContent, updatedAt: repositoryContent.updatedAt || new Date().toISOString() });
+    persistSystemContent({ dirty: false });
+    showToast("Local editor changes reset to the repository version.");
   } catch {
-    showToast("That JSON could not be imported.");
+    applySystemContent({ ...cloneSystemContent(DEFAULT_SYSTEM_CONTENT), updatedAt: new Date().toISOString() });
+    persistSystemContent({ dirty: false });
+    showToast("Repository content could not be loaded, so bundled defaults were restored.");
   }
+  renderApp();
 }
 
-function downloadDeveloperJson() {
-  const blob = new Blob([getSystemContentExportJson()], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = "empyrean-system-content.json";
-  document.body.append(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
+async function fetchSystemContentFromRepository() {
+  const response = await fetch(`${SYSTEM_CONTENT_REPOSITORY_URL}?v=${Date.now()}`, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error("Repository system content could not be loaded.");
+  }
+  return normalizeSystemContent(await response.json());
+}
+
+async function confirmDeveloperChanges() {
+  const json = getSystemContentExportJson();
+
+  try {
+    await copyText(json);
+    showToast("Changes copied. Paste into the GitHub editor and commit.");
+  } catch {
+    showToast("Clipboard was blocked. Copy from the page before committing in GitHub.");
+  }
+
+  const opened = window.open?.(SYSTEM_CONTENT_GITHUB_EDIT_URL, "_blank", "noopener");
+  if (!opened) {
+    window.location.href = SYSTEM_CONTENT_GITHUB_EDIT_URL;
+  }
+  renderApp();
 }
 
 function isDeveloperRoute() {
@@ -6655,152 +6583,6 @@ function formatKeyAsLabel(key) {
     .filter(Boolean)
     .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
     .join(" ");
-}
-
-function loadDeveloperGithubSettings() {
-  const fallback = {
-    owner: "",
-    repo: "",
-    branch: "main",
-    path: DEFAULT_GITHUB_EXPORT_PATH,
-    message: "Update Empyrean system content",
-    token: "",
-    rememberToken: false,
-  };
-
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(DEVELOPER_GITHUB_KEY) || "{}");
-    return normalizeDeveloperGithubSettings({ ...fallback, ...parsed });
-  } catch {
-    return fallback;
-  }
-}
-
-function normalizeDeveloperGithubSettings(rawValue = {}) {
-  return {
-    owner: String(rawValue.owner || "").trim(),
-    repo: String(rawValue.repo || "").trim(),
-    branch: String(rawValue.branch || "main").trim() || "main",
-    path: String(rawValue.path || DEFAULT_GITHUB_EXPORT_PATH).trim() || DEFAULT_GITHUB_EXPORT_PATH,
-    message: String(rawValue.message || "Update Empyrean system content").trim() || "Update Empyrean system content",
-    token: String(rawValue.token || ""),
-    rememberToken: normalizeBoolean(rawValue.rememberToken),
-  };
-}
-
-function getDeveloperGithubSettingsFromForm(form) {
-  const formData = new FormData(form);
-  const rememberToken = formData.get("rememberToken") === "on";
-  return normalizeDeveloperGithubSettings({
-    owner: formData.get("owner"),
-    repo: formData.get("repo"),
-    branch: formData.get("branch"),
-    path: formData.get("path"),
-    message: formData.get("message"),
-    token: rememberToken ? formData.get("token") : "",
-    rememberToken,
-  });
-}
-
-function persistDeveloperGithubSettings() {
-  window.localStorage.setItem(DEVELOPER_GITHUB_KEY, JSON.stringify(developerGithubSettings));
-}
-
-async function handleDeveloperGithubSubmit(form, action) {
-  const formData = new FormData(form);
-  const enteredToken = String(formData.get("token") || "").trim();
-  developerGithubSettings = getDeveloperGithubSettingsFromForm(form);
-  persistDeveloperGithubSettings();
-
-  if (action === "save") {
-    state.ui.developerGithubStatus = "Settings saved";
-    showToast("GitHub export settings saved.");
-    return;
-  }
-
-  const pushSettings = {
-    ...developerGithubSettings,
-    token: enteredToken || developerGithubSettings.token,
-  };
-  const missingFields = ["owner", "repo", "branch", "path", "token"].filter((field) => !pushSettings[field]);
-  if (missingFields.length) {
-    state.ui.developerGithubStatus = "Missing GitHub fields";
-    showToast(`Missing ${missingFields.join(", ")}.`);
-    return;
-  }
-
-  state.ui.developerGithubStatus = "Pushing...";
-  renderApp();
-
-  try {
-    await pushSystemContentToGithub(pushSettings, getSystemContentExportJson());
-    state.ui.developerGithubStatus = "Pushed to GitHub";
-    showToast("System content pushed to GitHub.");
-  } catch (error) {
-    state.ui.developerGithubStatus = "GitHub push failed";
-    showToast(error instanceof Error ? error.message : "GitHub push failed.");
-  }
-}
-
-async function pushSystemContentToGithub(settings, json) {
-  const owner = encodeURIComponent(settings.owner);
-  const repo = encodeURIComponent(settings.repo);
-  const encodedPath = String(settings.path)
-    .split("/")
-    .map((part) => encodeURIComponent(part))
-    .join("/");
-  const branch = settings.branch || "main";
-  const baseUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${encodedPath}`;
-  const headers = {
-    Accept: "application/vnd.github+json",
-    Authorization: `Bearer ${settings.token}`,
-    "Content-Type": "application/json",
-  };
-
-  let sha = "";
-  const existingResponse = await fetch(`${baseUrl}?ref=${encodeURIComponent(branch)}`, { headers });
-  if (existingResponse.ok) {
-    const existing = await existingResponse.json();
-    sha = existing.sha || "";
-  } else if (existingResponse.status !== 404) {
-    throw new Error(await getGitHubErrorMessage(existingResponse));
-  }
-
-  const body = {
-    message: settings.message || "Update Empyrean system content",
-    content: encodeBase64Utf8(json),
-    branch,
-    ...(sha ? { sha } : {}),
-  };
-  const response = await fetch(baseUrl, {
-    method: "PUT",
-    headers,
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    throw new Error(await getGitHubErrorMessage(response));
-  }
-
-  return response.json();
-}
-
-async function getGitHubErrorMessage(response) {
-  try {
-    const body = await response.json();
-    return body.message ? `GitHub: ${body.message}` : "GitHub request failed.";
-  } catch {
-    return "GitHub request failed.";
-  }
-}
-
-function encodeBase64Utf8(value) {
-  const bytes = new TextEncoder().encode(value);
-  let binary = "";
-  bytes.forEach((byte) => {
-    binary += String.fromCharCode(byte);
-  });
-  return window.btoa(binary);
 }
 
 function loadStoredState() {

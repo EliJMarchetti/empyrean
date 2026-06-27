@@ -1,0 +1,328 @@
+{
+  "version": 1,
+  "updatedAt": "",
+  "corporateTies": [
+    {
+      "key": "none",
+      "label": "No Corporate Involvement",
+      "ability": "",
+      "specializations": ["Independence", "Underground Contacts"]
+    },
+    {
+      "key": "custom",
+      "label": "Lesser Corporation",
+      "ability": "",
+      "specializations": []
+    },
+    {
+      "key": "vantis",
+      "label": "Vantis",
+      "ability": "",
+      "specializations": ["Etiquette", "Coercion"]
+    },
+    {
+      "key": "aphelion",
+      "label": "Aphelion Dynamics",
+      "ability": "",
+      "specializations": ["Spacecrafts", "Experimental Tech"]
+    },
+    {
+      "key": "nocturne",
+      "label": "Nocturne Solutions",
+      "ability": "",
+      "specializations": ["Infiltration", "Nondetection"]
+    },
+    {
+      "key": "cerberus",
+      "label": "Cerberus Security",
+      "ability": "",
+      "specializations": ["Protection", "Negotiation"]
+    },
+    {
+      "key": "omnisight",
+      "label": "Omnisight Data Core",
+      "ability": "",
+      "specializations": ["Artificial Intelligence", "Surveillance"]
+    },
+    {
+      "key": "helios",
+      "label": "Helios Energy Systems",
+      "ability": "Company Transit: You can get free passage between districts and between planets, by contacting Helios at least 24 hours in advance.",
+      "specializations": ["Nuclear Technology", "Finance"]
+    },
+    {
+      "key": "terra-synth",
+      "label": "Terra-Synth Agro Com",
+      "ability": "",
+      "specializations": ["Agriculture", "Hab-Design"]
+    },
+    {
+      "key": "aeternis",
+      "label": "Aeternis",
+      "ability": "",
+      "specializations": ["Biochemistry", "Nanotechnology"]
+    },
+    {
+      "key": "nynthe",
+      "label": "Nynthe",
+      "ability": "",
+      "specializations": ["Bargaining", "Media"]
+    },
+    {
+      "key": "oracle",
+      "label": "O.R.A.C.L.E.",
+      "ability": "",
+      "specializations": ["Education", "Credibility"]
+    }
+  ],
+  "homeworlds": [
+    {
+      "key": "mars",
+      "label": "Mars",
+      "ability": "Gaia's Edge Emissary: You have an official bill of travel which specifies a stated purpose or objective. While pursuing that directive, you have diplomatic immunity which major corporations are sworn to uphold so long as your presence doesn't pose an imminent threat.",
+      "specializations": []
+    },
+    {
+      "key": "saturn",
+      "label": "Saturn",
+      "ability": "",
+      "specializations": []
+    },
+    {
+      "key": "venus",
+      "label": "Venus",
+      "ability": "",
+      "specializations": []
+    },
+    {
+      "key": "proxima-centauri-b",
+      "label": "Proxima Centauri b",
+      "ability": "",
+      "specializations": []
+    },
+    {
+      "key": "barnard-s-star-b",
+      "label": "Barnard's Star b",
+      "ability": "",
+      "specializations": []
+    },
+    {
+      "key": "trappist-1e",
+      "label": "TRAPPIST-1e",
+      "ability": "",
+      "specializations": []
+    },
+    {
+      "key": "trappist-1f",
+      "label": "TRAPPIST-1f",
+      "ability": "",
+      "specializations": []
+    },
+    {
+      "key": "trappist-1g",
+      "label": "TRAPPIST-1g",
+      "ability": "",
+      "specializations": []
+    }
+  ],
+  "naturalAugments": [
+    {
+      "key": "custom",
+      "label": "Custom Natural Augment",
+      "ability": "",
+      "specializations": []
+    }
+  ],
+  "hybridAnimals": [
+    {
+      "key": "custom",
+      "label": "Custom Hybrid Animal",
+      "ability": "",
+      "specializations": []
+    }
+  ],
+  "bioAugments": [
+    {
+      "key": "custom",
+      "label": "Custom Bio-Augment",
+      "ability": "",
+      "specializations": []
+    },
+    {
+      "key": "thermal-vision",
+      "label": "Thermal Vision",
+      "ability": "You can see heat signatures in darkness, including through up to four inches of non-metal and non-stone material.",
+      "specializations": []
+    },
+    {
+      "key": "metabolic-control",
+      "label": "Metabolic Control",
+      "ability": "You can increase your recovery speed by double, at the cost of consuming twice as much food. You can also reduce your heat signature to nearly nothing as long as you remain motionless.",
+      "specializations": []
+    },
+    {
+      "key": "enhanced-biology",
+      "label": "Enhanced Biology",
+      "ability": "You can spend a story point to add +10 on any Body test.",
+      "specializations": []
+    }
+  ],
+  "radioAugments": [
+    {
+      "key": "custom",
+      "label": "Custom Radio-Augment",
+      "ability": "",
+      "specializations": []
+    }
+  ],
+  "protocols": [
+    {
+      "key": "custom",
+      "label": "Custom Protocol",
+      "ability": "",
+      "specializations": []
+    }
+  ],
+  "configurations": [
+    {
+      "key": "custom",
+      "label": "Custom Configuration",
+      "ability": "",
+      "specializations": []
+    }
+  ],
+  "mechAugments": [
+    {
+      "key": "custom",
+      "label": "Custom Mech-Augment",
+      "ability": "",
+      "specializations": []
+    }
+  ],
+  "backgrounds": [
+    {
+      "key": "custom",
+      "label": "Custom",
+      "ability": "",
+      "specializations": []
+    },
+    {
+      "key": "cyber-infiltrator",
+      "label": "Cyber-Infiltrator",
+      "ability": "Well Connected: You have contacts in every major organization, who can help you get information, schematics, and records so long as doing so doesn't expose them to serious risk.",
+      "specializations": ["Hacking", "Security Systems", "Decryption", "Infiltration", "Stealth Technology", "Remote Tasks"]
+    },
+    {
+      "key": "paratrooper",
+      "label": "Paratrooper",
+      "ability": "Hardened Veteran: Whenever you fail a Combat Attrition Test, and black out a Skill, you may expend a Story Point to remain in the combat as though you hadn't failed.",
+      "specializations": ["Stealth", "Piloting", "Breach Actions", "Sharpshooting", "Fast Adapting", "Battlefield Conditioning"]
+    },
+    {
+      "key": "energy-weaponsmith",
+      "label": "Energy Weaponsmith",
+      "ability": "Weapons don't degrade or misfire while you use them.",
+      "specializations": ["Fusion", "Fission", "Lasers", "Electromagnetism", "Explosives", "Weapons Engineering"]
+    },
+    {
+      "key": "conscript",
+      "label": "Conscript",
+      "ability": "Pull Rank: You hold universal military credentials, which identify you personally, and may grant increased leniency to bring weapons into and operate within restricted areas.",
+      "specializations": ["Firefights", "Field Medicine", "Fortification", "Bushcraft", "Streetwise", "Urban Warfare"]
+    }
+  ],
+  "tekhne": [
+    {
+      "key": "time",
+      "label": "Time",
+      "ability": "",
+      "specializations": []
+    },
+    {
+      "key": "space",
+      "label": "Space",
+      "ability": "",
+      "specializations": []
+    },
+    {
+      "key": "mass",
+      "label": "Mass",
+      "ability": "",
+      "specializations": []
+    },
+    {
+      "key": "energy",
+      "label": "Energy",
+      "ability": "",
+      "specializations": []
+    },
+    {
+      "key": "information",
+      "label": "Information",
+      "ability": "",
+      "specializations": []
+    },
+    {
+      "key": "entropy",
+      "label": "Entropy",
+      "ability": "",
+      "specializations": []
+    }
+  ],
+  "arkhemetry": [
+    {
+      "key": "mechanical",
+      "label": "Mechanical",
+      "ability": "",
+      "specializations": []
+    },
+    {
+      "key": "biological",
+      "label": "Biological",
+      "ability": "",
+      "specializations": []
+    },
+    {
+      "key": "chemical",
+      "label": "Chemical",
+      "ability": "",
+      "specializations": []
+    },
+    {
+      "key": "digital",
+      "label": "Digital",
+      "ability": "",
+      "specializations": []
+    },
+    {
+      "key": "structural",
+      "label": "Structural",
+      "ability": "",
+      "specializations": []
+    },
+    {
+      "key": "practical",
+      "label": "Practical",
+      "ability": "",
+      "specializations": []
+    },
+    {
+      "key": "relational",
+      "label": "Relational",
+      "ability": "",
+      "specializations": []
+    },
+    {
+      "key": "ornamental",
+      "label": "Ornamental",
+      "ability": "",
+      "specializations": []
+    },
+    {
+      "key": "metaphysical",
+      "label": "Metaphysical",
+      "ability": "",
+      "specializations": []
+    }
+  ]
+}
