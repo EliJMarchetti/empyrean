@@ -431,7 +431,7 @@ svg {
   position: relative;
   overflow: hidden;
   padding: 0.8rem;
-  padding-bottom: 1rem;
+  padding-bottom: 0.42rem;
   --section-accent: rgba(123, 231, 207, 0.48);
   --section-accent-soft: rgba(123, 231, 207, 0.16);
 }
@@ -599,6 +599,24 @@ svg {
   font-weight: 700;
 }
 
+.attribute-score.gear-mod-active,
+.skill-box input.gear-mod-active,
+.specialization-box input.gear-mod-active,
+.skill-value-display.gear-mod-active {
+  border-color: rgba(255, 179, 94, 0.54);
+  background: rgba(255, 179, 94, 0.24);
+  color: #ffd6a3;
+  box-shadow: inset 0 0 0 1px rgba(255, 179, 94, 0.18);
+}
+
+.attribute-score.gear-mod-passive,
+.skill-box input.gear-mod-passive,
+.specialization-box input.gear-mod-passive,
+.skill-value-display.gear-mod-passive {
+  border-color: var(--section-accent);
+  color: var(--section-accent);
+}
+
 .attribute-dice {
   text-align: center;
   font-size: 0.6rem;
@@ -654,7 +672,7 @@ svg {
   min-width: 0;
   position: relative;
   width: 100%;
-  padding: 0.5rem;
+  padding: 0.45rem;
   border: 1px solid rgba(157, 205, 216, 0.12);
   border-radius: var(--radius-md);
   background: var(--bg-panel-soft);
@@ -665,6 +683,10 @@ svg {
     border-color 140ms ease,
     box-shadow 140ms ease,
     background 140ms ease;
+}
+
+.skill-box {
+  padding-bottom: 0.3rem;
 }
 
 .skill-box span,
@@ -699,8 +721,8 @@ svg {
   align-self: stretch;
   min-height: 0;
   overflow: hidden;
-  padding: 0.45rem;
-  padding-bottom: 1rem;
+  padding: 0.5rem;
+  padding-bottom: 2.05rem;
   --section-accent: var(--tone-specialization);
   --section-accent-soft: rgba(189, 122, 255, 0.22);
 }
@@ -710,6 +732,7 @@ svg {
   grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 0.35rem;
   align-content: start;
+  padding-bottom: 1.35rem;
 }
 
 .specializations-panel .subsection-title {
@@ -1093,6 +1116,66 @@ button.gear-summary-chip {
   grid-column: span 2;
 }
 
+.gear-shield-summary {
+  gap: 0.26rem;
+}
+
+.gear-shield-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.24rem;
+}
+
+.gear-shield-button {
+  display: grid;
+  gap: 0.12rem;
+  min-width: 0;
+  min-height: 2.2rem;
+  padding: 0.24rem 0.2rem;
+  border: 1px solid rgba(157, 205, 216, 0.14);
+  border-radius: 7px;
+  background: rgba(5, 14, 20, 0.68);
+  color: var(--text-main);
+  text-align: center;
+  touch-action: manipulation;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    transform 140ms ease;
+}
+
+.gear-shield-button:hover:not(:disabled),
+.gear-shield-button:focus-visible {
+  border-color: rgba(123, 231, 207, 0.36);
+  background: rgba(9, 26, 32, 0.78);
+}
+
+.gear-shield-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.gear-shield-button:disabled {
+  opacity: 0.52;
+}
+
+.gear-shield-button span {
+  color: var(--text-muted);
+  font-size: 0.48rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.gear-shield-button strong {
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
 .gear-hotbar {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -1110,7 +1193,7 @@ button.gear-summary-chip {
 }
 
 .hotbar-card-grid {
-  grid-template-columns: repeat(auto-fit, minmax(4.8rem, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-content: start;
   min-height: 0;
   overflow: auto;
@@ -1815,13 +1898,23 @@ button.gear-summary-chip {
 }
 
 .developer-app-shell {
-  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.app-shell.developer-app-shell {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .developer-workspace {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: var(--app-gap);
+  height: 100%;
   min-height: 0;
+  overflow: hidden;
 }
 
 .developer-header {
@@ -1852,16 +1945,27 @@ button.gear-summary-chip {
 
 .developer-layout {
   display: grid;
-  grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
+  grid-template-columns: minmax(8.75rem, 11rem) minmax(0, 1fr);
   gap: var(--app-gap);
-  align-items: start;
+  align-items: stretch;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .developer-sidebar {
   display: grid;
-  gap: 0.55rem;
-  position: sticky;
-  top: 0.65rem;
+  align-content: start;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0.28rem;
+  min-height: 0;
+  padding: 0.42rem;
+  overflow: hidden;
+}
+
+.developer-sidebar .subsection-title {
+  margin-bottom: 0.12rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
 }
 
 .developer-category-list,
@@ -1873,16 +1977,31 @@ button.gear-summary-chip {
   gap: 0.65rem;
 }
 
+.developer-category-list {
+  gap: 0.18rem;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.developer-main-panel {
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 0;
+  overflow: auto;
+  padding-right: 0.2rem;
+}
+
 .developer-category-button {
   justify-content: space-between;
-  gap: 0.7rem;
+  gap: 0.28rem;
   width: 100%;
-  min-height: 2.25rem;
-  padding: 0.46rem 0.6rem;
+  min-height: clamp(1.18rem, 3.1vh, 1.5rem);
+  padding: clamp(0.08rem, 0.32vh, 0.18rem) 0.28rem;
   border: 1px solid rgba(157, 205, 216, 0.12);
-  border-radius: 8px;
+  border-radius: 6px;
   background: rgba(18, 34, 44, 0.82);
   color: var(--text-main);
+  font-size: clamp(0.62rem, 1.7vh, 0.7rem);
+  line-height: 1;
   text-align: left;
 }
 
@@ -1897,13 +2016,13 @@ button.gear-summary-chip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 1.7rem;
-  min-height: 1.35rem;
-  padding: 0.08rem 0.38rem;
+  min-width: 1.08rem;
+  min-height: 0.86rem;
+  padding: 0 0.16rem;
   border-radius: 999px;
   background: rgba(123, 231, 207, 0.1);
   color: var(--accent);
-  font-size: 0.74rem;
+  font-size: 0.54rem;
 }
 
 .developer-category-button:hover,
@@ -1916,7 +2035,13 @@ button.gear-summary-chip {
 }
 
 .developer-content-form {
+  align-content: start;
+  grid-template-rows: auto auto;
+  width: 100%;
+  min-width: 44rem;
+  min-height: 100%;
   padding: 0.8rem;
+  overflow: visible;
   border: 1px solid var(--line-soft);
   border-radius: var(--radius-lg);
   background: var(--bg-panel);
@@ -1937,10 +2062,17 @@ button.gear-summary-chip {
 }
 
 .developer-entry {
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid rgba(157, 205, 216, 0.12);
   border-radius: 8px;
   background: var(--bg-panel-soft);
+}
+
+.developer-entry-list {
+  align-content: start;
+  min-height: auto;
+  overflow: visible;
+  padding-right: 0;
 }
 
 .developer-entry[open] {
@@ -2665,8 +2797,8 @@ button.gear-summary-chip {
   position: absolute;
   left: 0.7rem;
   right: 0.7rem;
-  bottom: 0.34rem;
-  height: 0.32rem;
+  bottom: 0.18rem;
+  height: 0.26rem;
   border-radius: 999px;
   background: linear-gradient(90deg, transparent, var(--section-accent), transparent);
   pointer-events: none;
@@ -2747,7 +2879,7 @@ button.gear-summary-chip {
 
   .stat-block {
     padding: clamp(0.54rem, 0.82vh, 0.8rem);
-    padding-bottom: clamp(0.72rem, 1vh, 1rem);
+    padding-bottom: clamp(0.34rem, 0.48vh, 0.42rem);
   }
 
   .stat-header {
@@ -2772,13 +2904,18 @@ button.gear-summary-chip {
     padding: clamp(0.36rem, 0.68vh, 0.5rem);
   }
 
+  .skill-box {
+    padding-bottom: clamp(0.22rem, 0.38vh, 0.3rem);
+  }
+
   .specializations-panel {
     padding-top: clamp(0.34rem, 0.6vh, 0.45rem);
-    padding-bottom: clamp(0.72rem, 0.95vh, 1rem);
+    padding-bottom: clamp(1.65rem, 2.2vh, 2.05rem);
   }
 
   .specialization-strip {
     gap: clamp(0.25rem, 0.5vh, 0.35rem);
+    padding-bottom: clamp(1rem, 1.55vh, 1.35rem);
   }
 
   .utility-panel {
@@ -2813,8 +2950,9 @@ button.gear-summary-chip {
   }
 
   .developer-app-shell {
-    height: auto;
-    min-height: 100dvh;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
   }
 }
 
@@ -2833,11 +2971,18 @@ button.gear-summary-chip {
   .app-shell {
     height: auto;
     min-height: 100vh;
+    overflow: visible;
   }
 
   .app-shell {
     grid-template-rows: auto;
     overflow: visible;
+  }
+
+  .app-shell.developer-app-shell {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .workspace {
@@ -2860,7 +3005,7 @@ button.gear-summary-chip {
   }
 
   .developer-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(7.6rem, 9rem) minmax(0, 1fr);
   }
 
   .developer-sidebar {
@@ -2868,7 +3013,7 @@ button.gear-summary-chip {
   }
 
   .developer-category-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 
   .hotbar-card-grid {

@@ -478,8 +478,17 @@ document.addEventListener("input", handleInput);
 document.addEventListener("submit", handleSubmit);
 document.addEventListener("contextmenu", handleContextMenu);
 document.addEventListener("focusin", handleFocusIn);
+document.addEventListener("pointerdown", handlePointerDown);
+document.addEventListener("pointerup", handlePointerEnd);
+document.addEventListener("pointercancel", handlePointerEnd);
 document.addEventListener("toggle", handleExclusiveDetailsToggle, true);
 window.addEventListener("keydown", handleKeydown);
+
+let shieldTapTimerId = null;
+let shieldTapKey = "";
+let shieldTapStartedAt = 0;
+let shieldHoldTimerId = null;
+let shieldHoldTriggered = false;
 
 function renderApp() {
   if (isDeveloperRoute()) {
@@ -850,19 +859,23 @@ function renderPrimaryView(character) {
             ({ specialization, index }) => {
               const effectiveValue = getEffectiveSpecializationValue(character, index, gearState);
               const gearBonus = effectiveValue - specialization.value;
+              const modifierClass = getGearModifierClass(
+                getGearModifierState(gearState, "specialization", normalizeGearLookup(specialization.name))
+              );
               return `
               <label class="specialization-box">
                 <span>${escapeHtml(getSpecializationName(specialization, index))}</span>
                 <input
+                  class="${modifierClass}"
                   type="number"
                   min="0"
                   max="100"
                   value="${specialization.value}"
                   data-input="specialization-value"
                   data-index="${index}"
+                  title="${gearBonus ? `Gear ${formatSigned(gearBonus)}` : ""}"
                   ${state.ui.editMode ? "" : "disabled"}
                 />
-                ${gearBonus ? `<em class="gear-bonus-chip">${escapeHtml(formatSigned(gearBonus))} gear</em>` : ""}
               </label>
             `;
             }
@@ -928,6 +941,7 @@ function renderSkillCard(character, sectionId, skill, index, isSkillLossMode, ge
   const classes = `skill-box ${skill.redacted ? "is-redacted" : ""} ${isSkillLossMode ? "is-armed" : ""}`.trim();
   const effectiveValue = getEffectiveSkillValue(character, sectionId, index, gearState);
   const gearBonus = effectiveValue - skill.value;
+  const modifierClass = getGearModifierClass(getGearModifierState(gearState, "skill", `${sectionId}:${index}`));
 
   if (isSkillLossMode) {
     return `
@@ -939,8 +953,7 @@ function renderSkillCard(character, sectionId, skill, index, isSkillLossMode, ge
         type="button"
       >
         <span>${escapeHtml(skill.label)}</span>
-        <div class="skill-value-display">${skill.value}</div>
-        ${gearBonus ? `<em class="gear-bonus-chip">${escapeHtml(formatSigned(gearBonus))} gear</em>` : ""}
+        <div class="skill-value-display ${modifierClass}" title="${gearBonus ? `Gear ${formatSigned(gearBonus)}` : ""}">${skill.value}</div>
       </button>
     `;
   }
@@ -949,6 +962,7 @@ function renderSkillCard(character, sectionId, skill, index, isSkillLossMode, ge
     <label class="${classes}">
       <span>${escapeHtml(skill.label)}</span>
       <input
+        class="${modifierClass}"
         type="number"
         min="0"
         max="100"
@@ -956,9 +970,9 @@ function renderSkillCard(character, sectionId, skill, index, isSkillLossMode, ge
         data-input="skill-value"
         data-section="${sectionId}"
         data-index="${index}"
+        title="${gearBonus ? `Gear ${formatSigned(gearBonus)}` : ""}"
         ${state.ui.editMode ? "" : "disabled"}
       />
-      ${gearBonus ? `<em class="gear-bonus-chip">${escapeHtml(formatSigned(gearBonus))} gear</em>` : ""}
     </label>
   `;
 }
@@ -967,6 +981,7 @@ function renderAttributeCard(character, template, attribute, index, gearState) {
   const detail = normalizeAttributeDetail(attribute.detail);
   const effectiveScore = getEffectiveAttributeScore(character, template.id, index, gearState);
   const gearBonus = effectiveScore - attribute.score;
+  const modifierClass = getGearModifierClass(getGearModifierState(gearState, "attribute", `${template.id}:${index}`));
   const subboxLabel =
     template.id === "body"
       ? `${attribute.subLabel} ${getBodyDerivedValue(attribute, character, gearState)}`
@@ -977,10 +992,11 @@ function renderAttributeCard(character, template, attribute, index, gearState) {
     <article class="attribute-card ${isTight ? "attribute-card-tight" : ""}">
       <div class="attribute-name">${escapeHtml(attribute.label)}</div>
       <select
-        class="attribute-score"
+        class="attribute-score ${modifierClass}"
         data-input="attribute-score"
         data-section="${template.id}"
         data-index="${index}"
+        title="${gearBonus ? `Gear ${formatSigned(gearBonus)}` : ""}"
         ${state.ui.editMode ? "" : "disabled"}
       >
         ${ATTRIBUTE_SCORES.map(
@@ -989,7 +1005,6 @@ function renderAttributeCard(character, template, attribute, index, gearState) {
       </select>
       <div class="attribute-dice">
         (${escapeHtml(formatDiceNotation(scoreToDice(effectiveScore)))})
-        ${gearBonus ? `<em class="gear-bonus-chip">${escapeHtml(formatSigned(gearBonus))} gear</em>` : ""}
       </div>
       ${
         template.id === "body"
@@ -2311,26 +2326,15 @@ function renderGearSummary(gearState, options = {}) {
       : gearState.encumbranceLevel === "strained"
         ? "Half speed / no Incidentals"
         : "Clear";
-  const shieldChips = GEAR_SHIELD_TYPES.map((shieldType) => {
-    const shield = gearState.shields[shieldType.key];
-    if (!shield?.max) {
-      return "";
-    }
-
-    return `
-      <button
-        class="gear-summary-chip gear-shield-chip"
-        data-action="adjust-shield"
-        data-shield-key="${shieldType.key}"
-        type="button"
-        aria-label="${escapeAttribute(shieldType.label)} ${shield.current} of ${shield.max}"
-        title="${escapeAttribute(shieldType.label)}"
-      >
-        <span>${escapeHtml(shieldType.label)}</span>
-        <strong>${shield.current}/${shield.max}</strong>
-      </button>
-    `;
-  }).join("");
+  const statusChip =
+    placement === "hotbar"
+      ? ""
+      : `
+        <div class="gear-summary-chip gear-summary-status ${bulkClass}">
+          <span>Status</span>
+          <strong>${escapeHtml(statusLabel)}</strong>
+        </div>
+      `;
 
   return `
     <div class="gear-summary gear-summary-${placement}">
@@ -2346,10 +2350,35 @@ function renderGearSummary(gearState, options = {}) {
         <span>Armor</span>
         <strong>${gearState.armor}</strong>
       </div>
-      ${shieldChips}
-      <div class="gear-summary-chip gear-summary-status ${bulkClass}">
-        <span>Status</span>
-        <strong>${escapeHtml(statusLabel)}</strong>
+      ${renderGearShieldSummary(gearState)}
+      ${statusChip}
+    </div>
+  `;
+}
+
+function renderGearShieldSummary(gearState) {
+  return `
+    <div class="gear-summary-chip gear-shield-summary">
+      <span>Shields</span>
+      <div class="gear-shield-grid">
+        ${GEAR_SHIELD_TYPES.map((shieldType) => {
+          const shield = gearState.shields[shieldType.key] || { current: 0, max: 0 };
+          const label = shieldType.label.replace(/\s+Shield$/i, "");
+          return `
+            <button
+              class="gear-shield-button"
+              data-action="adjust-shield"
+              data-shield-key="${shieldType.key}"
+              type="button"
+              ${shield.max ? "" : "disabled"}
+              aria-label="${escapeAttribute(`${label} ${shield.current} of ${shield.max}`)}"
+              title="${escapeAttribute(`${label}: tap to spend, double-tap or hold to restore`)}"
+            >
+              <span>${escapeHtml(label)}</span>
+              <strong>${shield.current}/${shield.max}</strong>
+            </button>
+          `;
+        }).join("")}
       </div>
     </div>
   `;
@@ -3363,7 +3392,7 @@ async function handleClick(event) {
   }
 
   if (action === "adjust-shield") {
-    adjustGearShield(actionTarget.dataset.shieldKey, -1);
+    queueShieldTap(actionTarget.dataset.shieldKey);
     return;
   }
 
@@ -4086,6 +4115,8 @@ function handleContextMenu(event) {
   const shieldTarget = event.target.closest('[data-action="adjust-shield"]');
   if (shieldTarget) {
     event.preventDefault();
+    clearQueuedShieldTap();
+    clearShieldHoldTimer();
     adjustGearShield(shieldTarget.dataset.shieldKey, 1);
     return;
   }
@@ -4104,6 +4135,69 @@ function handleContextMenu(event) {
   event.preventDefault();
   state.ui.activeModal = { type: "custom-roll" };
   renderApp();
+}
+
+function handlePointerDown(event) {
+  const shieldTarget = event.target.closest?.('[data-action="adjust-shield"]');
+  if (!shieldTarget || event.button !== 0 || shieldTarget.disabled) {
+    return;
+  }
+
+  clearShieldHoldTimer();
+  shieldHoldTriggered = false;
+  shieldHoldTimerId = window.setTimeout(() => {
+    shieldHoldTriggered = true;
+    clearQueuedShieldTap();
+    adjustGearShield(shieldTarget.dataset.shieldKey, 1);
+  }, 560);
+}
+
+function handlePointerEnd(event) {
+  if (!event.target.closest?.('[data-action="adjust-shield"]')) {
+    return;
+  }
+
+  clearShieldHoldTimer();
+}
+
+function queueShieldTap(shieldKey) {
+  if (shieldHoldTriggered) {
+    shieldHoldTriggered = false;
+    return;
+  }
+
+  const normalizedKey = String(shieldKey || "");
+  const now = Date.now();
+  if (shieldTapTimerId && shieldTapKey === normalizedKey && now - shieldTapStartedAt < 320) {
+    clearQueuedShieldTap();
+    adjustGearShield(normalizedKey, 1);
+    return;
+  }
+
+  clearQueuedShieldTap();
+  shieldTapKey = normalizedKey;
+  shieldTapStartedAt = now;
+  shieldTapTimerId = window.setTimeout(() => {
+    const queuedKey = shieldTapKey;
+    clearQueuedShieldTap();
+    adjustGearShield(queuedKey, -1);
+  }, 260);
+}
+
+function clearQueuedShieldTap() {
+  if (shieldTapTimerId) {
+    window.clearTimeout(shieldTapTimerId);
+  }
+  shieldTapTimerId = null;
+  shieldTapKey = "";
+  shieldTapStartedAt = 0;
+}
+
+function clearShieldHoldTimer() {
+  if (shieldHoldTimerId) {
+    window.clearTimeout(shieldHoldTimerId);
+  }
+  shieldHoldTimerId = null;
 }
 
 function handleExclusiveDetailsToggle(event) {
@@ -4789,6 +4883,8 @@ function calculateGearState(character) {
     return {
       gear,
       effects: createEmptyGearEffects(),
+      passiveEffects: createEmptyGearEffects(),
+      activeEffects: createEmptyGearEffects(),
       focusLimit: 0,
       focusIds: [],
       focusedItems: [],
@@ -4806,6 +4902,7 @@ function calculateGearState(character) {
   const firstPassEffects = collectGearEffects(character, gear, initialFocusLimit);
   const focusLimit = getFocusLimitFromEffects(character, firstPassEffects);
   const effects = collectGearEffects(character, gear, focusLimit);
+  const activeEffects = subtractGearEffects(effects, passiveEffects);
   const focusIds = getAlphabetizedFocusIds(normalizeFocusIds(gear.focusIds, gear.items), gear.items).slice(0, focusLimit);
   const focusedItems = focusIds.map((id) => gear.items.find((item) => item.id === id)).filter(Boolean);
   const totalBulk = gear.items.reduce((total, item) => total + getGearCardBulk(item), 0);
@@ -4818,6 +4915,8 @@ function calculateGearState(character) {
   return {
     gear,
     effects,
+    passiveEffects,
+    activeEffects,
     focusLimit,
     focusIds,
     focusedItems,
@@ -4859,6 +4958,27 @@ function createEmptyGearEffects() {
     skillBonuses: {},
     specializationBonuses: {},
   };
+}
+
+function subtractGearEffects(totalEffects, baseEffects) {
+  const effects = createEmptyGearEffects();
+  effects.armor = (totalEffects.armor || 0) - (baseEffects.armor || 0);
+
+  GEAR_SHIELD_TYPES.forEach((shieldType) => {
+    effects.shields[shieldType.key] = (totalEffects.shields[shieldType.key] || 0) - (baseEffects.shields[shieldType.key] || 0);
+  });
+
+  ["attributeBonuses", "skillBonuses", "specializationBonuses"].forEach((key) => {
+    const allKeys = new Set([...Object.keys(totalEffects[key] || {}), ...Object.keys(baseEffects[key] || {})]);
+    allKeys.forEach((entryKey) => {
+      const value = (totalEffects[key][entryKey] || 0) - (baseEffects[key][entryKey] || 0);
+      if (value) {
+        effects[key][entryKey] = value;
+      }
+    });
+  });
+
+  return effects;
 }
 
 function addGearEffectsFromItem(effects, item, timing, character) {
@@ -5101,6 +5221,36 @@ function getEffectiveSpecializationValue(character, specializationIndex, gearSta
   const stateForGear = gearState || calculateGearState(character);
   const bonus = stateForGear.effects.specializationBonuses[normalizeGearLookup(specialization.name)] || 0;
   return clampMinimum(specialization.value + bonus, 0);
+}
+
+function getGearModifierState(gearState, kind, key) {
+  const mapKeyByKind = {
+    attribute: "attributeBonuses",
+    skill: "skillBonuses",
+    specialization: "specializationBonuses",
+  };
+  const mapKey = mapKeyByKind[kind];
+
+  if (!gearState || !mapKey || !key) {
+    return { active: 0, passive: 0 };
+  }
+
+  return {
+    active: gearState.activeEffects?.[mapKey]?.[key] || 0,
+    passive: gearState.passiveEffects?.[mapKey]?.[key] || 0,
+  };
+}
+
+function getGearModifierClass(modifierState) {
+  if (modifierState?.active) {
+    return "gear-modified gear-mod-active";
+  }
+
+  if (modifierState?.passive) {
+    return "gear-modified gear-mod-passive";
+  }
+
+  return "";
 }
 
 function getGearAttributeBonus(character, sectionId, attributeIndex, gearState = null) {
