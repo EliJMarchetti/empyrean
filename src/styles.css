@@ -126,6 +126,7 @@ svg {
 
 .toolbar,
 .character-header,
+.developer-header,
 .stat-block,
 .utility-panel,
 .specializations-panel,
@@ -373,6 +374,7 @@ svg {
 .character-title-block h1,
 .stat-header h2,
 .utility-title-row h2,
+.developer-panel-heading h2,
 .welcome-copy h1 {
   margin: 0;
   font-family: var(--font-display);
@@ -1812,6 +1814,247 @@ button.gear-summary-chip {
   background: rgba(17, 31, 40, 0.95);
 }
 
+.developer-app-shell {
+  min-height: 100dvh;
+}
+
+.developer-workspace {
+  display: grid;
+  gap: var(--app-gap);
+  min-height: 0;
+}
+
+.developer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.68rem 0.9rem;
+  background:
+    linear-gradient(135deg, rgba(8, 22, 31, 0.96), rgba(7, 17, 24, 0.92)),
+    radial-gradient(circle at left center, rgba(255, 179, 94, 0.08), transparent 30%);
+}
+
+.developer-header-actions,
+.developer-panel-heading,
+.developer-category-button,
+.developer-entry-heading,
+.developer-specialization-fieldset legend {
+  display: flex;
+  align-items: center;
+}
+
+.developer-header-actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.developer-layout {
+  display: grid;
+  grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
+  gap: var(--app-gap);
+  align-items: start;
+}
+
+.developer-sidebar {
+  display: grid;
+  gap: 0.55rem;
+  position: sticky;
+  top: 0.65rem;
+}
+
+.developer-category-list,
+.developer-main-panel,
+.developer-content-form,
+.developer-entry-list,
+.developer-entry-fields,
+.developer-bottom-grid,
+.developer-tool-panel,
+.developer-import-form,
+.developer-github-form {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.developer-category-button {
+  justify-content: space-between;
+  gap: 0.7rem;
+  width: 100%;
+  min-height: 2.25rem;
+  padding: 0.46rem 0.6rem;
+  border: 1px solid rgba(157, 205, 216, 0.12);
+  border-radius: 8px;
+  background: rgba(18, 34, 44, 0.82);
+  color: var(--text-main);
+  text-align: left;
+}
+
+.developer-category-button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.developer-category-button strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.7rem;
+  min-height: 1.35rem;
+  padding: 0.08rem 0.38rem;
+  border-radius: 999px;
+  background: rgba(123, 231, 207, 0.1);
+  color: var(--accent);
+  font-size: 0.74rem;
+}
+
+.developer-category-button:hover,
+.developer-category-button.is-active {
+  border-color: rgba(123, 231, 207, 0.36);
+}
+
+.developer-category-button.is-active {
+  background: linear-gradient(135deg, rgba(22, 59, 66, 0.96), rgba(16, 43, 54, 0.96));
+}
+
+.developer-content-form,
+.developer-tool-panel {
+  padding: 0.8rem;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-lg);
+  background: var(--bg-panel);
+  box-shadow: var(--shadow);
+}
+
+.developer-panel-heading {
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid rgba(157, 205, 216, 0.12);
+}
+
+.developer-panel-heading span,
+.developer-status {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.developer-entry {
+  overflow: hidden;
+  border: 1px solid rgba(157, 205, 216, 0.12);
+  border-radius: 8px;
+  background: var(--bg-panel-soft);
+}
+
+.developer-entry[open] {
+  border-color: rgba(123, 231, 207, 0.24);
+}
+
+.developer-entry-heading {
+  cursor: pointer;
+  justify-content: space-between;
+  gap: 0.8rem;
+  min-height: 2.75rem;
+  padding: 0.68rem 0.75rem;
+  font-weight: 900;
+}
+
+.developer-entry-heading span,
+.developer-entry-heading small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.developer-entry-heading small {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.developer-entry-fields {
+  padding: 0 0.75rem 0.75rem;
+}
+
+.developer-entry-fields label,
+.developer-tool-panel label,
+.developer-github-form label,
+.developer-import-form label,
+.developer-specialization-grid label {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.developer-entry-fields label span,
+.developer-tool-panel label span,
+.developer-github-form label span,
+.developer-import-form label span,
+.developer-specialization-grid label span {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.developer-entry-fields input,
+.developer-entry-fields textarea,
+.developer-tool-panel input,
+.developer-tool-panel textarea {
+  width: 100%;
+  padding: 0.62rem 0.68rem;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--bg-field);
+  color: var(--text-main);
+}
+
+.developer-entry-fields textarea,
+.developer-tool-panel textarea {
+  resize: vertical;
+}
+
+.developer-specialization-fieldset {
+  margin: 0;
+  padding: 0.6rem;
+  border: 1px solid rgba(157, 205, 216, 0.12);
+  border-radius: 8px;
+}
+
+.developer-specialization-fieldset legend {
+  padding: 0 0.3rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.developer-specialization-grid,
+.developer-github-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.developer-specialization-grid label {
+  grid-template-columns: 1.4rem minmax(0, 1fr);
+  align-items: center;
+}
+
+.developer-specialization-grid label span {
+  justify-self: center;
+  font-weight: 900;
+}
+
+.developer-bottom-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(20rem, 0.85fr);
+  align-items: start;
+}
+
+.developer-tool-panel label.inline-toggle,
+.developer-github-form label.inline-toggle {
+  display: inline-flex;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -2441,6 +2684,11 @@ button.gear-summary-chip {
   .gear-blank {
     min-height: 0;
   }
+
+  .developer-app-shell {
+    height: auto;
+    min-height: 100dvh;
+  }
 }
 
 @media (max-width: 1180px) {
@@ -2484,6 +2732,19 @@ button.gear-summary-chip {
     grid-template-columns: 1fr;
   }
 
+  .developer-layout,
+  .developer-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .developer-sidebar {
+    position: static;
+  }
+
+  .developer-category-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .hotbar-card-grid {
     grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
     max-height: none;
@@ -2513,9 +2774,20 @@ button.gear-summary-chip {
 
   .character-header,
   .toolbar,
+  .developer-header,
+  .developer-panel-heading,
   .modal-actions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .developer-header-actions {
+    justify-content: stretch;
+  }
+
+  .developer-header-actions > *,
+  .developer-panel-heading .utility-title-actions > * {
+    flex: 1;
   }
 
   .view-switcher {
@@ -2530,6 +2802,9 @@ button.gear-summary-chip {
   .skills-grid,
   .specialization-strip,
   .checkbox-grid,
+  .developer-category-list,
+  .developer-github-grid,
+  .developer-specialization-grid,
   .create-grid-two,
   .create-grid-three,
   .create-attribute-grid,

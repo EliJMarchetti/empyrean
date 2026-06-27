@@ -1,4 +1,6 @@
 const STORAGE_KEY = "empyrean.characters.v1";
+const SYSTEM_CONTENT_KEY = "empyrean.systemContent.v1";
+const DEVELOPER_GITHUB_KEY = "empyrean.developerGithub.v1";
 const MAX_SPECIALIZATIONS = 16;
 const BASE_SPECIALIZATION_SLOTS = 8;
 const MAX_AUGMENT_SLOTS = 3;
@@ -165,7 +167,7 @@ const LINEAGE_OPTIONS = [
   },
 ];
 
-const CORPORATION_OPTIONS = [
+let CORPORATION_OPTIONS = [
   { key: "none", label: "No Corporate Involvement", specializations: ["Independence", "Underground Contacts"], ability: "" },
   { key: "custom", label: "Lesser Corporation", specializations: [], ability: "" },
   { key: "vantis", label: "Vantis", specializations: ["Etiquette", "Coercion"], ability: "" },
@@ -185,7 +187,7 @@ const CORPORATION_OPTIONS = [
   { key: "oracle", label: "O.R.A.C.L.E.", specializations: ["Education", "Credibility"], ability: "" },
 ];
 
-const EXO_HOMEWORLD_OPTIONS = [
+let EXO_HOMEWORLD_OPTIONS = [
   "Mars",
   "Saturn",
   "Venus",
@@ -196,12 +198,12 @@ const EXO_HOMEWORLD_OPTIONS = [
   "TRAPPIST-1g",
 ];
 
-const HOMEWORLD_ABILITIES = {
+let HOMEWORLD_ABILITIES = {
   Mars:
     "Gaia's Edge Emissary: You have an official bill of travel which specifies a stated purpose or objective. While pursuing that directive, you have diplomatic immunity which major corporations are sworn to uphold so long as your presence doesn't pose an imminent threat.",
 };
 
-const BACKGROUND_OPTIONS = [
+let BACKGROUND_OPTIONS = [
   { key: "custom", label: "Custom", specializations: [], ability: "" },
   {
     key: "cyber-infiltrator",
@@ -229,9 +231,10 @@ const BACKGROUND_OPTIONS = [
   },
 ];
 
-const TEKHNE_OPTIONS = ["Time", "Space", "Mass", "Energy", "Information", "Entropy"];
+let TEKHNE_OPTIONS = ["Time", "Space", "Mass", "Energy", "Information", "Entropy"];
+let TEKHNE_ABILITIES = {};
 
-const ARKHEMETRY_OPTIONS = [
+let ARKHEMETRY_OPTIONS = [
   "Mechanical",
   "Biological",
   "Chemical",
@@ -242,6 +245,7 @@ const ARKHEMETRY_OPTIONS = [
   "Ornamental",
   "Metaphysical",
 ];
+let ARKHEMETRY_ABILITIES = {};
 
 const COSMOGLOSSIA_COLORS = [
   { key: "C", label: "Cyan" },
@@ -254,7 +258,7 @@ const COSMOGLOSSIA_COLORS = [
   { key: "B", label: "Blue" },
 ];
 
-const AUGMENT_OPTIONS = [
+let AUGMENT_OPTIONS = [
   {
     key: "custom",
     label: "Custom Augment",
@@ -275,6 +279,26 @@ const AUGMENT_OPTIONS = [
     label: "Enhanced Biology",
     ability: "You can spend a story point to add +10 on any Body test.",
   },
+];
+
+let NATURAL_AUGMENT_OPTIONS = [
+  { key: "custom", label: "Custom Natural Augment", ability: "" },
+  ...AUGMENT_OPTIONS.slice(1).map((option) => ({ ...option })),
+];
+let HYBRID_ANIMAL_OPTIONS = [{ key: "custom", label: "Custom Hybrid Animal", ability: "" }];
+let BIO_AUGMENT_OPTIONS = [
+  { key: "custom", label: "Custom Bio-Augment", ability: "" },
+  ...AUGMENT_OPTIONS.slice(1).map((option) => ({ ...option })),
+];
+let RADIO_AUGMENT_OPTIONS = [
+  { key: "custom", label: "Custom Radio-Augment", ability: "" },
+  ...AUGMENT_OPTIONS.slice(1).map((option) => ({ ...option })),
+];
+let PROTOCOL_OPTIONS = [{ key: "custom", label: "Custom Protocol", ability: "" }];
+let CONFIGURATION_OPTIONS = [{ key: "custom", label: "Custom Configuration", ability: "" }];
+let MECH_AUGMENT_OPTIONS = [
+  { key: "custom", label: "Custom Mech-Augment", ability: "" },
+  ...AUGMENT_OPTIONS.slice(1).map((option) => ({ ...option })),
 ];
 
 const GEAR_SHIELD_TYPES = [
@@ -336,7 +360,39 @@ const BIOMETRIC_FIELDS = [
   { key: "oracleId", label: "ORACLE ID" },
 ];
 
+const SYSTEM_CONTENT_VERSION = 1;
+const DEFAULT_GITHUB_EXPORT_PATH = "data/empyrean-system-content.json";
+const DEVELOPER_ROUTE_KEYS = ["dev", "developer"];
+const DEVELOPER_CONTENT_CATEGORIES = [
+  { key: "corporateTies", label: "Corporate Ties", specializationCount: 2, requiredKeys: ["none", "custom"] },
+  { key: "homeworlds", label: "Homeworlds", specializationCount: 0 },
+  { key: "naturalAugments", label: "Natural Augments", specializationCount: 0, lineageKey: "voidborn" },
+  { key: "hybridAnimals", label: "Hybrid Animals", specializationCount: 0, lineageKey: "chimera" },
+  { key: "bioAugments", label: "Bio Augments", specializationCount: 0, lineageKey: "aberrant" },
+  { key: "radioAugments", label: "Radio Augments", specializationCount: 0, lineageKey: "ghoul" },
+  { key: "protocols", label: "Protocols", specializationCount: 0, lineageKey: "android" },
+  { key: "configurations", label: "Configurations", specializationCount: 0, lineageKey: "golem" },
+  { key: "mechAugments", label: "Mech Augments", specializationCount: 0, lineageKey: "cyborg" },
+  { key: "backgrounds", label: "Backgrounds", specializationCount: 6, requiredKeys: ["custom"] },
+  { key: "tekhne", label: "Tekhne", specializationCount: 0 },
+  { key: "arkhemetry", label: "Arkhemetry", specializationCount: 0 },
+];
+const LINEAGE_FEATURE_CATEGORY_BY_LINEAGE = {
+  voidborn: "naturalAugments",
+  chimera: "hybridAnimals",
+  aberrant: "bioAugments",
+  ghoul: "radioAugments",
+  android: "protocols",
+  golem: "configurations",
+  cyborg: "mechAugments",
+};
+const DEFAULT_SYSTEM_CONTENT = buildDefaultSystemContent();
+
 const app = document.querySelector("#app");
+
+let systemContent = loadSystemContent();
+applySystemContent(systemContent);
+let developerGithubSettings = loadDeveloperGithubSettings();
 
 const storedState = loadStoredState();
 
@@ -355,6 +411,8 @@ const state = {
     rollingDieIndexes: [],
     skillLossSelectionSection: null,
     createCharacterNameSuggestionIndex: -1,
+    activeDeveloperCategory: getDeveloperCategoryKeyFromUrl(),
+    developerGithubStatus: "",
   },
 };
 
@@ -368,7 +426,7 @@ if (sharedImport) {
   state.ui.activeModal = { type: "import-shared", payload: sharedImport };
 }
 
-if (!state.characters.length && !state.ui.activeModal) {
+if (!isDeveloperRoute() && !state.characters.length && !state.ui.activeModal) {
   openCreateCharacterModal(false);
 }
 
@@ -383,6 +441,18 @@ document.addEventListener("toggle", handleExclusiveDetailsToggle, true);
 window.addEventListener("keydown", handleKeydown);
 
 function renderApp() {
+  if (isDeveloperRoute()) {
+    app.innerHTML = `
+      <div class="app-shell developer-app-shell">
+        <div class="backdrop-orbit orbit-one"></div>
+        <div class="backdrop-orbit orbit-two"></div>
+        ${renderDeveloperPage()}
+        ${renderToast()}
+      </div>
+    `;
+    return;
+  }
+
   const character = getActiveCharacter();
   const previousModalType = state.ui.activeModal?.type || "";
   const previousModalScrollTop = document.querySelector(".modal-card")?.scrollTop ?? null;
@@ -501,6 +571,254 @@ function renderWelcomePanel() {
         <p>The first pass is centered on the sheet, local saves, campaign linking, and the dice roller.</p>
         <button class="hero-button" data-action="open-create-modal" type="button">Create Character</button>
       </div>
+    </section>
+  `;
+}
+
+function renderDeveloperPage() {
+  const category = getDeveloperCategory(state.ui.activeDeveloperCategory);
+  const records = getSystemCategoryRecords(category.key);
+  const exportJson = getSystemContentExportJson();
+
+  return `
+    <main class="developer-workspace">
+      <section class="developer-header">
+        <div class="character-title-block">
+          <h1>Developer Console</h1>
+          <span class="character-title-meta">Empyrean System Content</span>
+        </div>
+        <div class="developer-header-actions">
+          <button class="secondary-button" data-action="dev-copy-json" type="button">${iconCopy()}<span>Copy JSON</span></button>
+          <button class="secondary-button" data-action="dev-download-json" type="button">${iconDownload()}<span>Download</span></button>
+          <button class="danger-button" data-action="dev-reset-defaults" type="button">${iconRepeat()}<span>Defaults</span></button>
+        </div>
+      </section>
+      <div class="developer-layout">
+        <aside class="utility-panel developer-sidebar">
+          <div class="subsection-title">Library</div>
+          <div class="developer-category-list">
+            ${DEVELOPER_CONTENT_CATEGORIES.map((entry) => renderDeveloperCategoryButton(entry)).join("")}
+          </div>
+        </aside>
+        <section class="developer-main-panel">
+          <form class="developer-content-form" data-form="developer-content">
+            <input type="hidden" name="categoryKey" value="${escapeAttribute(category.key)}" />
+            <input type="hidden" name="entryCount" value="${records.length}" />
+            <div class="developer-panel-heading">
+              <div>
+                <h2>${escapeHtml(category.label)}</h2>
+                <span>${records.length} ${records.length === 1 ? "entry" : "entries"}</span>
+              </div>
+              <div class="utility-title-actions">
+                <button
+                  class="secondary-button"
+                  data-action="dev-add-entry"
+                  data-category="${escapeAttribute(category.key)}"
+                  type="button"
+                >
+                  ${iconPlus()}
+                  <span>Add</span>
+                </button>
+                <button class="primary-button" type="submit">${iconSave()}<span>Save</span></button>
+              </div>
+            </div>
+            <div class="developer-entry-list">
+              ${records.map((entry, index) => renderDeveloperEntryEditor(category, entry, index)).join("")}
+            </div>
+          </form>
+          <div class="developer-bottom-grid">
+            ${renderDeveloperJsonPanel(exportJson)}
+            ${renderDeveloperGithubPanel()}
+          </div>
+        </section>
+      </div>
+    </main>
+  `;
+}
+
+function renderDeveloperCategoryButton(category) {
+  const count = getSystemCategoryRecords(category.key).length;
+  const isActive = category.key === getDeveloperCategory(state.ui.activeDeveloperCategory).key;
+
+  return `
+    <button
+      class="developer-category-button ${isActive ? "is-active" : ""}"
+      data-action="dev-select-category"
+      data-category="${escapeAttribute(category.key)}"
+      type="button"
+    >
+      <span>${escapeHtml(category.label)}</span>
+      <strong>${count}</strong>
+    </button>
+  `;
+}
+
+function renderDeveloperEntryEditor(category, entry, index) {
+  const isRequired = isRequiredDeveloperEntry(category, entry);
+  const specializationControls = category.specializationCount
+    ? `
+      <fieldset class="developer-specialization-fieldset">
+        <legend>Specializations</legend>
+        <div class="developer-specialization-grid">
+          ${Array.from({ length: category.specializationCount }, (_, specializationIndex) => {
+            const value = entry.specializations?.[specializationIndex] || "";
+            return `
+              <label>
+                <span>${specializationIndex + 1}</span>
+                <input
+                  type="text"
+                  name="entrySpecialization${index}_${specializationIndex}"
+                  maxlength="64"
+                  value="${escapeAttribute(value)}"
+                  placeholder="Specialization"
+                />
+              </label>
+            `;
+          }).join("")}
+        </div>
+      </fieldset>
+    `
+    : "";
+
+  return `
+    <details class="developer-entry" ${index === 0 ? "open" : ""}>
+      <summary class="developer-entry-heading">
+        <span>${escapeHtml(entry.label || "Untitled")}</span>
+        <small>${escapeHtml(entry.key)}</small>
+      </summary>
+      <div class="developer-entry-fields">
+        <input type="hidden" name="entryKey${index}" value="${escapeAttribute(entry.key)}" />
+        <label>
+          <span>Name</span>
+          <input
+            type="text"
+            name="entryLabel${index}"
+            maxlength="80"
+            value="${escapeAttribute(entry.label)}"
+            placeholder="${escapeAttribute(category.label)}"
+            required
+          />
+        </label>
+        <label>
+          <span>Ability</span>
+          <textarea
+            rows="4"
+            maxlength="1400"
+            name="entryAbility${index}"
+            placeholder="Ability text"
+          >${escapeHtml(entry.ability || "")}</textarea>
+        </label>
+        ${specializationControls}
+        <div class="modal-actions modal-actions-end">
+          <button
+            class="secondary-button"
+            data-action="dev-duplicate-entry"
+            data-category="${escapeAttribute(category.key)}"
+            data-index="${index}"
+            type="button"
+          >
+            ${iconCopy()}
+            <span>Duplicate</span>
+          </button>
+          <button
+            class="danger-button"
+            data-action="dev-delete-entry"
+            data-category="${escapeAttribute(category.key)}"
+            data-index="${index}"
+            type="button"
+            ${isRequired ? "disabled" : ""}
+          >
+            ${iconTrash()}
+            <span>Delete</span>
+          </button>
+        </div>
+      </div>
+    </details>
+  `;
+}
+
+function renderDeveloperJsonPanel(exportJson) {
+  return `
+    <section class="developer-tool-panel">
+      <div class="utility-title-row">
+        <h2>Import / Export</h2>
+        <div class="utility-title-actions">
+          <button class="secondary-button" data-action="dev-copy-json" type="button">${iconCopy()}<span>Copy</span></button>
+        </div>
+      </div>
+      <label>
+        <span>System Content JSON</span>
+        <textarea rows="10" readonly>${escapeHtml(exportJson)}</textarea>
+      </label>
+      <form class="developer-import-form" data-form="developer-json-import">
+        <label>
+          <span>Paste JSON</span>
+          <textarea rows="5" name="importJson" placeholder="Paste exported system content"></textarea>
+        </label>
+        <div class="modal-actions modal-actions-end">
+          <button class="primary-button" type="submit">${iconUpload()}<span>Import</span></button>
+        </div>
+      </form>
+    </section>
+  `;
+}
+
+function renderDeveloperGithubPanel() {
+  const settings = developerGithubSettings;
+
+  return `
+    <section class="developer-tool-panel">
+      <div class="utility-title-row">
+        <h2>GitHub Export</h2>
+        ${state.ui.developerGithubStatus ? `<span class="developer-status">${escapeHtml(state.ui.developerGithubStatus)}</span>` : ""}
+      </div>
+      <form class="developer-github-form" data-form="developer-github">
+        <div class="developer-github-grid">
+          <label>
+            <span>Owner</span>
+            <input type="text" name="owner" maxlength="80" value="${escapeAttribute(settings.owner)}" placeholder="account" />
+          </label>
+          <label>
+            <span>Repository</span>
+            <input type="text" name="repo" maxlength="100" value="${escapeAttribute(settings.repo)}" placeholder="repository" />
+          </label>
+          <label>
+            <span>Branch</span>
+            <input type="text" name="branch" maxlength="80" value="${escapeAttribute(settings.branch)}" placeholder="main" />
+          </label>
+          <label>
+            <span>Path</span>
+            <input type="text" name="path" maxlength="180" value="${escapeAttribute(settings.path)}" />
+          </label>
+        </div>
+        <label>
+          <span>Commit Message</span>
+          <input
+            type="text"
+            name="message"
+            maxlength="160"
+            value="${escapeAttribute(settings.message)}"
+          />
+        </label>
+        <label>
+          <span>Token</span>
+          <input
+            type="password"
+            name="token"
+            maxlength="240"
+            value="${escapeAttribute(settings.rememberToken ? settings.token : "")}"
+            autocomplete="off"
+          />
+        </label>
+        <label class="inline-toggle">
+          <input type="checkbox" name="rememberToken" ${settings.rememberToken ? "checked" : ""} />
+          <span>Remember token locally</span>
+        </label>
+        <div class="modal-actions">
+          <button class="secondary-button" name="githubAction" value="save" type="submit">${iconSave()}<span>Save Settings</span></button>
+          <button class="primary-button" name="githubAction" value="push" type="submit">${iconUpload()}<span>Push JSON</span></button>
+        </div>
+      </form>
     </section>
   `;
 }
@@ -973,11 +1291,16 @@ function renderAttributeDetailFields(kind, detail, attribute) {
   }
 
   if (kind === "tekhne") {
-    return renderNamedAbilityDetailFields("detailName", detail.name, TEKHNE_OPTIONS, detail.description);
+    return renderNamedAbilityDetailFields("detailName", detail.name, TEKHNE_OPTIONS, detail.description || getTekhneAbility(detail.name));
   }
 
   if (kind === "arkhemetry") {
-    return renderNamedAbilityDetailFields("detailName", detail.name, ARKHEMETRY_OPTIONS, detail.description);
+    return renderNamedAbilityDetailFields(
+      "detailName",
+      detail.name,
+      ARKHEMETRY_OPTIONS,
+      detail.description || getArkhemetryAbility(detail.name)
+    );
   }
 
   if (kind === "cosmoglossia") {
@@ -1263,52 +1586,36 @@ function renderLineageCreationFields(draft) {
       ghoul: "Radio-Augment",
       cyborg: "Mech-Augment",
     };
-    return renderLineageAugmentFields(draft, titleByLineage[draft.lineageKey]);
+    return renderLineagePresetFeatureFields(draft, titleByLineage[draft.lineageKey]);
   }
 
   if (draft.lineageKey === "golem") {
-    return renderCreationFeatureFields({
-      title: "Configuration",
-      nameField: "lineageFeatureName",
-      abilityField: "lineageFeatureAbility",
-      nameValue: draft.lineageFeatureName,
-      abilityValue: draft.lineageFeatureAbility,
-      namePlaceholder: "Configuration",
-    });
+    return renderLineagePresetFeatureFields(draft, "Configuration");
   }
 
   if (draft.lineageKey === "android") {
-    return renderCreationFeatureFields({
-      title: "Protocol",
-      nameField: "lineageFeatureName",
-      abilityField: "lineageFeatureAbility",
-      nameValue: draft.lineageFeatureName,
-      abilityValue: draft.lineageFeatureAbility,
-      namePlaceholder: "Protocol",
-    });
+    return renderLineagePresetFeatureFields(draft, "Protocol");
   }
 
   if (draft.lineageKey === "chimera") {
-    return renderCreationFeatureFields({
-      title: "Hybrid Animal",
-      nameField: "lineageFeatureName",
-      abilityField: "lineageFeatureAbility",
-      nameValue: draft.lineageFeatureName,
-      abilityValue: draft.lineageFeatureAbility,
-      namePlaceholder: "Hybrid Animal",
-    });
+    return renderLineagePresetFeatureFields(draft, "Hybrid Animal");
   }
 
   return "";
 }
 
 function renderLineageAugmentFields(draft, title) {
+  return renderLineagePresetFeatureFields(draft, title);
+}
+
+function renderLineagePresetFeatureFields(draft, title) {
   return `
     <section class="create-section">
       <h3>${escapeHtml(title)}</h3>
-      ${renderAugmentPresetControls({
-        selectedKey: draft.lineageAugmentKey,
-        keyField: "lineageAugmentKey",
+      ${renderFeaturePresetControls({
+        options: getLineageFeatureOptions(draft.lineageKey),
+        selectedKey: draft.lineageFeatureKey,
+        keyField: "lineageFeatureKey",
         nameField: "lineageFeatureName",
         abilityField: "lineageFeatureAbility",
         nameValue: draft.lineageFeatureName,
@@ -1329,15 +1636,39 @@ function renderAugmentPresetControls({
   namePlaceholder = "Augment",
   disabled = false,
 }) {
-  const augment = getAugmentOption(selectedKey);
+  return renderFeaturePresetControls({
+    options: AUGMENT_OPTIONS,
+    selectedKey,
+    keyField,
+    nameField,
+    abilityField,
+    nameValue,
+    abilityValue,
+    namePlaceholder,
+    disabled,
+  });
+}
+
+function renderFeaturePresetControls({
+  options,
+  selectedKey,
+  keyField,
+  nameField,
+  abilityField,
+  nameValue,
+  abilityValue,
+  namePlaceholder = "Feature",
+  disabled = false,
+}) {
+  const featureOption = getFeatureOption(options, selectedKey);
   return `
     <div class="create-grid create-grid-two">
       <label>
         <span>Preset</span>
         <select name="${escapeAttribute(keyField)}" ${disabled ? "disabled" : ""}>
-          ${AUGMENT_OPTIONS.map(
+          ${options.map(
             (option) => `
-              <option value="${option.key}" ${option.key === augment.key ? "selected" : ""}>
+              <option value="${option.key}" ${option.key === featureOption.key ? "selected" : ""}>
                 ${escapeHtml(option.label)}
               </option>
             `
@@ -1350,7 +1681,7 @@ function renderAugmentPresetControls({
           type="text"
           name="${escapeAttribute(nameField)}"
           maxlength="72"
-          value="${escapeAttribute(nameValue || augment.label)}"
+          value="${escapeAttribute(nameValue || featureOption.label)}"
           placeholder="${escapeAttribute(namePlaceholder)}"
           ${disabled ? "disabled" : ""}
         />
@@ -1363,7 +1694,7 @@ function renderAugmentPresetControls({
         maxlength="700"
         name="${escapeAttribute(abilityField)}"
         ${disabled ? "disabled" : ""}
-      >${escapeHtml(abilityValue || augment.ability)}</textarea>
+      >${escapeHtml(abilityValue || featureOption.ability)}</textarea>
     </label>
   `;
 }
@@ -2775,6 +3106,11 @@ function handleClick(event) {
 
   const action = actionTarget.dataset.action;
 
+  if (action.startsWith("dev-")) {
+    handleDeveloperClickAction(action, actionTarget);
+    return;
+  }
+
   if (action === "toggle-character-menu") {
     state.ui.isCharacterMenuOpen = !state.ui.isCharacterMenuOpen;
     renderApp();
@@ -3063,8 +3399,11 @@ function handleChange(event) {
       "secondaryKey",
       "corporation",
       "lineageAugmentKey",
+      "lineageFeatureKey",
       "takeTekhne",
+      "creationTekhneName",
       "takeArkhemetry",
+      "creationArkhemetryName",
       "takeCosmoglossia",
     ];
     const isAugmentToggle = event.target.name?.startsWith("creationAugmentEnabled");
@@ -3275,7 +3614,7 @@ function updateAugmentDetailFields(form, augmentKey) {
   }
 }
 
-function handleSubmit(event) {
+async function handleSubmit(event) {
   const form = event.target.closest("[data-form]");
   if (!form) {
     return;
@@ -3284,6 +3623,25 @@ function handleSubmit(event) {
   event.preventDefault();
   const formData = new FormData(form);
   const formName = form.dataset.form;
+
+  if (formName === "developer-content") {
+    saveDeveloperContentFromForm(form);
+    showToast(`${getDeveloperCategory(formData.get("categoryKey")).label} saved.`);
+    renderApp();
+    return;
+  }
+
+  if (formName === "developer-json-import") {
+    importDeveloperJson(formData.get("importJson"));
+    renderApp();
+    return;
+  }
+
+  if (formName === "developer-github") {
+    await handleDeveloperGithubSubmit(form, event.submitter?.value || "save");
+    renderApp();
+    return;
+  }
 
   if (formName === "create-character") {
     const draft = getCreateCharacterDraftFromForm(form);
@@ -4505,11 +4863,18 @@ function normalizeCreateCharacterDraft(rawValue = {}, options = {}) {
   const secondaryBackgroundOption = getBackgroundOption(secondaryBackgroundKey);
   const corporationOption = getCorporationOption(corporationKey);
   const lineageAugmentOption = getAugmentOption(raw.lineageAugmentKey);
+  const lineageFeatureOption = getLineageFeatureOption(lineageKey, raw.lineageFeatureKey || raw.lineageAugmentKey);
+  const lineageFeatureOptions = getLineageFeatureOptions(lineageKey);
   const totals = getCreationTotalsForLineage(lineageKey);
   const specializationMax = getSpecializationCreationMax(lineageKey);
   const homeworld = EXO_HOMEWORLD_OPTIONS.includes(raw.homeworld) ? raw.homeworld : EXO_HOMEWORLD_OPTIONS[0];
   const isLineageAugment = hasLineageAugment(lineageKey);
+  const isPresetLineageFeature = hasLineageFeaturePreset(lineageKey);
   const defaultLineageFeatureName = getDefaultLineageFeatureName(lineageKey);
+  const tekhneName = TEKHNE_OPTIONS.includes(raw.creationTekhneName) ? raw.creationTekhneName : TEKHNE_OPTIONS[0];
+  const arkhemetryName = ARKHEMETRY_OPTIONS.includes(raw.creationArkhemetryName)
+    ? raw.creationArkhemetryName
+    : ARKHEMETRY_OPTIONS[0];
   const defaultAttributes = createBalancedValues(
     getCreationAttributeEntries().length,
     totals.attributes,
@@ -4539,16 +4904,21 @@ function normalizeCreateCharacterDraft(rawValue = {}, options = {}) {
       getHomeworldAbility(homeworld),
       Object.values(HOMEWORLD_ABILITIES)
     ),
-    lineageAugmentKey: isLineageAugment ? lineageAugmentOption.key : "custom",
-    lineageFeatureName: isLineageAugment
+    lineageFeatureKey: isPresetLineageFeature ? lineageFeatureOption.key : "custom",
+    lineageAugmentKey: isLineageAugment ? lineageFeatureOption.key || lineageAugmentOption.key : "custom",
+    lineageFeatureName: isPresetLineageFeature
       ? normalizePresetName(
           raw.lineageFeatureName,
-          lineageAugmentOption.key === "custom" ? defaultLineageFeatureName : lineageAugmentOption.label,
-          [...AUGMENT_OPTIONS.map((option) => option.label), defaultLineageFeatureName]
+          lineageFeatureOption.key === "custom" ? defaultLineageFeatureName : lineageFeatureOption.label,
+          [...lineageFeatureOptions.map((option) => option.label), defaultLineageFeatureName]
         )
       : getDraftString(raw, "lineageFeatureName", defaultLineageFeatureName),
-    lineageFeatureAbility: isLineageAugment
-      ? normalizePresetText(raw.lineageFeatureAbility, lineageAugmentOption.ability, AUGMENT_OPTIONS.map((option) => option.ability))
+    lineageFeatureAbility: isPresetLineageFeature
+      ? normalizePresetText(
+          raw.lineageFeatureAbility,
+          lineageFeatureOption.ability,
+          lineageFeatureOptions.map((option) => option.ability)
+        )
       : getDraftString(raw, "lineageFeatureAbility", ""),
     backgroundName: normalizePresetName(raw.backgroundName, backgroundOption.label, BACKGROUND_OPTIONS.map((option) => option.label)),
     backgroundAbility: normalizePresetText(raw.backgroundAbility, backgroundOption.ability, BACKGROUND_OPTIONS.map((option) => option.ability)),
@@ -4568,13 +4938,19 @@ function normalizeCreateCharacterDraft(rawValue = {}, options = {}) {
     lineageSpecializations: normalizeLineageSpecializationChoices(raw.lineageSpecializations, lineageKey),
     creationAugments: normalizeCreationAugments(raw.creationAugments, lineageKey, raw),
     takeTekhne: normalizeBoolean(raw.takeTekhne),
-    creationTekhneName: TEKHNE_OPTIONS.includes(raw.creationTekhneName) ? raw.creationTekhneName : TEKHNE_OPTIONS[0],
-    creationTekhneAbility: getDraftString(raw, "creationTekhneAbility", ""),
+    creationTekhneName: tekhneName,
+    creationTekhneAbility: normalizePresetText(
+      raw.creationTekhneAbility,
+      getTekhneAbility(tekhneName),
+      Object.values(TEKHNE_ABILITIES)
+    ),
     takeArkhemetry: normalizeBoolean(raw.takeArkhemetry),
-    creationArkhemetryName: ARKHEMETRY_OPTIONS.includes(raw.creationArkhemetryName)
-      ? raw.creationArkhemetryName
-      : ARKHEMETRY_OPTIONS[0],
-    creationArkhemetryAbility: getDraftString(raw, "creationArkhemetryAbility", ""),
+    creationArkhemetryName: arkhemetryName,
+    creationArkhemetryAbility: normalizePresetText(
+      raw.creationArkhemetryAbility,
+      getArkhemetryAbility(arkhemetryName),
+      Object.values(ARKHEMETRY_ABILITIES)
+    ),
     takeCosmoglossia: normalizeBoolean(raw.takeCosmoglossia),
     creationCosmoglossiaName: "Cosmoglossia",
     creationCosmoglossiaPanels: normalizeCosmoglossiaPanels(raw.creationCosmoglossiaPanels),
@@ -4613,6 +4989,7 @@ function getCreateCharacterDraftFromForm(form, options = {}) {
       homeworld: formData.get("homeworld"),
       homeworldAbility: formData.get("homeworldAbility"),
       lineageAugmentKey: formData.get("lineageAugmentKey"),
+      lineageFeatureKey: formData.get("lineageFeatureKey"),
       lineageFeatureName: formData.get("lineageFeatureName"),
       lineageFeatureAbility: formData.get("lineageFeatureAbility"),
       backgroundKey: formData.get("backgroundKey"),
@@ -4829,7 +5206,7 @@ function buildLineageFeatures(draft) {
         name: draft.lineageFeatureName || categoryByLineage[draft.lineageKey],
         ability: draft.lineageFeatureAbility,
         slot: "augment",
-        details: { presetKey: draft.lineageAugmentKey },
+        details: { presetKey: draft.lineageFeatureKey || draft.lineageAugmentKey },
       }),
     ];
   }
@@ -4843,6 +5220,7 @@ function buildLineageFeatures(draft) {
         name: draft.lineageFeatureName || "Configuration",
         ability: draft.lineageFeatureAbility,
         slot: "configuration",
+        details: { presetKey: draft.lineageFeatureKey },
       }),
     ];
   }
@@ -4856,6 +5234,7 @@ function buildLineageFeatures(draft) {
         name: draft.lineageFeatureName || "Protocol",
         ability: draft.lineageFeatureAbility,
         slot: "protocol",
+        details: { presetKey: draft.lineageFeatureKey },
       }),
     ];
   }
@@ -4869,6 +5248,7 @@ function buildLineageFeatures(draft) {
         name: draft.lineageFeatureName || "Hybrid Animal",
         ability: draft.lineageFeatureAbility,
         slot: "hybrid",
+        details: { presetKey: draft.lineageFeatureKey },
       }),
     ];
   }
@@ -5833,6 +6213,596 @@ function importCharacter(sharedCharacter) {
   renderApp();
 }
 
+function buildDefaultSystemContent() {
+  return {
+    version: SYSTEM_CONTENT_VERSION,
+    updatedAt: "",
+    corporateTies: CORPORATION_OPTIONS.map((option) => normalizeSystemRecord(option, getDeveloperCategory("corporateTies"))),
+    homeworlds: EXO_HOMEWORLD_OPTIONS.map((label) =>
+      normalizeSystemRecord(
+        {
+          key: slugify(label),
+          label,
+          ability: HOMEWORLD_ABILITIES[label] || "",
+        },
+        getDeveloperCategory("homeworlds")
+      )
+    ),
+    naturalAugments: NATURAL_AUGMENT_OPTIONS.map((option) => normalizeSystemRecord(option, getDeveloperCategory("naturalAugments"))),
+    hybridAnimals: HYBRID_ANIMAL_OPTIONS.map((option) => normalizeSystemRecord(option, getDeveloperCategory("hybridAnimals"))),
+    bioAugments: BIO_AUGMENT_OPTIONS.map((option) => normalizeSystemRecord(option, getDeveloperCategory("bioAugments"))),
+    radioAugments: RADIO_AUGMENT_OPTIONS.map((option) => normalizeSystemRecord(option, getDeveloperCategory("radioAugments"))),
+    protocols: PROTOCOL_OPTIONS.map((option) => normalizeSystemRecord(option, getDeveloperCategory("protocols"))),
+    configurations: CONFIGURATION_OPTIONS.map((option) => normalizeSystemRecord(option, getDeveloperCategory("configurations"))),
+    mechAugments: MECH_AUGMENT_OPTIONS.map((option) => normalizeSystemRecord(option, getDeveloperCategory("mechAugments"))),
+    backgrounds: BACKGROUND_OPTIONS.map((option) => normalizeSystemRecord(option, getDeveloperCategory("backgrounds"))),
+    tekhne: TEKHNE_OPTIONS.map((label) =>
+      normalizeSystemRecord({ key: slugify(label), label, ability: TEKHNE_ABILITIES[label] || "" }, getDeveloperCategory("tekhne"))
+    ),
+    arkhemetry: ARKHEMETRY_OPTIONS.map((label) =>
+      normalizeSystemRecord(
+        { key: slugify(label), label, ability: ARKHEMETRY_ABILITIES[label] || "" },
+        getDeveloperCategory("arkhemetry")
+      )
+    ),
+  };
+}
+
+function loadSystemContent() {
+  try {
+    const raw = window.localStorage.getItem(SYSTEM_CONTENT_KEY);
+    if (!raw) {
+      return cloneSystemContent(DEFAULT_SYSTEM_CONTENT);
+    }
+    return normalizeSystemContent(JSON.parse(raw));
+  } catch {
+    return cloneSystemContent(DEFAULT_SYSTEM_CONTENT);
+  }
+}
+
+function normalizeSystemContent(rawValue = {}) {
+  const raw = rawValue && typeof rawValue === "object" ? rawValue : {};
+  const normalized = {
+    version: SYSTEM_CONTENT_VERSION,
+    updatedAt: String(raw.updatedAt || ""),
+  };
+
+  DEVELOPER_CONTENT_CATEGORIES.forEach((category) => {
+    normalized[category.key] = normalizeSystemCategoryRecords(
+      raw[category.key],
+      category,
+      DEFAULT_SYSTEM_CONTENT?.[category.key] || []
+    );
+  });
+
+  return normalized;
+}
+
+function normalizeSystemCategoryRecords(rawRecords, category, fallbackRecords = []) {
+  const source = Array.isArray(rawRecords) && rawRecords.length ? rawRecords : fallbackRecords;
+  let records = source
+    .map((record, index) => normalizeSystemRecord(record, category, index))
+    .filter((record) => record.label);
+
+  (category.requiredKeys || []).forEach((requiredKey) => {
+    if (records.some((record) => record.key === requiredKey)) {
+      return;
+    }
+    const fallback = fallbackRecords.find((record) => record.key === requiredKey);
+    records.unshift(
+      normalizeSystemRecord(
+        fallback || { key: requiredKey, label: formatKeyAsLabel(requiredKey), ability: "", specializations: [] },
+        category
+      )
+    );
+  });
+
+  if (!records.length && fallbackRecords.length) {
+    records = fallbackRecords.map((record, index) => normalizeSystemRecord(record, category, index));
+  }
+
+  if (!records.length) {
+    records = [normalizeSystemRecord({ label: `New ${category.label}` }, category)];
+  }
+
+  return records;
+}
+
+function normalizeSystemRecord(rawValue, category, index = 0) {
+  const raw = rawValue && typeof rawValue === "object" ? rawValue : { label: rawValue };
+  const label = String(raw.label || raw.name || "").trim() || `${category.label} ${index + 1}`;
+  const key = String(raw.key || slugify(label) || `${category.key}-${index + 1}`).trim();
+  const rawSpecializations = Array.isArray(raw.specializations) ? raw.specializations : [];
+  const specializations = rawSpecializations
+    .slice(0, category.specializationCount || 0)
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+
+  return {
+    key,
+    label,
+    ability: String(raw.ability || raw.description || "").trim(),
+    specializations,
+  };
+}
+
+function cloneSystemContent(content) {
+  return JSON.parse(JSON.stringify(content));
+}
+
+function applySystemContent(content) {
+  const normalized = normalizeSystemContent(content);
+  systemContent = normalized;
+
+  replaceArray(CORPORATION_OPTIONS, normalized.corporateTies.map(systemRecordToOption));
+  replaceArray(EXO_HOMEWORLD_OPTIONS, normalized.homeworlds.map((record) => record.label));
+  replaceObject(
+    HOMEWORLD_ABILITIES,
+    normalized.homeworlds.reduce((abilities, record) => {
+      if (record.ability) {
+        abilities[record.label] = record.ability;
+      }
+      return abilities;
+    }, {})
+  );
+  replaceArray(NATURAL_AUGMENT_OPTIONS, normalized.naturalAugments.map(systemRecordToOption));
+  replaceArray(HYBRID_ANIMAL_OPTIONS, normalized.hybridAnimals.map(systemRecordToOption));
+  replaceArray(BIO_AUGMENT_OPTIONS, normalized.bioAugments.map(systemRecordToOption));
+  replaceArray(RADIO_AUGMENT_OPTIONS, normalized.radioAugments.map(systemRecordToOption));
+  replaceArray(PROTOCOL_OPTIONS, normalized.protocols.map(systemRecordToOption));
+  replaceArray(CONFIGURATION_OPTIONS, normalized.configurations.map(systemRecordToOption));
+  replaceArray(MECH_AUGMENT_OPTIONS, normalized.mechAugments.map(systemRecordToOption));
+  replaceArray(BACKGROUND_OPTIONS, normalized.backgrounds.map(systemRecordToOption));
+  replaceArray(TEKHNE_OPTIONS, normalized.tekhne.map((record) => record.label));
+  replaceObject(TEKHNE_ABILITIES, recordsToAbilityMap(normalized.tekhne));
+  replaceArray(ARKHEMETRY_OPTIONS, normalized.arkhemetry.map((record) => record.label));
+  replaceObject(ARKHEMETRY_ABILITIES, recordsToAbilityMap(normalized.arkhemetry));
+}
+
+function systemRecordToOption(record) {
+  return {
+    key: record.key,
+    label: record.label,
+    specializations: [...(record.specializations || [])],
+    ability: record.ability || "",
+  };
+}
+
+function recordsToAbilityMap(records) {
+  return records.reduce((abilities, record) => {
+    if (record.ability) {
+      abilities[record.label] = record.ability;
+    }
+    return abilities;
+  }, {});
+}
+
+function replaceArray(target, values) {
+  target.splice(0, target.length, ...values);
+}
+
+function replaceObject(target, values) {
+  Object.keys(target).forEach((key) => {
+    delete target[key];
+  });
+  Object.entries(values).forEach(([key, value]) => {
+    target[key] = value;
+  });
+}
+
+function persistSystemContent() {
+  window.localStorage.setItem(SYSTEM_CONTENT_KEY, JSON.stringify(systemContent));
+}
+
+function getSystemContentExportPayload() {
+  return cloneSystemContent(systemContent);
+}
+
+function getSystemContentExportJson() {
+  return JSON.stringify(getSystemContentExportPayload(), null, 2);
+}
+
+function getSystemCategoryRecords(categoryKey) {
+  const category = getDeveloperCategory(categoryKey);
+  return systemContent[category.key] || DEFAULT_SYSTEM_CONTENT[category.key] || [];
+}
+
+function getDeveloperCategory(key) {
+  const normalizedKey = String(key || "");
+  return (
+    DEVELOPER_CONTENT_CATEGORIES.find((category) => category.key === normalizedKey) ||
+    DEVELOPER_CONTENT_CATEGORIES[0]
+  );
+}
+
+function isRequiredDeveloperEntry(category, entry) {
+  return (category.requiredKeys || []).includes(entry.key);
+}
+
+function saveDeveloperContentFromForm(form) {
+  if (!form) {
+    return;
+  }
+
+  const formData = new FormData(form);
+  const category = getDeveloperCategory(formData.get("categoryKey"));
+  const entryCount = clampMinimum(formData.get("entryCount"), 0);
+  const records = Array.from({ length: entryCount }, (_, index) => {
+    const specializations = Array.from({ length: category.specializationCount || 0 }, (_, specializationIndex) =>
+      formData.get(`entrySpecialization${index}_${specializationIndex}`)
+    );
+    return {
+      key: formData.get(`entryKey${index}`),
+      label: formData.get(`entryLabel${index}`),
+      ability: formData.get(`entryAbility${index}`),
+      specializations,
+    };
+  });
+
+  updateSystemCategoryRecords(category.key, records);
+}
+
+function updateSystemCategoryRecords(categoryKey, records) {
+  const category = getDeveloperCategory(categoryKey);
+  const nextContent = {
+    ...systemContent,
+    [category.key]: normalizeSystemCategoryRecords(records, category, DEFAULT_SYSTEM_CONTENT[category.key] || []),
+    updatedAt: new Date().toISOString(),
+  };
+  applySystemContent(nextContent);
+  persistSystemContent();
+}
+
+function handleDeveloperClickAction(action, actionTarget) {
+  const activeForm = document.querySelector('form[data-form="developer-content"]');
+  const shouldPreserveEdits = ["dev-select-category", "dev-add-entry", "dev-delete-entry", "dev-duplicate-entry"].includes(action);
+  if (shouldPreserveEdits) {
+    saveDeveloperContentFromForm(activeForm);
+  }
+
+  if (action === "dev-select-category") {
+    const category = getDeveloperCategory(actionTarget.dataset.category);
+    state.ui.activeDeveloperCategory = category.key;
+    setDeveloperCategoryInUrl(category.key);
+    renderApp();
+    return;
+  }
+
+  if (action === "dev-add-entry") {
+    addDeveloperEntry(actionTarget.dataset.category);
+    showToast(`${getDeveloperCategory(actionTarget.dataset.category).label} entry added.`);
+    renderApp();
+    return;
+  }
+
+  if (action === "dev-duplicate-entry") {
+    duplicateDeveloperEntry(actionTarget.dataset.category, Number(actionTarget.dataset.index));
+    showToast("Entry duplicated.");
+    renderApp();
+    return;
+  }
+
+  if (action === "dev-delete-entry") {
+    deleteDeveloperEntry(actionTarget.dataset.category, Number(actionTarget.dataset.index));
+    renderApp();
+    return;
+  }
+
+  if (action === "dev-reset-defaults") {
+    if (!window.confirm("Reset developer content to defaults?")) {
+      return;
+    }
+    applySystemContent({ ...cloneSystemContent(DEFAULT_SYSTEM_CONTENT), updatedAt: new Date().toISOString() });
+    persistSystemContent();
+    showToast("Developer content reset.");
+    renderApp();
+    return;
+  }
+
+  if (action === "dev-copy-json") {
+    copyText(getSystemContentExportJson())
+      .then(() => {
+        showToast("System content JSON copied.");
+        renderApp();
+      })
+      .catch(() => {
+        showToast("Clipboard access was blocked.");
+        renderApp();
+      });
+    return;
+  }
+
+  if (action === "dev-download-json") {
+    downloadDeveloperJson();
+    showToast("System content JSON downloaded.");
+    renderApp();
+  }
+}
+
+function addDeveloperEntry(categoryKey) {
+  const category = getDeveloperCategory(categoryKey);
+  const records = getSystemCategoryRecords(category.key).map((record) => ({ ...record }));
+  const label = `New ${category.label}`;
+  records.push({
+    key: makeUniqueSystemRecordKey(records, slugify(label) || category.key),
+    label,
+    ability: "",
+    specializations: [],
+  });
+  updateSystemCategoryRecords(category.key, records);
+}
+
+function duplicateDeveloperEntry(categoryKey, index) {
+  const category = getDeveloperCategory(categoryKey);
+  const records = getSystemCategoryRecords(category.key).map((record) => ({ ...record, specializations: [...record.specializations] }));
+  const source = records[index];
+  if (!source) {
+    return;
+  }
+  records.splice(index + 1, 0, {
+    ...source,
+    key: makeUniqueSystemRecordKey(records, `${source.key}-copy`),
+    label: `${source.label} Copy`,
+    specializations: [...source.specializations],
+  });
+  updateSystemCategoryRecords(category.key, records);
+}
+
+function deleteDeveloperEntry(categoryKey, index) {
+  const category = getDeveloperCategory(categoryKey);
+  const records = getSystemCategoryRecords(category.key).map((record) => ({ ...record, specializations: [...record.specializations] }));
+  const entry = records[index];
+  if (!entry || isRequiredDeveloperEntry(category, entry)) {
+    showToast("That fallback entry is required.");
+    return;
+  }
+  records.splice(index, 1);
+  updateSystemCategoryRecords(category.key, records);
+  showToast("Entry deleted.");
+}
+
+function makeUniqueSystemRecordKey(records, baseKey) {
+  const existingKeys = new Set(records.map((record) => record.key));
+  const normalizedBase = slugify(baseKey) || "entry";
+  let key = normalizedBase;
+  let count = 2;
+  while (existingKeys.has(key)) {
+    key = `${normalizedBase}-${count}`;
+    count += 1;
+  }
+  return key;
+}
+
+function importDeveloperJson(rawJson) {
+  try {
+    const parsed = JSON.parse(String(rawJson || ""));
+    applySystemContent({ ...normalizeSystemContent(parsed), updatedAt: new Date().toISOString() });
+    persistSystemContent();
+    showToast("System content imported.");
+  } catch {
+    showToast("That JSON could not be imported.");
+  }
+}
+
+function downloadDeveloperJson() {
+  const blob = new Blob([getSystemContentExportJson()], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = "empyrean-system-content.json";
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+function isDeveloperRoute() {
+  const params = new URLSearchParams(window.location.search);
+  return (
+    document.body?.dataset?.appMode === "developer" ||
+    DEVELOPER_ROUTE_KEYS.some((key) => params.has(key)) ||
+    window.location.hash === "#developer"
+  );
+}
+
+function getDeveloperCategoryKeyFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return getDeveloperCategory(params.get("category")).key;
+}
+
+function setDeveloperCategoryInUrl(categoryKey) {
+  if (!window.history?.replaceState) {
+    return;
+  }
+  const url = new URL(window.location.href);
+  url.searchParams.set("dev", "1");
+  url.searchParams.set("category", getDeveloperCategory(categoryKey).key);
+  window.history.replaceState({}, "", url.toString());
+}
+
+function getLineageFeatureOptions(lineageKey) {
+  const categoryKey = LINEAGE_FEATURE_CATEGORY_BY_LINEAGE[lineageKey];
+  if (!categoryKey) {
+    return [{ key: "custom", label: getDefaultLineageFeatureName(lineageKey) || "Custom Feature", ability: "" }];
+  }
+  return getSystemCategoryRecords(categoryKey).map(systemRecordToOption);
+}
+
+function hasLineageFeaturePreset(lineageKey) {
+  return Boolean(LINEAGE_FEATURE_CATEGORY_BY_LINEAGE[lineageKey]);
+}
+
+function getLineageFeatureOption(lineageKey, key) {
+  return getFeatureOption(getLineageFeatureOptions(lineageKey), key);
+}
+
+function getFeatureOption(options, key) {
+  const source = Array.isArray(options) && options.length ? options : [{ key: "custom", label: "Custom", ability: "" }];
+  return source.find((option) => option.key === key) || source[0];
+}
+
+function getTekhneAbility(name) {
+  return TEKHNE_ABILITIES[name] || "";
+}
+
+function getArkhemetryAbility(name) {
+  return ARKHEMETRY_ABILITIES[name] || "";
+}
+
+function formatKeyAsLabel(key) {
+  return String(key || "")
+    .split("-")
+    .filter(Boolean)
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+    .join(" ");
+}
+
+function loadDeveloperGithubSettings() {
+  const fallback = {
+    owner: "",
+    repo: "",
+    branch: "main",
+    path: DEFAULT_GITHUB_EXPORT_PATH,
+    message: "Update Empyrean system content",
+    token: "",
+    rememberToken: false,
+  };
+
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(DEVELOPER_GITHUB_KEY) || "{}");
+    return normalizeDeveloperGithubSettings({ ...fallback, ...parsed });
+  } catch {
+    return fallback;
+  }
+}
+
+function normalizeDeveloperGithubSettings(rawValue = {}) {
+  return {
+    owner: String(rawValue.owner || "").trim(),
+    repo: String(rawValue.repo || "").trim(),
+    branch: String(rawValue.branch || "main").trim() || "main",
+    path: String(rawValue.path || DEFAULT_GITHUB_EXPORT_PATH).trim() || DEFAULT_GITHUB_EXPORT_PATH,
+    message: String(rawValue.message || "Update Empyrean system content").trim() || "Update Empyrean system content",
+    token: String(rawValue.token || ""),
+    rememberToken: normalizeBoolean(rawValue.rememberToken),
+  };
+}
+
+function getDeveloperGithubSettingsFromForm(form) {
+  const formData = new FormData(form);
+  const rememberToken = formData.get("rememberToken") === "on";
+  return normalizeDeveloperGithubSettings({
+    owner: formData.get("owner"),
+    repo: formData.get("repo"),
+    branch: formData.get("branch"),
+    path: formData.get("path"),
+    message: formData.get("message"),
+    token: rememberToken ? formData.get("token") : "",
+    rememberToken,
+  });
+}
+
+function persistDeveloperGithubSettings() {
+  window.localStorage.setItem(DEVELOPER_GITHUB_KEY, JSON.stringify(developerGithubSettings));
+}
+
+async function handleDeveloperGithubSubmit(form, action) {
+  const formData = new FormData(form);
+  const enteredToken = String(formData.get("token") || "").trim();
+  developerGithubSettings = getDeveloperGithubSettingsFromForm(form);
+  persistDeveloperGithubSettings();
+
+  if (action === "save") {
+    state.ui.developerGithubStatus = "Settings saved";
+    showToast("GitHub export settings saved.");
+    return;
+  }
+
+  const pushSettings = {
+    ...developerGithubSettings,
+    token: enteredToken || developerGithubSettings.token,
+  };
+  const missingFields = ["owner", "repo", "branch", "path", "token"].filter((field) => !pushSettings[field]);
+  if (missingFields.length) {
+    state.ui.developerGithubStatus = "Missing GitHub fields";
+    showToast(`Missing ${missingFields.join(", ")}.`);
+    return;
+  }
+
+  state.ui.developerGithubStatus = "Pushing...";
+  renderApp();
+
+  try {
+    await pushSystemContentToGithub(pushSettings, getSystemContentExportJson());
+    state.ui.developerGithubStatus = "Pushed to GitHub";
+    showToast("System content pushed to GitHub.");
+  } catch (error) {
+    state.ui.developerGithubStatus = "GitHub push failed";
+    showToast(error instanceof Error ? error.message : "GitHub push failed.");
+  }
+}
+
+async function pushSystemContentToGithub(settings, json) {
+  const owner = encodeURIComponent(settings.owner);
+  const repo = encodeURIComponent(settings.repo);
+  const encodedPath = String(settings.path)
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/");
+  const branch = settings.branch || "main";
+  const baseUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${encodedPath}`;
+  const headers = {
+    Accept: "application/vnd.github+json",
+    Authorization: `Bearer ${settings.token}`,
+    "Content-Type": "application/json",
+  };
+
+  let sha = "";
+  const existingResponse = await fetch(`${baseUrl}?ref=${encodeURIComponent(branch)}`, { headers });
+  if (existingResponse.ok) {
+    const existing = await existingResponse.json();
+    sha = existing.sha || "";
+  } else if (existingResponse.status !== 404) {
+    throw new Error(await getGitHubErrorMessage(existingResponse));
+  }
+
+  const body = {
+    message: settings.message || "Update Empyrean system content",
+    content: encodeBase64Utf8(json),
+    branch,
+    ...(sha ? { sha } : {}),
+  };
+  const response = await fetch(baseUrl, {
+    method: "PUT",
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    throw new Error(await getGitHubErrorMessage(response));
+  }
+
+  return response.json();
+}
+
+async function getGitHubErrorMessage(response) {
+  try {
+    const body = await response.json();
+    return body.message ? `GitHub: ${body.message}` : "GitHub request failed.";
+  } catch {
+    return "GitHub request failed.";
+  }
+}
+
+function encodeBase64Utf8(value) {
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return window.btoa(binary);
+}
+
 function loadStoredState() {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -6011,7 +6981,11 @@ function buildAttributeDetailFromFormData(formData) {
     const name = TEKHNE_OPTIONS.includes(formData.get("detailName")) ? formData.get("detailName") : TEKHNE_OPTIONS[0];
     return {
       name,
-      description: String(formData.get("detailDescription") || "").trim(),
+      description: normalizePresetText(
+        formData.get("detailDescription"),
+        getTekhneAbility(name),
+        Object.values(TEKHNE_ABILITIES)
+      ),
       presetKey: "custom",
       cosmoglossiaPanels: normalizeCosmoglossiaPanels([]),
     };
@@ -6023,7 +6997,11 @@ function buildAttributeDetailFromFormData(formData) {
       : ARKHEMETRY_OPTIONS[0];
     return {
       name,
-      description: String(formData.get("detailDescription") || "").trim(),
+      description: normalizePresetText(
+        formData.get("detailDescription"),
+        getArkhemetryAbility(name),
+        Object.values(ARKHEMETRY_ABILITIES)
+      ),
       presetKey: "custom",
       cosmoglossiaPanels: normalizeCosmoglossiaPanels([]),
     };
@@ -6477,6 +7455,45 @@ function iconTrash() {
       <path d="M4 7h16"></path>
       <path d="M9 7V4h6v3"></path>
       <path d="M7 7l1 12h8l1-12"></path>
+    </svg>
+  `;
+}
+
+function iconCopy() {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="8" y="8" width="11" height="11" rx="2"></rect>
+      <path d="M5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"></path>
+    </svg>
+  `;
+}
+
+function iconDownload() {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 3v12"></path>
+      <path d="m7 10 5 5 5-5"></path>
+      <path d="M5 21h14"></path>
+    </svg>
+  `;
+}
+
+function iconUpload() {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 21V9"></path>
+      <path d="m7 14 5-5 5 5"></path>
+      <path d="M5 3h14"></path>
+    </svg>
+  `;
+}
+
+function iconSave() {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M5 4h12l2 2v14H5Z"></path>
+      <path d="M8 4v6h8V4"></path>
+      <path d="M8 20v-6h8v6"></path>
     </svg>
   `;
 }
