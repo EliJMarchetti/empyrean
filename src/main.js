@@ -5,6 +5,7 @@ const MAX_SPECIALIZATIONS = 16;
 const BASE_SPECIALIZATION_SLOTS = 8;
 const MAX_AUGMENT_SLOTS = 3;
 const COSMOGLOSSIA_PANEL_COUNT = 8;
+const COSMOGLOSSIA_STARTING_PANEL_COUNT = 3;
 const ATTRIBUTE_CREATION_MIN = 4;
 const ATTRIBUTE_CREATION_MAX = 12;
 const SKILL_CREATION_MAX = 10;
@@ -248,15 +249,60 @@ let ARKHEMETRY_OPTIONS = [
 let ARKHEMETRY_ABILITIES = {};
 
 const COSMOGLOSSIA_COLORS = [
-  { key: "C", label: "Cyan" },
-  { key: "M", label: "Magenta" },
-  { key: "Y", label: "Yellow" },
-  { key: "K", label: "Black" },
-  { key: "W", label: "White" },
-  { key: "R", label: "Red" },
-  { key: "G", label: "Green" },
-  { key: "B", label: "Blue" },
+  { key: "C", label: "Cyan", hex: "#00c8f8", text: "#031017" },
+  { key: "M", label: "Magenta", hex: "#ff44a8", text: "#ffffff" },
+  { key: "Y", label: "Yellow", hex: "#ffd84a", text: "#1a1300" },
+  { key: "K", label: "Black", hex: "#03070a", text: "#ffffff" },
+  { key: "W", label: "White", hex: "#f6fbfb", text: "#06131a" },
+  { key: "R", label: "Red", hex: "#e21b1b", text: "#ffffff" },
+  { key: "G", label: "Green", hex: "#34c76f", text: "#031017" },
+  { key: "B", label: "Blue", hex: "#386cff", text: "#ffffff" },
 ];
+
+const COSMOGLOSSIA_TILE_VIEWBOX = { width: 792, height: 612 };
+const COSMOGLOSSIA_TILE_OUTER_PATHS = [
+  "M188.1539,396 L292.077,216 L396,396 L292.077,456 z M208.6443,390.5096 L292.077,438.6795 L375.5096,390.5096 L292.077,246 z",
+  "M292.077,216 L396,36 L499.923,96 L499.923,216 z M318.0577,201 L484.923,201 L484.923,104.6603 L401.4904,56.49038 z",
+  "M499.923,576 L603.8461,396 L707.7692,456 L707.7692,576 z M525.9038,561 L692.7692,561 L692.7692,464.6602 L609.3365,416.4904 z",
+  "M396,396 L499.923,336 L603.8461,396 L499.923,576 z M416.4904,401.4904 L499.923,546 L583.3557,401.4904 L499.923,353.3205 z",
+  "M499.923,96 L603.8461,36 L707.7692,216 L499.923,216 z M514.923,104.6603 L514.923,201 L681.7884,201 L598.3557,56.49038 z",
+  "M499.923,336 L499.923,216 L707.7692,216 L603.8461,396 z M514.923,327.3398 L598.3557,375.5096 L681.7884,231 L514.923,231 z",
+  "M84.23086,336 L84.23086,216 L292.077,216 L188.1539,396 z M99.23086,327.3398 L182.6635,375.5096 L266.0962,231 L99.23086,231 z",
+  "M396,396 L292.077,216 L499.923,216 L499.923,336 z M401.4904,375.5096 L484.923,327.3398 L484.923,231 L318.0577,231 z",
+];
+const COSMOGLOSSIA_TILE_PANEL_PATHS = [
+  "M401.4904,375.5096 L318.0577,231 L484.923,231 L484.923,327.3398 z",
+  "M514.923,327.3398 L514.923,231 L681.7884,231 L598.3557,375.5096 z",
+  "M416.4904,401.4904 L499.923,353.3205 L583.3557,401.4904 L499.923,546 z",
+  "M208.6443,390.5096 L292.077,246 L375.5096,390.5096 L292.077,438.6795 z",
+  "M318.0577,201 L401.4904,56.49038 L484.923,104.6603 L484.923,201 z",
+  "M514.923,104.6603 L598.3557,56.49038 L681.7884,201 L514.923,201 z",
+  "M525.9038,561 L609.3365,416.4904 L692.7692,464.6602 L692.7692,561 z",
+  "M99.23086,327.3398 L99.23086,231 L266.0962,231 L182.6635,375.5096 z",
+];
+const COSMOGLOSSIA_TILE_OUTLINE_PATHS = [
+  "M499.9231,576 L707.7692,576 L707.7692,456 L603.8461,396 z",
+  "M84.23088,336 L188.1539,396 L292.077,216 L84.23088,216 z",
+  "M188.1539,396 L292.077,456 L396,396 L292.077,216 z",
+  "M396,396 L499.9231,336 L499.9231,216 L292.077,216 z",
+  "M499.9231,336 L603.8461,396 L707.7692,216 L499.9231,216 z",
+  "M396,396 L499.9231,576 L603.8461,396 L499.9231,336 z",
+  "M292.077,216 L396,36.00002 L499.9231,96.00002 L499.9231,216 z",
+  "M499.9231,96.00002 L499.9231,216 L707.7692,216 L603.8461,36.00002 z",
+];
+const COSMOGLOSSIA_PANEL_CENTERS = [
+  { x: 52.45, y: 46.93 },
+  { x: 73.79, y: 46.93 },
+  { x: 63.12, y: 70.85 },
+  { x: 36.88, y: 58.56 },
+  { x: 52.45, y: 23.66 },
+  { x: 73.79, y: 23.66 },
+  { x: 78.69, y: 82.48 },
+  { x: 21.31, y: 46.93 },
+];
+
+let COSMOGLOSSIA_ABILITY_OPTIONS = buildDefaultCosmoglossiaAbilityOptions();
+let COSMOGLOSSIA_ABILITIES = {};
 
 let AUGMENT_OPTIONS = [
   {
@@ -370,6 +416,7 @@ const DEVELOPER_CONTENT_CATEGORIES = [
   { key: "backgrounds", label: "Backgrounds", specializationCount: 6, requiredKeys: ["custom"] },
   { key: "tekhne", label: "Tekhne", specializationCount: 0 },
   { key: "arkhemetry", label: "Arkhemetry", specializationCount: 0 },
+  { key: "cosmoglossiaAbilities", label: "Cosmoglossia Abilities", specializationCount: 0, lockedEntries: true },
 ];
 const LINEAGE_FEATURE_CATEGORY_BY_LINEAGE = {
   voidborn: "naturalAugments",
@@ -427,6 +474,7 @@ syncSystemContentFromRepositoryIfClean();
 
 document.addEventListener("click", handleClick);
 document.addEventListener("change", handleChange);
+document.addEventListener("input", handleInput);
 document.addEventListener("submit", handleSubmit);
 document.addEventListener("contextmenu", handleContextMenu);
 document.addEventListener("focusin", handleFocusIn);
@@ -601,15 +649,21 @@ function renderDeveloperPage() {
                 <span>${records.length} ${records.length === 1 ? "entry" : "entries"}</span>
               </div>
               <div class="utility-title-actions">
-                <button
-                  class="secondary-button"
-                  data-action="dev-add-entry"
-                  data-category="${escapeAttribute(category.key)}"
-                  type="button"
-                >
-                  ${iconPlus()}
-                  <span>Add</span>
-                </button>
+                ${
+                  category.lockedEntries
+                    ? ""
+                    : `
+                      <button
+                        class="secondary-button"
+                        data-action="dev-add-entry"
+                        data-category="${escapeAttribute(category.key)}"
+                        type="button"
+                      >
+                        ${iconPlus()}
+                        <span>Add</span>
+                      </button>
+                    `
+                }
                 <button class="primary-button" type="submit">${iconSave()}<span>Save</span></button>
               </div>
             </div>
@@ -642,6 +696,7 @@ function renderDeveloperCategoryButton(category) {
 
 function renderDeveloperEntryEditor(category, entry, index) {
   const isRequired = isRequiredDeveloperEntry(category, entry);
+  const isLockedEntry = Boolean(category.lockedEntries);
   const specializationControls = category.specializationCount
     ? `
       <fieldset class="developer-specialization-fieldset">
@@ -696,29 +751,35 @@ function renderDeveloperEntryEditor(category, entry, index) {
           >${escapeHtml(entry.ability || "")}</textarea>
         </label>
         ${specializationControls}
-        <div class="modal-actions modal-actions-end">
-          <button
-            class="secondary-button"
-            data-action="dev-duplicate-entry"
-            data-category="${escapeAttribute(category.key)}"
-            data-index="${index}"
-            type="button"
-          >
-            ${iconCopy()}
-            <span>Duplicate</span>
-          </button>
-          <button
-            class="danger-button"
-            data-action="dev-delete-entry"
-            data-category="${escapeAttribute(category.key)}"
-            data-index="${index}"
-            type="button"
-            ${isRequired ? "disabled" : ""}
-          >
-            ${iconTrash()}
-            <span>Delete</span>
-          </button>
-        </div>
+        ${
+          isLockedEntry
+            ? ""
+            : `
+              <div class="modal-actions modal-actions-end">
+                <button
+                  class="secondary-button"
+                  data-action="dev-duplicate-entry"
+                  data-category="${escapeAttribute(category.key)}"
+                  data-index="${index}"
+                  type="button"
+                >
+                  ${iconCopy()}
+                  <span>Duplicate</span>
+                </button>
+                <button
+                  class="danger-button"
+                  data-action="dev-delete-entry"
+                  data-category="${escapeAttribute(category.key)}"
+                  data-index="${index}"
+                  type="button"
+                  ${isRequired ? "disabled" : ""}
+                >
+                  ${iconTrash()}
+                  <span>Delete</span>
+                </button>
+              </div>
+            `
+        }
       </div>
     </details>
   `;
@@ -1208,6 +1269,7 @@ function renderAttributeDetailFields(kind, detail, attribute) {
     return `
       <input type="hidden" name="detailName" value="Cosmoglossia" />
       ${renderCosmoglossiaPanelFields("detailCosmoglossia", detail.cosmoglossiaPanels, !state.ui.editMode)}
+      ${renderCosmoglossiaAbilityField("detailDescription", detail.description, !state.ui.editMode, detail.cosmoglossiaPanels)}
     `;
   }
 
@@ -1827,41 +1889,172 @@ function renderOptionalCosmoglossiaFields(draft, disabled) {
         } />
         <span>Cosmoglossia</span>
       </label>
-      ${renderCosmoglossiaPanelFields("creationCosmoglossia", draft.creationCosmoglossiaPanels, !isEditable)}
+      ${renderCosmoglossiaPanelFields("creationCosmoglossia", draft.creationCosmoglossiaPanels, !isEditable, {
+        unlockedPanelCount: COSMOGLOSSIA_STARTING_PANEL_COUNT,
+      })}
+      ${renderCosmoglossiaAbilityField(
+        "creationCosmoglossiaAbility",
+        getCosmoglossiaAbilityForPanels(draft.creationCosmoglossiaPanels) || draft.creationCosmoglossiaAbility,
+        !isEditable,
+        draft.creationCosmoglossiaPanels
+      )}
     </div>
   `;
 }
 
-function renderCosmoglossiaPanelFields(prefix, panels, disabled = false) {
+function renderCosmoglossiaPanelFields(prefix, panels, disabled = false, options = {}) {
+  const normalizedPanels = normalizeCosmoglossiaPanels(panels);
+  const unlockedPanelCount = clampNumber(
+    options.unlockedPanelCount || getCosmoglossiaUnlockedPanelCount(normalizedPanels),
+    COSMOGLOSSIA_STARTING_PANEL_COUNT,
+    COSMOGLOSSIA_PANEL_COUNT
+  );
+  const panelOptions = [{ key: "", label: "Empty" }, ...COSMOGLOSSIA_COLORS];
+
   return `
-    <div class="cosmoglossia-tile" aria-label="Cosmoglossia Einstein tile">
-      ${normalizeCosmoglossiaPanels(panels)
-        .map(
-          (panel, index) => `
-            <label class="cosmoglossia-panel cosmoglossia-panel-${escapeAttribute(panel.color.toLowerCase())}">
-              <span>${index + 1}</span>
-              <select name="${escapeAttribute(prefix)}Color${index}" ${disabled ? "disabled" : ""}>
-                ${COSMOGLOSSIA_COLORS.map(
-                  (color) => `
-                    <option value="${color.key}" ${color.key === panel.color ? "selected" : ""}>
-                      ${escapeHtml(color.key)}
-                    </option>
-                  `
-                ).join("")}
-              </select>
-              <input
-                type="text"
-                name="${escapeAttribute(prefix)}Word${index}"
-                maxlength="24"
-                value="${escapeAttribute(panel.word)}"
-                placeholder="Word"
-                ${disabled ? "disabled" : ""}
-              />
-            </label>
-          `
-        )
-        .join("")}
+    <div
+      class="cosmoglossia-tile"
+      aria-label="Cosmoglossia tile"
+      data-cosmoglossia-prefix="${escapeAttribute(prefix)}"
+      data-cosmoglossia-disabled="${disabled ? "true" : "false"}"
+    >
+      ${renderCosmoglossiaTileSvg(normalizedPanels, unlockedPanelCount, disabled)}
+      <div class="cosmoglossia-control-layer">
+        ${normalizedPanels
+          .map((panel, index) => renderCosmoglossiaPanelControl(prefix, panel, index, panelOptions, disabled, unlockedPanelCount))
+          .join("")}
+      </div>
     </div>
+    ${renderCosmoglossiaPanelEditor(prefix, panelOptions, disabled)}
+  `;
+}
+
+function renderCosmoglossiaTileSvg(panels, unlockedPanelCount, disabled) {
+  return `
+    <svg
+      class="cosmoglossia-svg"
+      viewBox="0 0 ${COSMOGLOSSIA_TILE_VIEWBOX.width} ${COSMOGLOSSIA_TILE_VIEWBOX.height}"
+      aria-hidden="true"
+      focusable="false"
+    >
+      ${COSMOGLOSSIA_TILE_OUTER_PATHS.map((path) => `<path class="cosmoglossia-frame" d="${path}"></path>`).join("")}
+      ${COSMOGLOSSIA_TILE_PANEL_PATHS.map((path, index) => {
+        const panel = panels[index] || {};
+        const color = getCosmoglossiaColor(panel.color);
+        const isUnlocked = index < unlockedPanelCount;
+        const isInteractive = isUnlocked && !disabled;
+        const fill = color?.hex || (isUnlocked ? "#1a2830" : "#14191d");
+        const textColor = color?.text || "#eef7f5";
+
+        return `
+          <path
+            class="cosmoglossia-shape ${isUnlocked ? "is-unlocked" : "is-locked"} ${color ? "" : "is-empty"}"
+            ${isInteractive ? `data-action="edit-cosmoglossia-panel" data-cosmoglossia-index="${index}"` : ""}
+            data-cosmoglossia-panel-shape="${index}"
+            d="${path}"
+            fill="${escapeAttribute(fill)}"
+            style="--cosmoglossia-panel-text: ${escapeAttribute(textColor)}"
+          ></path>
+        `;
+      }).join("")}
+      ${COSMOGLOSSIA_TILE_OUTLINE_PATHS.map((path) => `<path class="cosmoglossia-outline" d="${path}"></path>`).join("")}
+    </svg>
+  `;
+}
+
+function renderCosmoglossiaPanelControl(prefix, panel, index, panelOptions, disabled, unlockedPanelCount) {
+  const color = getCosmoglossiaColor(panel.color);
+  const center = COSMOGLOSSIA_PANEL_CENTERS[index];
+  const isUnlocked = index < unlockedPanelCount;
+  const isInteractive = isUnlocked && !disabled;
+  const panelWord = panel.word || "Empty";
+
+  return `
+    <div
+      class="cosmoglossia-panel-control ${isUnlocked ? "is-unlocked" : "is-locked"} ${color ? "" : "is-empty"}"
+      style="left: ${center.x}%; top: ${center.y}%; --cosmoglossia-panel-text: ${escapeAttribute(color?.text || "#eef7f5")}"
+    >
+      <input
+        type="hidden"
+        name="${escapeAttribute(prefix)}Color${index}"
+        value="${escapeAttribute(panel.color)}"
+        data-cosmoglossia-preserve-color="${index}"
+      />
+      <input
+        type="hidden"
+        name="${escapeAttribute(prefix)}Word${index}"
+        value="${escapeAttribute(panel.word)}"
+        data-cosmoglossia-preserve-word="${index}"
+      />
+      <button
+        class="cosmoglossia-panel-button"
+        data-action="edit-cosmoglossia-panel"
+        data-cosmoglossia-index="${index}"
+        type="button"
+        ${isInteractive ? "" : "disabled"}
+      >
+        <span class="cosmoglossia-panel-order" data-cosmoglossia-order="${index}">${index + 1}</span>
+        <span class="cosmoglossia-panel-word" data-cosmoglossia-word-display="${index}">${escapeHtml(panelWord)}</span>
+      </button>
+    </div>
+  `;
+}
+
+function renderCosmoglossiaPanelEditor(prefix, panelOptions, disabled) {
+  if (disabled) {
+    return "";
+  }
+
+  return `
+    <div class="cosmoglossia-panel-editor" data-cosmoglossia-editor="${escapeAttribute(prefix)}" hidden>
+      <div class="cosmoglossia-editor-heading">
+        <strong data-cosmoglossia-editor-title>Panel</strong>
+        <button class="icon-button" data-action="close-cosmoglossia-editor" type="button" aria-label="Close Cosmoglossia panel editor">x</button>
+      </div>
+      <div class="cosmoglossia-editor-fields">
+        <label>
+          <span>Color</span>
+          <select data-cosmoglossia-editor-color>
+            ${panelOptions.map(
+              (option) => `
+                <option value="${option.key}">
+                  ${escapeHtml(option.label)}
+                </option>
+              `
+            ).join("")}
+          </select>
+        </label>
+        <label>
+          <span>Word</span>
+          <input type="text" maxlength="24" placeholder="Word" data-cosmoglossia-editor-word />
+        </label>
+      </div>
+    </div>
+  `;
+}
+
+function renderCosmoglossiaAbilityField(name, abilityValue, disabled, panels) {
+  const coreCode = getCosmoglossiaCoreCode(panels);
+  const coreAbility = getCosmoglossiaAbility(coreCode);
+  const displayedAbility = coreAbility || abilityValue;
+
+  return `
+    <div class="cosmoglossia-core-summary ${coreCode ? "" : "is-empty"}">
+      <span>Core</span>
+      <strong data-cosmoglossia-core-code>${escapeHtml(coreCode || "Incomplete")}</strong>
+    </div>
+    <label>
+      <span>Core Ability</span>
+      <textarea
+        rows="4"
+        name="${escapeAttribute(name)}"
+        maxlength="900"
+        placeholder="Defined in Developer Console"
+        data-cosmoglossia-core-ability
+        readonly
+        ${disabled ? "disabled" : ""}
+      >${escapeHtml(displayedAbility)}</textarea>
+    </label>
   `;
 }
 
@@ -3012,6 +3205,16 @@ async function handleClick(event) {
     return;
   }
 
+  if (action === "edit-cosmoglossia-panel") {
+    openCosmoglossiaPanelEditor(actionTarget);
+    return;
+  }
+
+  if (action === "close-cosmoglossia-editor") {
+    closeCosmoglossiaPanelEditor(actionTarget);
+    return;
+  }
+
   if (action === "toggle-character-menu") {
     state.ui.isCharacterMenuOpen = !state.ui.isCharacterMenuOpen;
     renderApp();
@@ -3291,6 +3494,12 @@ async function handleClick(event) {
 }
 
 function handleChange(event) {
+  const cosmoglossiaEditorTarget = event.target.closest("[data-cosmoglossia-editor-color], [data-cosmoglossia-editor-word]");
+  if (cosmoglossiaEditorTarget) {
+    applyCosmoglossiaPanelEditorChange(cosmoglossiaEditorTarget);
+    return;
+  }
+
   const createCharacterForm = event.target.closest('[data-form="create-character"]');
   if (createCharacterForm && state.ui.activeModal?.type === "create-character") {
     const resetAllocationInputs = [
@@ -3354,6 +3563,11 @@ function handleChange(event) {
   }
 
   const attributeDetailForm = event.target.closest('[data-form="attribute-detail"]');
+  if (attributeDetailForm && event.target.name?.startsWith("detailCosmoglossia")) {
+    updateCosmoglossiaLivePreview(attributeDetailForm, "detailCosmoglossia");
+    return;
+  }
+
   if (attributeDetailForm && event.target.name === "detailAugmentKey") {
     updateAugmentDetailFields(attributeDetailForm, event.target.value);
     return;
@@ -3499,6 +3713,15 @@ function handleChange(event) {
   renderApp();
 }
 
+function handleInput(event) {
+  const cosmoglossiaEditorTarget = event.target.closest("[data-cosmoglossia-editor-word]");
+  if (!cosmoglossiaEditorTarget) {
+    return;
+  }
+
+  applyCosmoglossiaPanelEditorChange(cosmoglossiaEditorTarget);
+}
+
 function updateAugmentDetailFields(form, augmentKey) {
   const augment = getAugmentOption(augmentKey);
   const nameInput = form.elements.detailName;
@@ -3512,6 +3735,194 @@ function updateAugmentDetailFields(form, augmentKey) {
 
   if (abilityInput && (!abilityInput.value || knownAbilities.includes(abilityInput.value))) {
     abilityInput.value = augment.ability;
+  }
+}
+
+function openCosmoglossiaPanelEditor(target) {
+  const tile = target.closest(".cosmoglossia-tile");
+  const form = target.closest("form");
+  const prefix = tile?.dataset.cosmoglossiaPrefix || "";
+  const index = Number(target.dataset.cosmoglossiaIndex);
+  const editor = form?.querySelector(`[data-cosmoglossia-editor="${prefix}"]`);
+
+  if (!tile || !form || !editor || !Number.isInteger(index)) {
+    return;
+  }
+
+  const colorInput = tile.querySelector(`[data-cosmoglossia-preserve-color="${index}"]`);
+  const wordInput = tile.querySelector(`[data-cosmoglossia-preserve-word="${index}"]`);
+  const editorColor = editor.querySelector("[data-cosmoglossia-editor-color]");
+  const editorWord = editor.querySelector("[data-cosmoglossia-editor-word]");
+  const editorTitle = editor.querySelector("[data-cosmoglossia-editor-title]");
+
+  editor.dataset.cosmoglossiaIndex = String(index);
+  editor.hidden = false;
+
+  if (editorTitle) {
+    editorTitle.textContent = `Panel ${index + 1}`;
+  }
+
+  if (editorColor) {
+    editorColor.value = colorInput?.value || "";
+  }
+
+  if (editorWord) {
+    editorWord.value = wordInput?.value || "";
+    editorWord.focus();
+    editorWord.select();
+  }
+
+  tile
+    .querySelectorAll(".cosmoglossia-panel-control")
+    .forEach((control) => control.classList.remove("is-editing"));
+  const activeControl =
+    target.closest(".cosmoglossia-panel-control") ||
+    tile.querySelector(`.cosmoglossia-panel-button[data-cosmoglossia-index="${index}"]`)?.closest(".cosmoglossia-panel-control");
+  activeControl?.classList.add("is-editing");
+}
+
+function closeCosmoglossiaPanelEditor(target) {
+  const editor = target.closest("[data-cosmoglossia-editor]");
+  const form = target.closest("form");
+  const prefix = editor?.dataset.cosmoglossiaEditor || "";
+  const tile = form?.querySelector(`[data-cosmoglossia-prefix="${prefix}"]`);
+
+  if (editor) {
+    editor.hidden = true;
+    delete editor.dataset.cosmoglossiaIndex;
+  }
+
+  tile
+    ?.querySelectorAll(".cosmoglossia-panel-control")
+    .forEach((control) => control.classList.remove("is-editing"));
+}
+
+function applyCosmoglossiaPanelEditorChange(target) {
+  const editor = target.closest("[data-cosmoglossia-editor]");
+  const form = target.closest("form");
+  const prefix = editor?.dataset.cosmoglossiaEditor || "";
+  const index = Number(editor?.dataset.cosmoglossiaIndex);
+  const tile = form?.querySelector(`[data-cosmoglossia-prefix="${prefix}"]`);
+
+  if (!editor || !form || !tile || !Number.isInteger(index)) {
+    return;
+  }
+
+  const colorInput = tile.querySelector(`[data-cosmoglossia-preserve-color="${index}"]`);
+  const wordInput = tile.querySelector(`[data-cosmoglossia-preserve-word="${index}"]`);
+  const editorColor = editor.querySelector("[data-cosmoglossia-editor-color]");
+  const editorWord = editor.querySelector("[data-cosmoglossia-editor-word]");
+
+  if (colorInput && editorColor) {
+    colorInput.value = editorColor.value;
+  }
+
+  if (wordInput && editorWord) {
+    wordInput.value = normalizeSingleWord(editorWord.value);
+    if (editorWord.value !== wordInput.value) {
+      editorWord.value = wordInput.value;
+    }
+  }
+
+  updateCosmoglossiaLivePreview(form, prefix);
+}
+
+function updateCosmoglossiaLivePreview(form, prefix) {
+  const panels = normalizeCosmoglossiaPanels(getCosmoglossiaPanelsFromFormData(new FormData(form), prefix));
+  const tile = form.querySelector(`[data-cosmoglossia-prefix="${prefix}"]`);
+  const isDisabled = tile?.dataset.cosmoglossiaDisabled === "true";
+  const unlockedPanelCount = getCosmoglossiaUnlockedPanelCount(panels);
+
+  panels.forEach((panel, index) => {
+    const color = getCosmoglossiaColor(panel.color);
+    const isUnlocked = index < unlockedPanelCount;
+    const isInteractive = isUnlocked && !isDisabled;
+    const shape = tile?.querySelector(`[data-cosmoglossia-panel-shape="${index}"]`);
+    const button = tile?.querySelector(`.cosmoglossia-panel-button[data-cosmoglossia-index="${index}"]`);
+    const control = button?.closest(".cosmoglossia-panel-control");
+    const wordDisplay = tile?.querySelector(`[data-cosmoglossia-word-display="${index}"]`);
+    const preservedColor = tile?.querySelector(`[data-cosmoglossia-preserve-color="${index}"]`);
+    const preservedWord = tile?.querySelector(`[data-cosmoglossia-preserve-word="${index}"]`);
+    const fill = color?.hex || (isUnlocked ? "#1a2830" : "#14191d");
+    const textColor = color?.text || "#eef7f5";
+    const panelWord = panel.word || "Empty";
+
+    if (shape) {
+      shape.setAttribute("fill", fill);
+      shape.style.setProperty("--cosmoglossia-panel-text", textColor);
+      shape.classList.toggle("is-unlocked", isUnlocked);
+      shape.classList.toggle("is-locked", !isUnlocked);
+      shape.classList.toggle("is-empty", !color);
+      if (isInteractive) {
+        shape.dataset.action = "edit-cosmoglossia-panel";
+        shape.dataset.cosmoglossiaIndex = String(index);
+      } else {
+        delete shape.dataset.action;
+        delete shape.dataset.cosmoglossiaIndex;
+      }
+    }
+
+    if (control) {
+      control.style.setProperty("--cosmoglossia-panel-text", textColor);
+      control.classList.toggle("is-unlocked", isUnlocked);
+      control.classList.toggle("is-locked", !isUnlocked);
+      control.classList.toggle("is-empty", !color);
+    }
+
+    if (button) {
+      button.disabled = !isInteractive;
+    }
+
+    if (wordDisplay) {
+      wordDisplay.textContent = panelWord;
+    }
+
+    if (preservedColor) {
+      preservedColor.value = panel.color;
+    }
+
+    if (preservedWord) {
+      preservedWord.value = panel.word;
+    }
+  });
+
+  const coreCode = getCosmoglossiaCoreCode(panels);
+  const coreSummary = form.querySelector(".cosmoglossia-core-summary");
+  const coreCodeElement = form.querySelector("[data-cosmoglossia-core-code]");
+  const coreAbility = form.querySelector("[data-cosmoglossia-core-ability]");
+
+  if (coreSummary) {
+    coreSummary.classList.toggle("is-empty", !coreCode);
+  }
+
+  if (coreCodeElement) {
+    coreCodeElement.textContent = coreCode || "Incomplete";
+  }
+
+  if (coreAbility) {
+    coreAbility.value = getCosmoglossiaAbility(coreCode);
+  }
+
+  const activeEditor = form.querySelector(`[data-cosmoglossia-editor="${prefix}"]:not([hidden])`);
+  const activeIndex = Number(activeEditor?.dataset.cosmoglossiaIndex);
+  if (activeEditor && Number.isInteger(activeIndex)) {
+    const activePanel = panels[activeIndex] || {};
+    const activeColor = activeEditor.querySelector("[data-cosmoglossia-editor-color]");
+    const activeWord = activeEditor.querySelector("[data-cosmoglossia-editor-word]");
+    const isActiveInteractive = activeIndex < unlockedPanelCount && !isDisabled;
+
+    if (!isActiveInteractive) {
+      closeCosmoglossiaPanelEditor(activeEditor);
+      return;
+    }
+
+    if (activeColor && activeColor.value !== activePanel.color) {
+      activeColor.value = activePanel.color;
+    }
+
+    if (activeWord && activeWord.value !== activePanel.word) {
+      activeWord.value = activePanel.word;
+    }
   }
 }
 
@@ -4192,16 +4603,24 @@ function normalizeFeatureList(rawValue = []) {
     return [];
   }
 
-  return rawValue.map((feature) => ({
-    id: feature?.id || createId(),
-    source: String(feature?.source || "character"),
-    sourceLabel: String(feature?.sourceLabel || ""),
-    category: String(feature?.category || "Feature"),
-    name: String(feature?.name || "Feature"),
-    ability: String(feature?.ability || ""),
-    slot: String(feature?.slot || ""),
-    details: normalizeRecordDetails(feature?.details),
-  }));
+  return rawValue.map((feature) => {
+    const details = normalizeRecordDetails(feature?.details);
+
+    return {
+      id: feature?.id || createId(),
+      source: String(feature?.source || "character"),
+      sourceLabel: String(feature?.sourceLabel || ""),
+      category: String(feature?.category || "Feature"),
+      name: String(feature?.name || "Feature"),
+      ability:
+        feature?.slot === "cosmoglossia"
+          ? getCosmoglossiaAbilityForPanels(details.cosmoglossiaPanels) ||
+            normalizeCosmoglossiaAbilityText(feature?.ability, details.cosmoglossiaPanels)
+          : String(feature?.ability || ""),
+      slot: String(feature?.slot || ""),
+      details,
+    };
+  });
 }
 
 function normalizeGearRecord(rawValue = {}) {
@@ -4775,6 +5194,7 @@ function normalizeCreateCharacterDraft(rawValue = {}, options = {}) {
   const ghoulDefaults = getCreationSkillEntries()
     .map((entry) => entry.ref)
     .slice(0, 9);
+  const creationCosmoglossiaPanels = normalizeCosmoglossiaPanels(raw.creationCosmoglossiaPanels);
   const draft = {
     name: getDraftString(raw, "name", ""),
     gender: normalizeGender(raw.gender || "male"),
@@ -4842,7 +5262,10 @@ function normalizeCreateCharacterDraft(rawValue = {}, options = {}) {
     ),
     takeCosmoglossia: normalizeBoolean(raw.takeCosmoglossia),
     creationCosmoglossiaName: "Cosmoglossia",
-    creationCosmoglossiaPanels: normalizeCosmoglossiaPanels(raw.creationCosmoglossiaPanels),
+    creationCosmoglossiaAbility:
+      getCosmoglossiaAbilityForPanels(creationCosmoglossiaPanels) ||
+      normalizeCosmoglossiaAbilityText(raw.creationCosmoglossiaAbility, creationCosmoglossiaPanels),
+    creationCosmoglossiaPanels,
     attributeScores: shouldResetAllocation
       ? defaultAttributes
       : normalizeNumberList(raw.attributeScores, defaultAttributes, ATTRIBUTE_CREATION_MIN, ATTRIBUTE_CREATION_MAX),
@@ -4904,6 +5327,7 @@ function getCreateCharacterDraftFromForm(form, options = {}) {
       creationArkhemetryName: formData.get("creationArkhemetryName"),
       creationArkhemetryAbility: formData.get("creationArkhemetryAbility"),
       takeCosmoglossia: formData.get("takeCosmoglossia"),
+      creationCosmoglossiaAbility: formData.get("creationCosmoglossiaAbility"),
       creationCosmoglossiaPanels: getCosmoglossiaPanelsFromFormData(formData, "creationCosmoglossia"),
       attributeScores: getCreationAttributeEntries().map((entry) => formData.get(entry.inputName)),
       skillValues: getCreationSkillEntries().map((entry) => formData.get(entry.inputName)),
@@ -5212,15 +5636,19 @@ function buildOptionalCreationFeatures(draft) {
 
   if (draft.takeCosmoglossia) {
     const panels = normalizeCosmoglossiaPanels(draft.creationCosmoglossiaPanels);
+    const ability = getCosmoglossiaAbilityForPanels(panels) || draft.creationCosmoglossiaAbility;
     features.push(
       createFeatureRecord({
         source: "creation-feature",
         sourceLabel: "Creation Feature: Cosmoglossia",
         category: "Cosmoglossia",
         name: draft.creationCosmoglossiaName || "Cosmoglossia",
-        ability: formatCosmoglossiaPanels(panels),
+        ability,
         slot: "cosmoglossia",
-        details: { cosmoglossiaPanels: serializeCosmoglossiaPanels(panels) },
+        details: {
+          cosmoglossiaPanels: serializeCosmoglossiaPanels(panels),
+          coreCombination: getCosmoglossiaCoreCode(panels),
+        },
       })
     );
   }
@@ -5460,7 +5888,52 @@ function getEnabledCreationAugments(draft) {
 }
 
 function getCosmoglossiaColor(key) {
-  return COSMOGLOSSIA_COLORS.find((color) => color.key === key) || COSMOGLOSSIA_COLORS[0];
+  const normalizedKey = String(key || "").trim().toUpperCase();
+  return COSMOGLOSSIA_COLORS.find((color) => color.key === normalizedKey) || null;
+}
+
+function buildDefaultCosmoglossiaAbilityOptions() {
+  return COSMOGLOSSIA_COLORS.flatMap((first) =>
+    COSMOGLOSSIA_COLORS.flatMap((second) =>
+      COSMOGLOSSIA_COLORS.map((third) => {
+        const label = [first.key, second.key, third.key].join("-");
+        return {
+          key: slugify(label),
+          label,
+          ability: "",
+          specializations: [],
+        };
+      })
+    )
+  );
+}
+
+function normalizeCosmoglossiaCoreCode(value) {
+  const parts = String(value || "")
+    .split("-")
+    .map((part) => getCosmoglossiaColor(part)?.key || "")
+    .filter(Boolean);
+
+  return parts.length === COSMOGLOSSIA_STARTING_PANEL_COUNT ? parts.join("-") : "";
+}
+
+function getCosmoglossiaAbility(coreCode) {
+  const normalizedCode = normalizeCosmoglossiaCoreCode(coreCode);
+  return normalizedCode ? COSMOGLOSSIA_ABILITIES[normalizedCode] || "" : "";
+}
+
+function getCosmoglossiaAbilityForPanels(panels) {
+  return getCosmoglossiaAbility(getCosmoglossiaCoreCode(panels));
+}
+
+function recordsToCosmoglossiaAbilityMap(records) {
+  return records.reduce((abilities, record) => {
+    const code = normalizeCosmoglossiaCoreCode(record.key) || normalizeCosmoglossiaCoreCode(record.label);
+    if (code && record.ability) {
+      abilities[code] = record.ability;
+    }
+    return abilities;
+  }, {});
 }
 
 function normalizeSingleWord(value) {
@@ -5486,15 +5959,43 @@ function parseCosmoglossiaPanels(rawValue) {
 
 function normalizeCosmoglossiaPanels(rawValue) {
   const source = parseCosmoglossiaPanels(rawValue);
+  const normalizedSource = isLegacyDefaultCosmoglossiaPanels(source) ? [] : source;
+
   return Array.from({ length: COSMOGLOSSIA_PANEL_COUNT }, (_, index) => {
-    const panel = source[index] || {};
-    const defaultColor = COSMOGLOSSIA_COLORS[index % COSMOGLOSSIA_COLORS.length].key;
-    const color = getCosmoglossiaColor(panel.color || defaultColor).key;
+    const panel = normalizedSource[index] || {};
+    const color = getCosmoglossiaColor(panel.color)?.key || "";
+
     return {
       color,
       word: normalizeSingleWord(panel.word),
     };
   });
+}
+
+function isCosmoglossiaPanelFilled(panel) {
+  return Boolean(panel?.color || panel?.word);
+}
+
+function getCosmoglossiaUnlockedPanelCount(panels) {
+  const normalizedPanels = normalizeCosmoglossiaPanels(panels);
+  const highestFilledIndex = normalizedPanels.reduce(
+    (highestIndex, panel, index) => (isCosmoglossiaPanelFilled(panel) ? index : highestIndex),
+    -1
+  );
+
+  return clampNumber(highestFilledIndex + 2, COSMOGLOSSIA_STARTING_PANEL_COUNT, COSMOGLOSSIA_PANEL_COUNT);
+}
+
+function isLegacyDefaultCosmoglossiaPanels(source) {
+  if (!Array.isArray(source) || source.length < COSMOGLOSSIA_PANEL_COUNT) {
+    return false;
+  }
+
+  return Array.from({ length: COSMOGLOSSIA_PANEL_COUNT }, (_, index) => {
+    const panel = source[index] || {};
+    const expectedColor = COSMOGLOSSIA_COLORS[index % COSMOGLOSSIA_COLORS.length].key;
+    return getCosmoglossiaColor(panel.color)?.key === expectedColor && !normalizeSingleWord(panel.word);
+  }).every(Boolean);
 }
 
 function serializeCosmoglossiaPanels(panels) {
@@ -5503,9 +6004,36 @@ function serializeCosmoglossiaPanels(panels) {
 
 function formatCosmoglossiaPanels(panels) {
   const filledPanels = normalizeCosmoglossiaPanels(panels)
-    .filter((panel) => panel.word)
-    .map((panel) => `${panel.color}: ${panel.word}`);
+    .map((panel, index) => ({ ...panel, index }))
+    .filter((panel) => panel.color || panel.word)
+    .map((panel) => `${panel.index + 1} ${panel.color || "Empty"}${panel.word ? `: ${panel.word}` : ""}`);
   return filledPanels.join("; ");
+}
+
+function formatLegacyCosmoglossiaPanels(panels) {
+  return normalizeCosmoglossiaPanels(panels)
+    .filter((panel) => panel.word)
+    .map((panel) => `${panel.color}: ${panel.word}`)
+    .join("; ");
+}
+
+function normalizeCosmoglossiaAbilityText(rawValue, panels) {
+  const value = String(rawValue || "").trim();
+
+  if (!value) {
+    return "";
+  }
+
+  const generatedSummaries = [formatCosmoglossiaPanels(panels), formatLegacyCosmoglossiaPanels(panels)].filter(Boolean);
+  return generatedSummaries.includes(value) ? "" : value;
+}
+
+function getCosmoglossiaCoreCode(panels) {
+  const coreColors = normalizeCosmoglossiaPanels(panels)
+    .slice(0, COSMOGLOSSIA_STARTING_PANEL_COUNT)
+    .map((panel) => panel.color);
+
+  return coreColors.every(Boolean) ? coreColors.join("-") : "";
 }
 
 function getCosmoglossiaPanelsFromFormData(formData, prefix) {
@@ -6134,6 +6662,9 @@ function buildDefaultSystemContent() {
         getDeveloperCategory("arkhemetry")
       )
     ),
+    cosmoglossiaAbilities: buildDefaultCosmoglossiaAbilityOptions().map((option) =>
+      normalizeSystemRecord(option, getDeveloperCategory("cosmoglossiaAbilities"))
+    ),
   };
 }
 
@@ -6168,6 +6699,25 @@ function normalizeSystemContent(rawValue = {}) {
 }
 
 function normalizeSystemCategoryRecords(rawRecords, category, fallbackRecords = []) {
+  if (category.lockedEntries && fallbackRecords.length) {
+    const rawByKey = new Map(
+      (Array.isArray(rawRecords) ? rawRecords : [])
+        .map((record) => normalizeSystemRecord(record, category))
+        .map((record) => [record.key, record])
+    );
+    const rawByLabel = new Map(
+      (Array.isArray(rawRecords) ? rawRecords : [])
+        .map((record) => normalizeSystemRecord(record, category))
+        .map((record) => [record.label, record])
+    );
+
+    return fallbackRecords.map((fallbackRecord, index) => {
+      const fallback = normalizeSystemRecord(fallbackRecord, category, index);
+      const saved = rawByKey.get(fallback.key) || rawByLabel.get(fallback.label);
+      return saved ? { ...fallback, label: saved.label || fallback.label, ability: saved.ability } : fallback;
+    });
+  }
+
   const source = Array.isArray(rawRecords) && rawRecords.length ? rawRecords : fallbackRecords;
   let records = source
     .map((record, index) => normalizeSystemRecord(record, category, index))
@@ -6247,6 +6797,8 @@ function applySystemContent(content) {
   replaceObject(TEKHNE_ABILITIES, recordsToAbilityMap(normalized.tekhne));
   replaceArray(ARKHEMETRY_OPTIONS, normalized.arkhemetry.map((record) => record.label));
   replaceObject(ARKHEMETRY_ABILITIES, recordsToAbilityMap(normalized.arkhemetry));
+  replaceArray(COSMOGLOSSIA_ABILITY_OPTIONS, normalized.cosmoglossiaAbilities.map(systemRecordToOption));
+  replaceObject(COSMOGLOSSIA_ABILITIES, recordsToCosmoglossiaAbilityMap(normalized.cosmoglossiaAbilities));
 }
 
 function getAggregateAugmentOptions(content) {
@@ -6733,11 +7285,14 @@ function getSectionMax(section, character = null, sectionId = "", gearState = nu
 
 function normalizeAttributeDetail(rawValue) {
   if (rawValue && typeof rawValue === "object") {
+    const cosmoglossiaPanels = normalizeCosmoglossiaPanels(rawValue.cosmoglossiaPanels);
     return {
       name: String(rawValue.name || ""),
-      description: String(rawValue.description || ""),
+      description:
+        getCosmoglossiaAbilityForPanels(cosmoglossiaPanels) ||
+        normalizeCosmoglossiaAbilityText(rawValue.description, cosmoglossiaPanels),
       presetKey: String(rawValue.presetKey || "custom"),
-      cosmoglossiaPanels: normalizeCosmoglossiaPanels(rawValue.cosmoglossiaPanels),
+      cosmoglossiaPanels,
     };
   }
 
@@ -6829,9 +7384,10 @@ function buildAttributeDetailFromFormData(formData) {
 
   if (kind === "cosmoglossia") {
     const panels = normalizeCosmoglossiaPanels(getCosmoglossiaPanelsFromFormData(formData, "detailCosmoglossia"));
+    const ability = getCosmoglossiaAbilityForPanels(panels) || normalizeCosmoglossiaAbilityText(formData.get("detailDescription"), panels);
     return {
       name: "Cosmoglossia",
-      description: formatCosmoglossiaPanels(panels),
+      description: ability,
       presetKey: "custom",
       cosmoglossiaPanels: panels,
     };
