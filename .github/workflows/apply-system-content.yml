@@ -1,0 +1,127 @@
+name: Apply System Content Update
+
+on:
+  issues:
+    types:
+      - opened
+      - edited
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  apply:
+    if: startsWith(github.event.issue.title, 'Empyrean system content update')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reject non-owner submissions
+        if: github.event.issue.user.login != github.repository_owner
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
+          REPO_OWNER: ${{ github.repository_owner }}
+        run: |
+          gh issue comment "$ISSUE_NUMBER" --body "This system-content update was not applied. Only ${REPO_OWNER} can publish editor changes from issues."
+          gh issue close "$ISSUE_NUMBER" --comment "Closed without applying changes from ${ISSUE_AUTHOR}."
+
+      - name: Checkout
+        if: github.event.issue.user.login == github.repository_owner
+        uses: actions/checkout@v4
+
+      - name: Decode system content
+        if: github.event.issue.user.login == github.repository_owner
+        run: |
+          python - <<'PY'
+          import base64
+          import gzip
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
+          body = event["issue"].get("body") or ""
+          start = "<!-- EMPYREAN_SYSTEM_CONTENT_UPDATE"
+          end = "END_EMPYREAN_SYSTEM_CONTENT_UPDATE -->"
+          if start not in body or end not in body:
+              raise SystemExit("Missing Empyrean system-content payload marker.")
+
+          block = body.split(start, 1)[1].split(end, 1)[0]
+          encoding_match = re.search(r"^encoding:\s*(\S+)\s*$", block, re.MULTILINE)
+          if not encoding_match:
+              raise SystemExit("Missing payload encoding.")
+          if "payload:" not in block:
+              raise SystemExit("Missing payload.")
+
+          encoding = encoding_match.group(1)
+          payload = block.split("payload:", 1)[1].strip()
+          payload = "".join(payload.split())
+          payload += "=" * (-len(payload) % 4)
+          data = base64.urlsafe_b64decode(payload.encode("ascii"))
+
+          if encoding == "gzip-base64url":
+              text = gzip.decompress(data).decode("utf-8")
+          elif encoding == "base64url":
+              text = data.decode("utf-8")
+          else:
+              raise SystemExit(f"Unsupported payload encoding: {encoding}")
+
+          parsed = json.loads(text)
+          required = [
+              "corporateTies",
+              "homeworlds",
+              "naturalAugments",
+              "hybridAnimals",
+              "bioAugments",
+              "radioAugments",
+              "protocols",
+              "configurations",
+              "mechAugments",
+              "backgrounds",
+              "tekhne",
+              "arkhemetry",
+          ]
+          missing = [key for key in required if key not in parsed]
+          if missing:
+              raise SystemExit(f"Missing system content sections: {', '.join(missing)}")
+
+          target = Path("data/empyrean-system-content.json")
+          target.parent.mkdir(parents=True, exist_ok=True)
+          target.write_text(json.dumps(parsed, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+          PY
+
+      - name: Commit update
+        if: github.event.issue.user.login == github.repository_owner
+        id: commit
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/empyrean-system-content.json
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "Apply system content update #${ISSUE_NUMBER}"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Comment and close
+        if: github.event.issue.user.login == github.repository_owner
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          CHANGED: ${{ steps.commit.outputs.changed }}
+          SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          if [ "$CHANGED" = "true" ]; then
+            gh issue close "$ISSUE_NUMBER" --comment "Applied system-content update in commit ${SHA}."
+          else
+            gh issue close "$ISSUE_NUMBER" --comment "No repository changes were needed; system content already matched this update."
+          fi

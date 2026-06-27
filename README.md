@@ -12,7 +12,7 @@ The first playable foundation for the Empyrean web app lives in this repository.
 - Disabled world/VTT tab for future integration
 - Empyrean dice roller with attribute-based rolls, skill and specialization bonuses, and custom formula support
 - Share/export flow using a portable import code and hosted share-link support when the app is served over HTTP
-- Unlinked developer console for editing system content presets and confirming changes through GitHub's repository editor
+- Unlinked developer console for editing system content presets and confirming changes through a GitHub-owned update workflow
 
 ## Running it locally
 
@@ -41,7 +41,9 @@ The editor is a standalone page and is not linked from the character sheet. Open
 
 The old `?dev=1` route still works as a shortcut, but `editor.html` is the deployable website entry.
 
-The editor uses `data/empyrean-system-content.json` as the repository source of truth. The **Defaults** button reloads that published file and discards local pending edits. The **Confirm Changes** button copies the updated JSON and opens the GitHub editor for that file, where your normal GitHub login and repository permissions control whether you can commit.
+The editor uses `data/empyrean-system-content.json` as the repository source of truth. The **Defaults** button reloads that published file and discards local pending edits.
+
+The **Confirm Changes** button opens a prefilled GitHub issue that contains the editor update. Submit that issue while logged into GitHub; the `Apply System Content Update` workflow checks that the issue author is the repository owner, writes `data/empyrean-system-content.json`, commits the update, comments on the issue, and closes it.
 
 ## GitHub Pages
 
