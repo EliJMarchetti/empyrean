@@ -1,4 +1,5 @@
 const STORAGE_KEY = "empyrean.characters.v1";
+const CAMPAIGN_STORAGE_KEY = "empyrean.campaigns.v1";
 const SYSTEM_CONTENT_KEY = "empyrean.systemContent.v1";
 const SYSTEM_CONTENT_DIRTY_KEY = "empyrean.systemContent.dirty.v1";
 const MAX_SPECIALIZATIONS = 16;
@@ -12,7 +13,7 @@ const SKILL_CREATION_MAX = 10;
 const DEFAULT_SPECIALIZATION_CREATION_MAX = 10;
 const ANDROID_SPECIALIZATION_CREATION_MAX = 20;
 const ATTRIBUTE_SCORES = [4, 5, 6, 7, 8, 9, 10, 11, 12];
-const UI_ASSET_VERSION = "20260616f";
+const UI_ASSET_VERSION = "20260701c";
 const NAME_PLACEHOLDER_SUGGESTIONS = [
   "Aster Wren",
   "Bellamy Knox",
@@ -69,11 +70,36 @@ const NAME_PLACEHOLDER_SUGGESTIONS = [
   "Zane Icar",
 ];
 const DIE_ART = {
-  d4: { key: "d4", label: "d4", src: `./assets/dice/d4.png?v=${UI_ASSET_VERSION}` },
-  d6: { key: "d6", label: "d6", src: `./assets/dice/d6.png?v=${UI_ASSET_VERSION}` },
-  d8: { key: "d8", label: "d8", src: `./assets/dice/d8.png?v=${UI_ASSET_VERSION}` },
-  d10: { key: "d10", label: "d10", src: `./assets/dice/d10.png?v=${UI_ASSET_VERSION}` },
-  d12: { key: "d12", label: "d12", src: `./assets/dice/d12.png?v=${UI_ASSET_VERSION}` },
+  d4: {
+    key: "d4",
+    label: "d4",
+    imageSrc: `./src/assets/dice/d4.png?v=${UI_ASSET_VERSION}`,
+    maskSrc: `./assets/dice/d4.png?v=${UI_ASSET_VERSION}`,
+  },
+  d6: {
+    key: "d6",
+    label: "d6",
+    imageSrc: `./src/assets/dice/d6.png?v=${UI_ASSET_VERSION}`,
+    maskSrc: `./assets/dice/d6.png?v=${UI_ASSET_VERSION}`,
+  },
+  d8: {
+    key: "d8",
+    label: "d8",
+    imageSrc: `./src/assets/dice/d8.png?v=${UI_ASSET_VERSION}`,
+    maskSrc: `./assets/dice/d8.png?v=${UI_ASSET_VERSION}`,
+  },
+  d10: {
+    key: "d10",
+    label: "d10",
+    imageSrc: `./src/assets/dice/d10.png?v=${UI_ASSET_VERSION}`,
+    maskSrc: `./assets/dice/d10.png?v=${UI_ASSET_VERSION}`,
+  },
+  d12: {
+    key: "d12",
+    label: "d12",
+    imageSrc: `./src/assets/dice/d12.png?v=${UI_ASSET_VERSION}`,
+    maskSrc: `./assets/dice/d12.png?v=${UI_ASSET_VERSION}`,
+  },
 };
 
 const SECTION_TEMPLATES = [
@@ -403,6 +429,13 @@ const SYSTEM_CONTENT_REPOSITORY_URL = `./${DEFAULT_GITHUB_EXPORT_PATH}`;
 const SYSTEM_CONTENT_GITHUB_ISSUE_URL = "https://github.com/EliJMarchetti/empyrean/issues/new";
 const SYSTEM_CONTENT_ISSUE_TITLE = "Empyrean system content update";
 const DEVELOPER_ROUTE_KEYS = ["dev", "developer"];
+const GM_ROUTE_KEYS = ["gm", "gm-toolkit", "campaigns"];
+const GM_TABS = [
+  { key: "overview", label: "Overview" },
+  { key: "map", label: "Map" },
+  { key: "combat", label: "Combat" },
+  { key: "history", label: "History" },
+];
 const DEVELOPER_CONTENT_CATEGORIES = [
   { key: "corporateTies", label: "Corporate Ties", specializationCount: 2, requiredKeys: ["none", "custom"] },
   { key: "homeworlds", label: "Homeworlds", specializationCount: 0 },
@@ -435,11 +468,15 @@ let systemContent = loadSystemContent();
 applySystemContent(systemContent);
 
 const storedState = loadStoredState();
+const storedCampaignState = loadCampaignState();
 
 const state = {
   characters: storedState.characters,
+  campaigns: storedCampaignState.campaigns,
   ui: {
     activeCharacterId: null,
+    activeCampaignId: null,
+    activeGmTab: "overview",
     activeView: "sheet",
     editMode: true,
     activeModal: null,
@@ -450,8 +487,10 @@ const state = {
     isRolling: false,
     rollingDieIndexes: [],
     skillLossSelectionSection: null,
+    activeHotbarFace: "items",
     createCharacterNameSuggestionIndex: -1,
     activeDeveloperCategory: getDeveloperCategoryKeyFromUrl(),
+    draggingToken: null,
   },
 };
 
@@ -460,12 +499,17 @@ state.ui.activeCharacterId =
     ? storedState.activeCharacterId
     : state.characters[0]?.id ?? null;
 
+state.ui.activeCampaignId =
+  storedCampaignState.activeCampaignId && state.campaigns.some((campaign) => campaign.id === storedCampaignState.activeCampaignId)
+    ? storedCampaignState.activeCampaignId
+    : state.campaigns[0]?.id ?? null;
+
 const sharedImport = parseSharedCharacterFromUrl();
 if (sharedImport) {
   state.ui.activeModal = { type: "import-shared", payload: sharedImport };
 }
 
-if (!isDeveloperRoute() && !state.characters.length && !state.ui.activeModal) {
+if (!isDeveloperRoute() && !isGmRoute() && !state.characters.length && !state.ui.activeModal) {
   openCreateCharacterModal(false);
 }
 
@@ -479,6 +523,7 @@ document.addEventListener("submit", handleSubmit);
 document.addEventListener("contextmenu", handleContextMenu);
 document.addEventListener("focusin", handleFocusIn);
 document.addEventListener("pointerdown", handlePointerDown);
+document.addEventListener("pointermove", handlePointerMove);
 document.addEventListener("pointerup", handlePointerEnd);
 document.addEventListener("pointercancel", handlePointerEnd);
 document.addEventListener("toggle", handleExclusiveDetailsToggle, true);
@@ -503,6 +548,18 @@ function renderApp() {
     return;
   }
 
+  if (isGmRoute()) {
+    app.innerHTML = `
+      <div class="app-shell gm-app-shell">
+        <div class="backdrop-orbit orbit-one"></div>
+        <div class="backdrop-orbit orbit-two"></div>
+        ${renderGmToolkitPage()}
+        ${renderToast()}
+      </div>
+    `;
+    return;
+  }
+
   const character = getActiveCharacter();
   const previousModalType = state.ui.activeModal?.type || "";
   const previousModalScrollTop = document.querySelector(".modal-card")?.scrollTop ?? null;
@@ -515,7 +572,7 @@ function renderApp() {
         ${
           character
             ? `
-              <section class="sheet-column">
+              <section class="sheet-column sheet-column-${state.ui.activeView}">
                 ${renderCharacterHeader(character)}
                 ${renderPrimaryView(character)}
               </section>
@@ -599,6 +656,10 @@ function renderCharacterActionsPanel(character) {
           ${iconLink()}
           <span>Campaign</span>
         </button>
+        <button class="character-action-button" data-action="open-gm-toolkit" type="button">
+          ${iconWorld()}
+          <span>GM</span>
+        </button>
         <button
           class="character-action-button character-action-danger"
           data-action="open-delete-modal"
@@ -619,9 +680,571 @@ function renderWelcomePanel() {
       <div class="welcome-copy">
         <h1>Build your first character.</h1>
         <p>The first pass is centered on the sheet, local saves, campaign linking, and the dice roller.</p>
-        <button class="hero-button" data-action="open-create-modal" type="button">Create Character</button>
+        <div class="welcome-actions">
+          <button class="hero-button" data-action="open-create-modal" type="button">Create Character</button>
+          <button class="secondary-button" data-action="open-gm-toolkit" type="button">${iconWorld()}<span>GM Toolkit</span></button>
+        </div>
       </div>
     </section>
+  `;
+}
+
+function renderGmToolkitPage() {
+  const campaign = getActiveCampaign();
+
+  return `
+    <main class="gm-workspace">
+      <section class="developer-header gm-header">
+        <div class="character-title-block">
+          <h1>GM Toolkit</h1>
+          <span class="character-title-meta">${escapeHtml(campaign?.name || "Campaign Console")}</span>
+        </div>
+        <div class="developer-header-actions">
+          <button class="secondary-button" data-action="go-character-tracker" type="button">${iconAvatar("male")}<span>Characters</span></button>
+          <button class="primary-button" data-action="add-campaign" type="button">${iconPlus()}<span>Campaign</span></button>
+          <button
+            class="secondary-button"
+            data-action="copy-campaign-code"
+            data-campaign-id="${escapeAttribute(campaign?.id || "")}"
+            type="button"
+            ${campaign ? "" : "disabled"}
+          >
+            ${iconCopy()}
+            <span>Join Code</span>
+          </button>
+        </div>
+      </section>
+      ${
+        campaign
+          ? `
+            <div class="gm-layout">
+              <aside class="utility-panel developer-sidebar gm-sidebar">
+                <div class="subsection-title">Campaigns</div>
+                <div class="developer-category-list">
+                  ${state.campaigns.map((entry) => renderCampaignButton(entry)).join("")}
+                </div>
+              </aside>
+              <section class="gm-main-panel">
+                <div class="gm-tab-row">
+                  ${GM_TABS.map((tab) => renderGmTabButton(tab)).join("")}
+                </div>
+                ${renderGmTabPanel(campaign)}
+              </section>
+            </div>
+          `
+          : `
+            <section class="welcome-panel gm-empty">
+              <div class="welcome-copy">
+                <h1>GM Toolkit</h1>
+                <p>No campaigns saved yet.</p>
+                <button class="hero-button" data-action="add-campaign" type="button">Create Campaign</button>
+              </div>
+            </section>
+          `
+      }
+    </main>
+  `;
+}
+
+function renderCampaignButton(campaign) {
+  const linkedCount = getLinkedCharactersForCampaign(campaign).length;
+  const isActive = campaign.id === state.ui.activeCampaignId;
+
+  return `
+    <button
+      class="developer-category-button ${isActive ? "is-active" : ""}"
+      data-action="select-campaign"
+      data-campaign-id="${escapeAttribute(campaign.id)}"
+      type="button"
+    >
+      <span>${escapeHtml(campaign.name)}</span>
+      <strong>${linkedCount}</strong>
+    </button>
+  `;
+}
+
+function renderGmTabButton(tab) {
+  return `
+    <button
+      class="view-button gm-tab-button ${state.ui.activeGmTab === tab.key ? "is-active" : ""}"
+      data-action="select-gm-tab"
+      data-tab="${escapeAttribute(tab.key)}"
+      type="button"
+      title="${escapeAttribute(tab.label)}"
+    >
+      <span>${escapeHtml(tab.label)}</span>
+    </button>
+  `;
+}
+
+function renderGmTabPanel(campaign) {
+  if (state.ui.activeGmTab === "map") {
+    return renderGmMapPanel(campaign);
+  }
+
+  if (state.ui.activeGmTab === "combat") {
+    return renderGmCombatPanel(campaign);
+  }
+
+  if (state.ui.activeGmTab === "history") {
+    return renderGmHistoryPanel(campaign);
+  }
+
+  return renderGmOverviewPanel(campaign);
+}
+
+function renderGmOverviewPanel(campaign) {
+  const linkedCharacters = getLinkedCharactersForCampaign(campaign);
+  const vault = normalizeVaultConfig(campaign.obsidian);
+
+  return `
+    <div class="gm-panel-stack">
+      <form class="gm-card gm-campaign-form" data-form="gm-campaign-details">
+        <input type="hidden" name="campaignId" value="${escapeAttribute(campaign.id)}" />
+        <div class="developer-panel-heading">
+          <div>
+            <h2>${escapeHtml(campaign.name)}</h2>
+            <span>${escapeHtml(campaign.code)}</span>
+          </div>
+          <button class="primary-button" type="submit">${iconSave()}<span>Save</span></button>
+        </div>
+        <div class="gm-field-grid">
+          <label>
+            <span>Name</span>
+            <input type="text" name="name" maxlength="80" value="${escapeAttribute(campaign.name)}" required />
+          </label>
+          <label>
+            <span>Join Code</span>
+            <input type="text" name="code" maxlength="40" value="${escapeAttribute(campaign.code)}" required />
+          </label>
+          <label>
+            <span>Vault Name</span>
+            <input type="text" name="vaultName" maxlength="80" value="${escapeAttribute(vault.name)}" />
+          </label>
+          <label>
+            <span>Vault Link</span>
+            <input type="url" name="vaultUrl" maxlength="500" value="${escapeAttribute(vault.url)}" />
+          </label>
+          <label class="gm-field-wide">
+            <span>Vault Path</span>
+            <input type="text" name="vaultPath" maxlength="260" value="${escapeAttribute(vault.path)}" />
+          </label>
+        </div>
+      </form>
+      <section class="gm-card">
+        <div class="developer-panel-heading">
+          <div>
+            <h2>Linked Characters</h2>
+            <span>${linkedCharacters.length} ${linkedCharacters.length === 1 ? "character" : "characters"}</span>
+          </div>
+          <button
+            class="secondary-button"
+            data-action="copy-campaign-code"
+            data-campaign-id="${escapeAttribute(campaign.id)}"
+            type="button"
+          >
+            ${iconCopy()}
+            <span>${escapeHtml(campaign.code)}</span>
+          </button>
+        </div>
+        ${
+          linkedCharacters.length
+            ? `<div class="gm-linked-list">
+                ${linkedCharacters.map((character) => renderLinkedCharacterCard(character, campaign)).join("")}
+              </div>`
+            : `<div class="inventory-empty">No linked characters.</div>`
+        }
+      </section>
+    </div>
+  `;
+}
+
+function renderLinkedCharacterCard(character, campaign) {
+  return `
+    <article class="gm-linked-card">
+      <button
+        class="gm-linked-main"
+        data-action="open-linked-character"
+        data-character-id="${escapeAttribute(character.id)}"
+        type="button"
+      >
+        <span>${escapeHtml(character.name)}</span>
+        <small>${escapeHtml(character.campaign?.space || campaign.name)}</small>
+      </button>
+      <button
+        class="icon-button"
+        data-action="add-character-token"
+        data-character-id="${escapeAttribute(character.id)}"
+        data-campaign-id="${escapeAttribute(campaign.id)}"
+        type="button"
+        title="Add token"
+        aria-label="Add token"
+      >
+        ${iconPlus()}
+      </button>
+      <button
+        class="icon-button"
+        data-action="unlink-character-from-campaign"
+        data-character-id="${escapeAttribute(character.id)}"
+        type="button"
+        title="Remove link"
+        aria-label="Remove link"
+      >
+        ${iconMinus()}
+      </button>
+    </article>
+  `;
+}
+
+function renderGmMapPanel(campaign) {
+  const linkedCharacters = getLinkedCharactersForCampaign(campaign);
+  const characterTokenIds = new Set(campaign.map.tokens.map((token) => token.characterId).filter(Boolean));
+
+  return `
+    <div class="gm-map-layout">
+      <section class="gm-card gm-map-tools">
+        <div class="developer-panel-heading">
+          <div>
+            <h2>Map</h2>
+            <span>${campaign.map.tokens.length} tokens</span>
+          </div>
+        </div>
+        <label class="secondary-button gm-upload-button">
+          ${iconUpload()}
+          <span>Map Image</span>
+          <input data-input="gm-map-image" data-campaign-id="${escapeAttribute(campaign.id)}" type="file" accept="image/*" />
+        </label>
+        <form class="gm-token-form" data-form="gm-token">
+          <input type="hidden" name="campaignId" value="${escapeAttribute(campaign.id)}" />
+          <input type="hidden" name="tokenImage" value="" />
+          <label>
+            <span>Token Name</span>
+            <input type="text" name="tokenName" maxlength="80" placeholder="Enemy or NPC" required />
+          </label>
+          <label>
+            <span>Type</span>
+            <select name="tokenType">
+              <option value="enemy">Enemy</option>
+              <option value="npc">NPC</option>
+            </select>
+          </label>
+          <label class="secondary-button gm-upload-button">
+            ${iconUpload()}
+            <span>Token Image</span>
+            <input data-input="gm-token-image" type="file" accept="image/*" />
+          </label>
+          <button class="primary-button" type="submit">${iconPlus()}<span>Add Token</span></button>
+        </form>
+        <div class="gm-token-palette">
+          ${linkedCharacters
+            .filter((character) => !characterTokenIds.has(character.id))
+            .map(
+              (character) => `
+                <button
+                  class="secondary-button"
+                  data-action="add-character-token"
+                  data-character-id="${escapeAttribute(character.id)}"
+                  data-campaign-id="${escapeAttribute(campaign.id)}"
+                  type="button"
+                >
+                  ${iconAvatar(character.gender || "male")}
+                  <span>${escapeHtml(character.name)}</span>
+                </button>
+              `
+            )
+            .join("")}
+        </div>
+      </section>
+      ${renderCampaignMapScene(campaign, { mode: "gm" })}
+    </div>
+  `;
+}
+
+function renderCampaignMapScene(campaign, options = {}) {
+  const mode = options.mode || "gm";
+  const activeCharacterId = options.activeCharacterId || "";
+  const style = campaign.map.image ? `style="background-image: url('${escapeCssUrl(campaign.map.image)}')"` : "";
+
+  return `
+    <section class="gm-map-stage">
+      <div class="gm-map-scene ${campaign.map.image ? "has-map" : ""}" data-gm-map="${escapeAttribute(campaign.id)}" ${style}>
+        ${
+          campaign.map.image
+            ? ""
+            : `<div class="gm-map-empty">No map image.</div>`
+        }
+        ${campaign.map.tokens.map((token) => renderMapToken(token, campaign, { mode, activeCharacterId })).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderMapToken(token, campaign, options = {}) {
+  const canDrag = options.mode === "gm" || (options.mode === "player" && token.characterId && token.characterId === options.activeCharacterId);
+  const isTurn = campaign.combat.turnTokenId === token.id;
+  const label = token.name || "Token";
+  const style = `left: ${clampNumber(token.x, 0, 100)}%; top: ${clampNumber(token.y, 0, 100)}%;`;
+
+  return `
+    <button
+      class="gm-token gm-token-${escapeAttribute(token.type)} ${isTurn ? "is-turn" : ""} ${canDrag ? "can-drag" : ""}"
+      data-gm-token-id="${escapeAttribute(token.id)}"
+      data-campaign-id="${escapeAttribute(campaign.id)}"
+      data-can-drag="${canDrag ? "true" : "false"}"
+      type="button"
+      style="${style}"
+      title="${escapeAttribute(label)}"
+    >
+      ${
+        token.image
+          ? `<img src="${escapeAttribute(token.image)}" alt="${escapeAttribute(label)}" />`
+          : `<span>${escapeHtml(getTokenInitials(label))}</span>`
+      }
+    </button>
+  `;
+}
+
+function renderGmCombatPanel(campaign) {
+  const tokens = getCombatTokens(campaign);
+  const exchange = normalizeCombatExchange(campaign.combat.exchange);
+  const holder = tokens.find((token) => token.id === exchange.currentHolderTokenId) || tokens[0] || null;
+
+  return `
+    <div class="gm-combat-layout">
+      <section class="gm-card">
+        <div class="developer-panel-heading">
+          <div>
+            <h2>Turn Order</h2>
+            <span>${tokens.length} tokens</span>
+          </div>
+        </div>
+        ${
+          tokens.length
+            ? `<div class="gm-combat-token-list">
+                ${tokens.map((token) => renderCombatTokenRow(token, campaign)).join("")}
+              </div>`
+            : `<div class="inventory-empty">No tokens on the map.</div>`
+        }
+      </section>
+      <section class="gm-card gm-exchange-card">
+        <div class="developer-panel-heading">
+          <div>
+            <h2>Dice Exchange</h2>
+            <span>${holder ? `Holder: ${holder.name}` : "No holder"}</span>
+          </div>
+          <button
+            class="secondary-button"
+            data-action="start-combat-exchange"
+            data-campaign-id="${escapeAttribute(campaign.id)}"
+            type="button"
+            ${tokens.length ? "" : "disabled"}
+          >
+            ${iconRepeat()}
+            <span>New Round</span>
+          </button>
+        </div>
+        ${renderCombatExchangeControls(campaign, tokens, exchange)}
+      </section>
+    </div>
+  `;
+}
+
+function renderCombatTokenRow(token, campaign) {
+  const isTurn = campaign.combat.turnTokenId === token.id;
+  const exchange = normalizeCombatExchange(campaign.combat.exchange);
+  const isHolder = exchange.currentHolderTokenId === token.id;
+
+  return `
+    <article class="gm-combat-token ${isTurn ? "is-turn" : ""} ${isHolder ? "is-holder" : ""}">
+      <span>${escapeHtml(token.name)}</span>
+      <small>${escapeHtml(token.type)}</small>
+      <button
+        class="secondary-button"
+        data-action="set-turn-token"
+        data-campaign-id="${escapeAttribute(campaign.id)}"
+        data-token-id="${escapeAttribute(token.id)}"
+        type="button"
+      >
+        Turn
+      </button>
+      <button
+        class="secondary-button"
+        data-action="set-dice-holder"
+        data-campaign-id="${escapeAttribute(campaign.id)}"
+        data-token-id="${escapeAttribute(token.id)}"
+        type="button"
+      >
+        Dice
+      </button>
+      <button
+        class="icon-button"
+        data-action="delete-token"
+        data-campaign-id="${escapeAttribute(campaign.id)}"
+        data-token-id="${escapeAttribute(token.id)}"
+        type="button"
+        title="Delete token"
+        aria-label="Delete token"
+      >
+        ${iconTrash()}
+      </button>
+    </article>
+  `;
+}
+
+function renderCombatExchangeControls(campaign, tokens, exchange) {
+  if (!tokens.length) {
+    return `<div class="inventory-empty">Add tokens to begin combat.</div>`;
+  }
+
+  const currentHolder = tokens.find((token) => token.id === exchange.currentHolderTokenId) || tokens[0];
+  const previousActor = tokens.find((token) => token.id === exchange.previousActorTokenId);
+  const accused = tokens.find((token) => token.id === (exchange.previousBelieverTokenId || exchange.previousActorTokenId));
+  const lastClaim = exchange.previousClaim
+    ? `${formatCombatClaim(exchange.previousClaim)} from ${escapeHtml(previousActor?.name || "Unknown")}`
+    : "No claim";
+
+  return `
+    <div class="gm-exchange-state">
+      <div class="gear-summary-chip">
+        <span>Current Dice</span>
+        <strong>${escapeHtml(currentHolder.name)}</strong>
+      </div>
+      <div class="gear-summary-chip">
+        <span>Passed Result</span>
+        <strong>${lastClaim}</strong>
+      </div>
+      <div class="gear-summary-chip">
+        <span>Restriction</span>
+        <strong>${exchange.mustRollOrCheck ? "Roll or check" : "Open"}</strong>
+      </div>
+    </div>
+    ${
+      exchange.pendingRoll
+        ? renderPendingRollForm(campaign, tokens, exchange)
+        : `
+          <div class="modal-actions modal-actions-start">
+            <button
+              class="primary-button"
+              data-action="combat-roll-dice"
+              data-campaign-id="${escapeAttribute(campaign.id)}"
+              type="button"
+            >
+              ${iconRepeat()}
+              <span>Roll Dice</span>
+            </button>
+            <button
+              class="secondary-button"
+              data-action="combat-check-claim"
+              data-campaign-id="${escapeAttribute(campaign.id)}"
+              type="button"
+              ${exchange.previousClaim ? "" : "disabled"}
+            >
+              ${iconFocus()}
+              <span>Check</span>
+            </button>
+          </div>
+          ${renderBelieveForm(campaign, tokens, exchange)}
+        `
+    }
+    <div class="gm-exchange-log">
+      ${exchange.events.length
+        ? exchange.events.map((event) => `<div>${escapeHtml(event.label)}</div>`).join("")
+        : `<div>No exchange events yet.</div>`}
+    </div>
+    ${accused ? `<div class="create-note">Last accountable token: ${escapeHtml(accused.name)}</div>` : ""}
+  `;
+}
+
+function renderPendingRollForm(campaign, tokens, exchange) {
+  const pending = exchange.pendingRoll;
+  const claimMinimum = exchange.previousClaim ? formatCombatClaim(exchange.previousClaim) : "";
+
+  return `
+    <form class="gm-pending-roll" data-form="combat-claim">
+      <input type="hidden" name="campaignId" value="${escapeAttribute(campaign.id)}" />
+      <div class="gm-secret-roll">
+        <span>Actual Roll</span>
+        <strong>${escapeHtml(pending.value)}</strong>
+        <small>${escapeHtml(pending.dice.join(" / "))}</small>
+      </div>
+      <label>
+        <span>Passed Result</span>
+        <input type="text" name="claim" maxlength="2" placeholder="${escapeAttribute(claimMinimum || "54")}" required />
+      </label>
+      <label>
+        <span>Pass To</span>
+        <select name="nextTokenId" required>
+          ${tokens
+            .filter((token) => token.id !== exchange.currentHolderTokenId)
+            .map((token) => `<option value="${escapeAttribute(token.id)}">${escapeHtml(token.name)}</option>`)
+            .join("")}
+        </select>
+      </label>
+      <button class="primary-button" type="submit">${iconUpload()}<span>Pass Dice</span></button>
+    </form>
+  `;
+}
+
+function renderBelieveForm(campaign, tokens, exchange) {
+  if (!exchange.previousClaim || exchange.mustRollOrCheck) {
+    return "";
+  }
+
+  return `
+    <form class="gm-believe-form" data-form="combat-believe">
+      <input type="hidden" name="campaignId" value="${escapeAttribute(campaign.id)}" />
+      <label>
+        <span>Pass To</span>
+        <select name="nextTokenId" required>
+          ${tokens
+            .filter((token) => token.id !== exchange.currentHolderTokenId)
+            .map((token) => `<option value="${escapeAttribute(token.id)}">${escapeHtml(token.name)}</option>`)
+            .join("")}
+        </select>
+      </label>
+      <button class="secondary-button" type="submit">${iconUpload()}<span>Believe / Pass</span></button>
+    </form>
+  `;
+}
+
+function renderGmHistoryPanel(campaign) {
+  const history = normalizeCombatHistory(campaign.combat.history);
+
+  return `
+    <section class="gm-card">
+      <div class="developer-panel-heading">
+        <div>
+          <h2>Combat History</h2>
+          <span>${history.length} ${history.length === 1 ? "round" : "rounds"}</span>
+        </div>
+      </div>
+      ${
+        history.length
+          ? `<div class="gm-history-list">${history.map((entry) => renderCombatHistoryEntry(entry)).join("")}</div>`
+          : `<div class="history-empty">No resolved exchanges yet.</div>`
+      }
+    </section>
+  `;
+}
+
+function renderCombatHistoryEntry(entry) {
+  return `
+    <details class="developer-entry gm-history-entry">
+      <summary class="developer-entry-heading">
+        <span>${escapeHtml(entry.summary)}</span>
+        <small>${formatUpdatedAt(entry.resolvedAt)}</small>
+      </summary>
+      <div class="developer-entry-fields">
+        <div class="gm-history-meta">
+          <span>Winner: ${escapeHtml(entry.winnerName || "Unknown")}</span>
+          <span>Loser: ${escapeHtml(entry.loserName || "Unknown")}</span>
+          <span>Claim truthful: ${entry.truthful ? "Yes" : "No"}</span>
+        </div>
+        <div class="gm-exchange-log">
+          ${entry.events.map((event) => `<div>${escapeHtml(event.label)}</div>`).join("")}
+        </div>
+      </div>
+    </details>
   `;
 }
 
@@ -798,6 +1421,7 @@ function renderCharacterHeader(character) {
   const lineage = normalizeLineageRecord(character.lineage);
   const background = normalizeBackgroundRecord(character.background);
   const oracleId = String(character.biometrics?.oracleId || "").trim();
+  const campaignCode = String(character.campaign?.code || "").trim();
   const metaParts = [lineage.label, background.name, oracleId].filter(Boolean);
   const isCharacterView = state.ui.activeView === "sheet" || state.ui.activeView === "profile";
   const characterButtonTitle = state.ui.activeView === "sheet" ? "Biometrics and details" : "Character sheet";
@@ -828,7 +1452,21 @@ function renderCharacterHeader(character) {
         >
           ${iconBackpack()}
         </button>
-        <button class="view-button view-button-disabled" type="button" disabled title="World view arrives later.">
+        <button
+          class="view-button ${state.ui.activeView === "notes" ? "is-active" : ""}"
+          data-action="switch-view"
+          data-view="notes"
+          type="button"
+          title="Notes"
+        >
+          ${iconNotepad()}
+        </button>
+        <button
+          class="view-button ${campaignCode ? "is-active" : ""}"
+          data-action="open-link-modal"
+          type="button"
+          title="${escapeAttribute(campaignCode ? `Campaign: ${campaignCode}` : "Campaign Link")}"
+        >
           ${iconWorld()}
         </button>
       </div>
@@ -843,6 +1481,14 @@ function renderPrimaryView(character) {
 
   if (state.ui.activeView === "inventory") {
     return renderInventoryView(character);
+  }
+
+  if (state.ui.activeView === "notes") {
+    return renderNotesView(character);
+  }
+
+  if (state.ui.activeView === "campaign-map") {
+    return renderPlayerCampaignMapView(character);
   }
 
   const gearState = calculateGearState(character);
@@ -1081,6 +1727,218 @@ function renderInventoryView(character) {
       </div>
     </section>
   `;
+}
+
+function renderNotesView(character) {
+  const notes = normalizeNoteList(character.notes);
+
+  return `
+    <section class="notes-panel">
+      <div class="inventory-header">
+        <div>
+          <h2>Notes</h2>
+          <span>${notes.length} ${notes.length === 1 ? "note" : "notes"}</span>
+        </div>
+        <div class="notes-header-actions">
+          <button
+            class="icon-button toolbar-icon-button"
+            data-action="open-obsidian-vault"
+            type="button"
+            aria-label="Obsidian vault"
+            title="Obsidian vault"
+          >
+            ${iconObsidian()}
+          </button>
+          <button class="primary-button" data-action="add-note" type="button">
+            ${iconPlus()}
+            <span>Add Note</span>
+          </button>
+        </div>
+      </div>
+      ${
+        notes.length
+          ? `
+            <form class="notes-list" data-form="character-notes">
+              <input type="hidden" name="noteCount" value="${notes.length}" />
+              ${notes.map((note, index) => renderNoteEditor(note, index)).join("")}
+              <div class="modal-actions modal-actions-end">
+                <button class="primary-button" type="submit">${iconSave()}<span>Save Notes</span></button>
+              </div>
+            </form>
+          `
+          : `
+            <div class="notes-empty">
+              <p>No notes saved yet.</p>
+              <button class="secondary-button" data-action="add-note" type="button">
+                ${iconPlus()}
+                <span>Add Note</span>
+              </button>
+            </div>
+          `
+      }
+    </section>
+  `;
+}
+
+function renderPlayerCampaignMapView(character) {
+  const campaign = getCampaignByCode(character.campaign?.code || "");
+
+  if (!campaign) {
+    return `
+      <section class="inventory-panel">
+        <div class="inventory-header">
+          <div>
+            <h2>Campaign Map</h2>
+            <span>Unlinked</span>
+          </div>
+          <button class="secondary-button" data-action="open-link-modal" type="button">${iconLink()}<span>Campaign</span></button>
+        </div>
+        <div class="inventory-empty">No local campaign map found.</div>
+      </section>
+    `;
+  }
+
+  return `
+    <section class="inventory-panel player-map-panel">
+      <div class="inventory-header">
+        <div>
+          <h2>${escapeHtml(campaign.name)}</h2>
+          <span>${escapeHtml(campaign.code)}</span>
+        </div>
+        <button class="secondary-button" data-action="open-link-modal" type="button">${iconLink()}<span>Campaign</span></button>
+      </div>
+      ${renderCampaignMapScene(campaign, { mode: "player", activeCharacterId: character.id })}
+      ${renderPlayerCombatHistory(campaign)}
+    </section>
+  `;
+}
+
+function renderPlayerCombatHistory(campaign) {
+  const history = normalizeCombatHistory(campaign.combat.history).slice(0, 5);
+
+  return `
+    <section class="player-history-panel">
+      <div class="developer-panel-heading">
+        <div>
+          <h2>Combat History</h2>
+          <span>${history.length} recent</span>
+        </div>
+      </div>
+      ${
+        history.length
+          ? `<div class="gm-history-list">${history.map((entry) => renderCombatHistoryEntry(entry)).join("")}</div>`
+          : `<div class="history-empty">No resolved exchanges yet.</div>`
+      }
+    </section>
+  `;
+}
+
+function renderNoteEditor(note, index) {
+  const vaultLabel = [note.source === "obsidian" ? "Obsidian" : "", note.vaultName].filter(Boolean).join(" · ");
+
+  return `
+    <article class="note-card">
+      <input type="hidden" name="noteId${index}" value="${escapeAttribute(note.id)}" />
+      <input type="hidden" name="noteVaultScope${index}" value="${escapeAttribute(note.vaultScope)}" />
+      <input type="hidden" name="noteVaultName${index}" value="${escapeAttribute(note.vaultName)}" />
+      <input type="hidden" name="noteSource${index}" value="${escapeAttribute(note.source)}" />
+      <div class="note-card-header">
+        <label>
+          <span>Title</span>
+          <input
+            type="text"
+            name="noteTitle${index}"
+            maxlength="96"
+            value="${escapeAttribute(note.title)}"
+            data-input="note-title"
+            data-index="${index}"
+            ${state.ui.editMode ? "" : "readonly"}
+          />
+        </label>
+        ${vaultLabel ? `<span class="note-source-chip">${escapeHtml(vaultLabel)}</span>` : ""}
+        <button
+          class="icon-button"
+          data-action="delete-note"
+          data-note-id="${escapeAttribute(note.id)}"
+          type="button"
+          aria-label="Delete note"
+          title="Delete note"
+        >
+          ${iconTrash()}
+        </button>
+      </div>
+      <label>
+        <span>Box Text</span>
+        <textarea
+          name="noteBody${index}"
+          rows="8"
+          maxlength="8000"
+          data-input="note-body"
+          data-index="${index}"
+          ${state.ui.editMode ? "" : "readonly"}
+        >${escapeHtml(note.body)}</textarea>
+      </label>
+    </article>
+  `;
+}
+
+function renderObsidianVaultModal(character) {
+  const vaultState = getObsidianVaultState(character);
+  const scope = vaultState.defaultScope;
+  const vault = vaultState.vaults[scope] || normalizeVaultConfig();
+  const scopeOptions = vaultState.scopes
+    .map(
+      (entry) => `
+        <option value="${escapeAttribute(entry.key)}" ${entry.key === scope ? "selected" : ""}>
+          ${escapeHtml(entry.label)}
+        </option>
+      `
+    )
+    .join("");
+
+  return renderModalShell(
+    "Obsidian Vault",
+    vaultState.subtitle,
+    `
+      <form class="modal-form obsidian-vault-form" data-form="obsidian-vault">
+        <input type="hidden" name="campaignId" value="${escapeAttribute(vaultState.campaign?.id || "")}" />
+        <label>
+          <span>Target</span>
+          <select name="vaultScope">
+            ${scopeOptions}
+          </select>
+        </label>
+        <div class="gm-field-grid">
+          <label>
+            <span>Vault Name</span>
+            <input type="text" name="vaultName" maxlength="80" value="${escapeAttribute(vault.name)}" />
+          </label>
+          <label>
+            <span>Vault Link</span>
+            <input type="url" name="vaultUrl" maxlength="500" value="${escapeAttribute(vault.url)}" />
+          </label>
+          <label class="gm-field-wide">
+            <span>Vault Path</span>
+            <input type="text" name="vaultPath" maxlength="260" value="${escapeAttribute(vault.path)}" />
+          </label>
+        </div>
+        <div class="modal-divider"></div>
+        <label>
+          <span>Note Title</span>
+          <input type="text" name="noteTitle" maxlength="96" value="New Vault Note" required />
+        </label>
+        <label>
+          <span>Markdown</span>
+          <textarea name="noteBody" rows="9" maxlength="12000" placeholder="Write the note you want to add to the vault."></textarea>
+        </label>
+        <div class="modal-actions">
+          <button class="secondary-button" data-action="close-modal" type="button">Cancel</button>
+          <button class="primary-button" type="submit">${iconObsidian()}<span>Add to Vault</span></button>
+        </div>
+      </form>
+    `,
+    { wide: true }
+  );
 }
 
 function renderProfileView(character) {
@@ -2256,10 +3114,11 @@ function renderDie(die, index, canReroll) {
   const artMarkup = `
     <div class="die-figure">
       <span
-        class="die-art die-art-${art.key} ${toneClass}"
-        style="${escapeAttribute(`--die-art-mask: url('${art.src}')`)}"
+        class="die-art die-art-fill die-art-${art.key} ${toneClass}"
+        style="${escapeAttribute(`--die-art-mask: url('${art.maskSrc}')`)}"
         aria-hidden="true"
       ></span>
+      <img class="die-art-outline die-art-${art.key}" src="${escapeAttribute(art.imageSrc)}" alt="" aria-hidden="true" />
       <span class="die-value-chip">${escapeHtml(displayValue)}</span>
     </div>
   `;
@@ -2284,12 +3143,25 @@ function renderDie(die, index, canReroll) {
 
 function renderGearPanel(character) {
   const gearState = calculateGearState(character);
+  const hotbarFace = state.ui.activeHotbarFace === "details" ? "details" : "items";
+  const isDetailsFace = hotbarFace === "details";
+  const hotbarColumns = getHotbarColumnCount(gearState.focusLimit);
 
   return `
     <section class="utility-panel gear-panel">
       <div class="utility-title-row">
         <h2>Gear</h2>
         <div class="utility-title-actions">
+          <button
+            class="icon-button toolbar-icon-button ${isDetailsFace ? "is-active" : ""}"
+            data-action="toggle-hotbar-face"
+            type="button"
+            aria-label="${isDetailsFace ? "Show hotbar items" : "Show gear status"}"
+            aria-pressed="${isDetailsFace ? "true" : "false"}"
+            title="${isDetailsFace ? "Show hotbar items" : "Show gear status"}"
+          >
+            ${iconFlipCard()}
+          </button>
           <button
             class="icon-button toolbar-icon-button"
             data-action="switch-view"
@@ -2302,14 +3174,23 @@ function renderGearPanel(character) {
           </button>
         </div>
       </div>
-      <div class="gear-hotbar">
-        ${renderGearSummary(gearState, { placement: "hotbar" })}
-        <div class="hotbar-card-grid">
-          ${renderFocusSlots(gearState, { mode: "hotbar" })}
-        </div>
+      <div class="gear-hotbar gear-hotbar-${hotbarFace}">
+        ${
+          isDetailsFace
+            ? renderGearSummary(gearState, { placement: "hotbar" })
+            : `
+              <div class="hotbar-card-grid" style="--hotbar-columns: ${hotbarColumns}">
+                ${renderFocusSlots(gearState, { mode: "hotbar" })}
+              </div>
+            `
+        }
       </div>
     </section>
   `;
+}
+
+function getHotbarColumnCount(focusLimit) {
+  return Math.max(1, Math.ceil(Math.max(0, Number(focusLimit) || 0) / 3));
 }
 
 function renderGearSummary(gearState, options = {}) {
@@ -2607,6 +3488,7 @@ function renderModal() {
 
   if (type === "link-campaign") {
     const sharePayload = buildSharePayload(character);
+    const linkedCampaign = getCampaignByCode(character?.campaign?.code || "");
 
     return renderModalShell(
       "Link to Campaign",
@@ -2640,6 +3522,11 @@ function renderModal() {
                 ? `<button class="secondary-button" data-action="unlink-campaign" type="button">Clear Link</button>`
                 : `<span></span>`
             }
+            ${
+              linkedCampaign
+                ? `<button class="secondary-button" data-action="open-player-campaign-map" type="button">${iconWorld()}<span>Open Map</span></button>`
+                : ""
+            }
             <button class="primary-button" type="submit">Save</button>
           </div>
         </form>
@@ -2671,6 +3558,10 @@ function renderModal() {
         </div>
       `
     );
+  }
+
+  if (type === "obsidian-vault") {
+    return renderObsidianVaultModal(character);
   }
 
   if (type === "confirm-delete") {
@@ -3234,6 +4125,130 @@ async function handleClick(event) {
     return;
   }
 
+  if (action === "open-gm-toolkit") {
+    openGmToolkitRoute();
+    renderApp();
+    return;
+  }
+
+  if (action === "go-character-tracker") {
+    openCharacterTrackerRoute();
+    renderApp();
+    return;
+  }
+
+  if (action === "add-campaign") {
+    const campaign = createDefaultCampaign();
+    state.campaigns.unshift(campaign);
+    state.ui.activeCampaignId = campaign.id;
+    state.ui.activeGmTab = "overview";
+    persistCampaignState();
+    showToast(`${campaign.name} created.`);
+    renderApp();
+    return;
+  }
+
+  if (action === "select-campaign") {
+    state.ui.activeCampaignId = actionTarget.dataset.campaignId || state.ui.activeCampaignId;
+    state.ui.activeGmTab = "overview";
+    persistCampaignState();
+    renderApp();
+    return;
+  }
+
+  if (action === "select-gm-tab") {
+    state.ui.activeGmTab = GM_TABS.some((tab) => tab.key === actionTarget.dataset.tab) ? actionTarget.dataset.tab : "overview";
+    renderApp();
+    return;
+  }
+
+  if (action === "copy-campaign-code") {
+    const campaign = getCampaignById(actionTarget.dataset.campaignId) || getActiveCampaign();
+    if (!campaign) {
+      return;
+    }
+    copyText(campaign.code)
+      .then(() => {
+        showToast("Campaign join code copied.");
+        renderApp();
+      })
+      .catch(() => {
+        showToast("Clipboard access was blocked.");
+        renderApp();
+      });
+    return;
+  }
+
+  if (action === "open-linked-character") {
+    const characterId = actionTarget.dataset.characterId;
+    if (state.characters.some((character) => character.id === characterId)) {
+      state.ui.activeCharacterId = characterId;
+      state.ui.activeView = "sheet";
+      state.ui.editMode = true;
+      persistState();
+      openCharacterTrackerRoute();
+      renderApp();
+    }
+    return;
+  }
+
+  if (action === "unlink-character-from-campaign") {
+    const characterId = actionTarget.dataset.characterId;
+    updateCharacterById(characterId, (character) => {
+      character.campaign = { ...character.campaign, code: "" };
+    });
+    showToast("Character removed from campaign.");
+    renderApp();
+    return;
+  }
+
+  if (action === "add-character-token") {
+    addCharacterTokenToCampaign(actionTarget.dataset.campaignId, actionTarget.dataset.characterId);
+    renderApp();
+    return;
+  }
+
+  if (action === "set-turn-token") {
+    updateCampaign(actionTarget.dataset.campaignId, (campaign) => {
+      campaign.combat.turnTokenId = actionTarget.dataset.tokenId || "";
+    });
+    renderApp();
+    return;
+  }
+
+  if (action === "set-dice-holder") {
+    updateCampaign(actionTarget.dataset.campaignId, (campaign) => {
+      campaign.combat.exchange = normalizeCombatExchange(campaign.combat.exchange);
+      campaign.combat.exchange.currentHolderTokenId = actionTarget.dataset.tokenId || "";
+    });
+    renderApp();
+    return;
+  }
+
+  if (action === "delete-token") {
+    deleteCampaignToken(actionTarget.dataset.campaignId, actionTarget.dataset.tokenId);
+    renderApp();
+    return;
+  }
+
+  if (action === "start-combat-exchange") {
+    startCombatExchange(actionTarget.dataset.campaignId);
+    renderApp();
+    return;
+  }
+
+  if (action === "combat-roll-dice") {
+    rollCombatDiceForCampaign(actionTarget.dataset.campaignId);
+    renderApp();
+    return;
+  }
+
+  if (action === "combat-check-claim") {
+    resolveCombatCheck(actionTarget.dataset.campaignId);
+    renderApp();
+    return;
+  }
+
   if (action === "edit-cosmoglossia-panel") {
     openCosmoglossiaPanelEditor(actionTarget);
     return;
@@ -3281,9 +4296,17 @@ async function handleClick(event) {
     return;
   }
 
+  if (action === "open-player-campaign-map") {
+    state.ui.activeView = "campaign-map";
+    state.ui.activeModal = null;
+    state.ui.skillLossSelectionSection = null;
+    renderApp();
+    return;
+  }
+
   if (action === "unlink-campaign") {
     updateCurrentCharacter((character) => {
-      character.campaign = { space: "", code: "" };
+      character.campaign = { ...character.campaign, space: "", code: "" };
     });
     state.ui.activeModal = null;
     showToast("Campaign link cleared.");
@@ -3304,6 +4327,34 @@ async function handleClick(event) {
     return;
   }
 
+  if (action === "add-note") {
+    updateCurrentCharacter((character) => {
+      character.notes.unshift(createDefaultNote());
+    });
+    state.ui.activeView = "notes";
+    state.ui.skillLossSelectionSection = null;
+    showToast("Note added.");
+    renderApp();
+    return;
+  }
+
+  if (action === "delete-note") {
+    const noteId = String(actionTarget.dataset.noteId || "");
+    updateCurrentCharacter((character) => {
+      character.notes = character.notes.filter((note) => note.id !== noteId);
+    });
+    showToast("Note deleted.");
+    renderApp();
+    return;
+  }
+
+  if (action === "open-obsidian-vault") {
+    state.ui.skillLossSelectionSection = null;
+    state.ui.activeModal = { type: "obsidian-vault" };
+    renderApp();
+    return;
+  }
+
   if (action === "toggle-character-view") {
     state.ui.activeView = state.ui.activeView === "sheet" ? "profile" : "sheet";
     state.ui.skillLossSelectionSection = null;
@@ -3314,6 +4365,12 @@ async function handleClick(event) {
   if (action === "switch-view") {
     state.ui.activeView = actionTarget.dataset.view;
     state.ui.skillLossSelectionSection = null;
+    renderApp();
+    return;
+  }
+
+  if (action === "toggle-hotbar-face") {
+    state.ui.activeHotbarFace = state.ui.activeHotbarFace === "details" ? "items" : "details";
     renderApp();
     return;
   }
@@ -3665,6 +4722,47 @@ function handleChange(event) {
     return;
   }
 
+  if (input.dataset.input === "gm-map-image") {
+    const file = input.files?.[0];
+    const campaignId = input.dataset.campaignId;
+    if (!file || !campaignId) {
+      return;
+    }
+
+    readImageFileAsDataUrl(file)
+      .then((dataUrl) => {
+        updateCampaign(campaignId, (campaign) => {
+          campaign.map.image = dataUrl;
+        });
+        showToast("Map image saved.");
+        renderApp();
+      })
+      .catch(() => {
+        showToast("That map image could not be loaded.");
+        renderApp();
+      });
+    return;
+  }
+
+  if (input.dataset.input === "gm-token-image") {
+    const file = input.files?.[0];
+    const form = input.closest('[data-form="gm-token"]');
+    const imageField = form?.elements?.tokenImage;
+    if (!file || !imageField) {
+      return;
+    }
+
+    readImageFileAsDataUrl(file)
+      .then((dataUrl) => {
+        imageField.value = dataUrl;
+      })
+      .catch(() => {
+        showToast("That token image could not be loaded.");
+        renderApp();
+      });
+    return;
+  }
+
   updateCurrentCharacter((character) => {
     const { input: inputType, section, index, field } = input.dataset;
 
@@ -3735,6 +4833,22 @@ function handleChange(event) {
       const feature = character.features[Number(index)];
       if (feature) {
         feature.ability = String(input.value || "").trim();
+      }
+      return;
+    }
+
+    if (inputType === "note-title") {
+      const note = character.notes[Number(index)];
+      if (note) {
+        note.title = String(input.value || "").trim() || "Untitled Note";
+      }
+      return;
+    }
+
+    if (inputType === "note-body") {
+      const note = character.notes[Number(index)];
+      if (note) {
+        note.body = String(input.value || "");
       }
     }
   });
@@ -3972,6 +5086,35 @@ async function handleSubmit(event) {
     return;
   }
 
+  if (formName === "gm-campaign-details") {
+    saveCampaignDetailsFromForm(formData);
+    showToast("Campaign saved.");
+    renderApp();
+    return;
+  }
+
+  if (formName === "gm-token") {
+    saveGmTokenFromForm(formData);
+    showToast("Token added.");
+    renderApp();
+    return;
+  }
+
+  if (formName === "combat-claim") {
+    const message = submitCombatClaim(formData);
+    if (message) {
+      showToast(message);
+    }
+    renderApp();
+    return;
+  }
+
+  if (formName === "combat-believe") {
+    submitCombatBelieve(formData);
+    renderApp();
+    return;
+  }
+
   if (formName === "create-character") {
     const draft = getCreateCharacterDraftFromForm(form);
     const validationMessage = validateCreationDraft(draft);
@@ -3998,14 +5141,56 @@ async function handleSubmit(event) {
 
   if (formName === "link-campaign") {
     const space = String(formData.get("space") || "").trim();
-    const code = String(formData.get("code") || "").trim();
+    const code = normalizeOptionalCampaignCode(formData.get("code"));
 
     updateCurrentCharacter((character) => {
-      character.campaign = { space, code };
+      character.campaign = { ...character.campaign, space, code };
     });
 
     state.ui.activeModal = null;
     showToast(code ? `Campaign linked to ${code}.` : "Campaign link saved.");
+    renderApp();
+    return;
+  }
+
+  if (formName === "character-notes") {
+    const notes = buildNotesFromFormData(formData);
+
+    updateCurrentCharacter((character) => {
+      character.notes = notes;
+    });
+
+    showToast("Notes saved.");
+    renderApp();
+    return;
+  }
+
+  if (formName === "obsidian-vault") {
+    saveObsidianVaultNoteFromForm(formData);
+    state.ui.activeModal = null;
+    showToast("Vault note added.");
+    renderApp();
+    return;
+  }
+
+  if (formName === "campaign-vault") {
+    const vault = normalizeVaultConfig({
+      name: formData.get("vaultName"),
+      url: formData.get("vaultUrl"),
+      path: formData.get("vaultPath"),
+    });
+    const campaignId = String(formData.get("campaignId") || "");
+
+    if (campaignId) {
+      updateCampaign(campaignId, (campaign) => {
+        campaign.obsidian = vault;
+      });
+    }
+    updateCurrentCharacter((character) => {
+      character.campaign.vault = vault;
+    });
+
+    showToast("Vault link saved.");
     renderApp();
     return;
   }
@@ -4138,6 +5323,10 @@ function handleContextMenu(event) {
 }
 
 function handlePointerDown(event) {
+  if (startCampaignTokenDrag(event)) {
+    return;
+  }
+
   const shieldTarget = event.target.closest?.('[data-action="adjust-shield"]');
   if (!shieldTarget || event.button !== 0 || shieldTarget.disabled) {
     return;
@@ -4152,7 +5341,15 @@ function handlePointerDown(event) {
   }, 560);
 }
 
+function handlePointerMove(event) {
+  moveCampaignTokenDrag(event);
+}
+
 function handlePointerEnd(event) {
+  if (endCampaignTokenDrag(event)) {
+    return;
+  }
+
   if (!event.target.closest?.('[data-action="adjust-shield"]')) {
     return;
   }
@@ -4537,6 +5734,7 @@ function normalizeCharacter(rawCharacter) {
   base.campaign = {
     space: String(rawCharacter?.campaign?.space || ""),
     code: String(rawCharacter?.campaign?.code || ""),
+    vault: normalizeVaultConfig(rawCharacter?.campaign?.vault || rawCharacter?.campaign?.obsidian),
   };
   base.lineage = normalizeLineageRecord(rawCharacter?.lineage);
   base.background = normalizeBackgroundRecord(rawCharacter?.background);
@@ -4544,6 +5742,8 @@ function normalizeCharacter(rawCharacter) {
   base.biometrics = normalizeBiometrics(rawCharacter?.biometrics);
   base.profileImage = String(rawCharacter?.profileImage || "");
   base.features = normalizeFeatureList(rawCharacter?.features);
+  base.obsidian = normalizeVaultConfig(rawCharacter?.obsidian || rawCharacter?.personalVault);
+  base.notes = normalizeNoteList(rawCharacter?.notes || rawCharacter?.journal || []);
   base.gear = normalizeGearRecord(rawCharacter?.gear || { items: rawCharacter?.inventory || [] });
   base.createdAt = rawCharacter?.createdAt || base.createdAt;
   base.updatedAt = rawCharacter?.updatedAt || base.updatedAt;
@@ -4590,13 +5790,15 @@ function createCharacterSkeleton(name, gender) {
     id: createId(),
     name: String(name || "Untitled Character"),
     gender: normalizeGender(gender),
-    campaign: { space: "", code: "" },
+    campaign: { space: "", code: "", vault: normalizeVaultConfig() },
     lineage,
     background,
     creation: normalizeCreationRecord(null, lineage.key),
     biometrics: normalizeBiometrics(),
     profileImage: "",
     features: [],
+    obsidian: normalizeVaultConfig(),
+    notes: [],
     gear: normalizeGearRecord(),
     sections: {},
     specializations: Array.from({ length: MAX_SPECIALIZATIONS }, (_, index) => ({
@@ -4715,6 +5917,50 @@ function normalizeFeatureList(rawValue = []) {
       details,
     };
   });
+}
+
+function normalizeNoteList(rawValue = []) {
+  if (!Array.isArray(rawValue)) {
+    return [];
+  }
+
+  return rawValue.map((note) => normalizeNote(note));
+}
+
+function normalizeNote(rawValue = {}) {
+  const raw = rawValue && typeof rawValue === "object" ? rawValue : { body: rawValue };
+  const title = String(raw.title || raw.name || "").trim();
+
+  return {
+    id: raw.id || createId(),
+    title: title || "Untitled Note",
+    body: String(raw.body ?? raw.boxText ?? raw.text ?? ""),
+    vaultScope: String(raw.vaultScope || ""),
+    vaultName: String(raw.vaultName || ""),
+    source: String(raw.source || ""),
+  };
+}
+
+function createDefaultNote() {
+  return normalizeNote({
+    title: "New Note",
+    body: "",
+  });
+}
+
+function buildNotesFromFormData(formData) {
+  const noteCount = clampNumber(formData.get("noteCount"), 0, 100);
+
+  return Array.from({ length: noteCount }, (_, index) =>
+    normalizeNote({
+      id: String(formData.get(`noteId${index}`) || ""),
+      title: String(formData.get(`noteTitle${index}`) || "").trim() || "Untitled Note",
+      body: String(formData.get(`noteBody${index}`) || ""),
+      vaultScope: String(formData.get(`noteVaultScope${index}`) || ""),
+      vaultName: String(formData.get(`noteVaultName${index}`) || ""),
+      source: String(formData.get(`noteSource${index}`) || ""),
+    })
+  );
 }
 
 function normalizeGearRecord(rawValue = {}) {
@@ -7273,6 +8519,45 @@ function isDeveloperRoute() {
   );
 }
 
+function isGmRoute() {
+  const params = new URLSearchParams(window.location.search);
+  return (
+    document.body?.dataset?.appMode === "gm" ||
+    GM_ROUTE_KEYS.some((key) => params.has(key)) ||
+    window.location.hash === "#gm"
+  );
+}
+
+function openGmToolkitRoute() {
+  if (!window.history?.replaceState) {
+    window.location.hash = "#gm";
+    return;
+  }
+
+  const url = new URL(window.location.href);
+  DEVELOPER_ROUTE_KEYS.forEach((key) => url.searchParams.delete(key));
+  url.searchParams.delete("category");
+  url.searchParams.set("gm", "1");
+  url.hash = "";
+  window.history.replaceState({}, "", url.toString());
+}
+
+function openCharacterTrackerRoute() {
+  if (!window.history?.replaceState) {
+    window.location.hash = "";
+    return;
+  }
+
+  const url = new URL(window.location.href);
+  GM_ROUTE_KEYS.forEach((key) => url.searchParams.delete(key));
+  DEVELOPER_ROUTE_KEYS.forEach((key) => url.searchParams.delete(key));
+  url.searchParams.delete("category");
+  if (url.hash === "#gm" || url.hash === "#developer") {
+    url.hash = "";
+  }
+  window.history.replaceState({}, "", url.toString());
+}
+
 function getDeveloperCategoryKeyFromUrl() {
   const params = new URLSearchParams(window.location.search);
   return getDeveloperCategory(params.get("category")).key;
@@ -7325,6 +8610,197 @@ function formatKeyAsLabel(key) {
     .join(" ");
 }
 
+function loadCampaignState() {
+  try {
+    const raw = window.localStorage.getItem(CAMPAIGN_STORAGE_KEY);
+    if (!raw) {
+      return { campaigns: [], activeCampaignId: null };
+    }
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed.campaigns)) {
+      return { campaigns: [], activeCampaignId: null };
+    }
+    return {
+      campaigns: parsed.campaigns.map((campaign) => normalizeCampaign(campaign)),
+      activeCampaignId: parsed.activeCampaignId || null,
+    };
+  } catch {
+    return { campaigns: [], activeCampaignId: null };
+  }
+}
+
+function persistCampaignState() {
+  const payload = {
+    activeCampaignId: state.ui.activeCampaignId,
+    campaigns: state.campaigns.map((campaign) => normalizeCampaign(campaign)),
+  };
+  window.localStorage.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify(payload));
+}
+
+function normalizeCampaign(rawValue = {}) {
+  const raw = rawValue && typeof rawValue === "object" ? rawValue : {};
+  const now = new Date().toISOString();
+  const name = String(raw.name || raw.title || "New Campaign").trim() || "New Campaign";
+  const code = normalizeCampaignCode(raw.code || raw.joinCode || createCampaignCode());
+
+  return {
+    id: raw.id || createId(),
+    name,
+    code,
+    obsidian: normalizeVaultConfig(raw.obsidian || raw.vault),
+    vaultNotes: normalizeNoteList(raw.vaultNotes || []),
+    map: normalizeCampaignMap(raw.map || {}),
+    combat: normalizeCombatState(raw.combat || {}),
+    createdAt: raw.createdAt || now,
+    updatedAt: raw.updatedAt || raw.createdAt || now,
+  };
+}
+
+function normalizeVaultConfig(rawValue = {}) {
+  const raw = rawValue && typeof rawValue === "object" ? rawValue : {};
+
+  return {
+    name: String(raw.name || raw.vaultName || ""),
+    url: String(raw.url || raw.link || raw.sharedLink || ""),
+    path: String(raw.path || raw.localPath || ""),
+  };
+}
+
+function normalizeCampaignMap(rawValue = {}) {
+  const raw = rawValue && typeof rawValue === "object" ? rawValue : {};
+  const tokens = Array.isArray(raw.tokens) ? raw.tokens : [];
+
+  return {
+    image: String(raw.image || raw.mapImage || ""),
+    tokens: tokens.map((token) => normalizeCampaignToken(token)),
+  };
+}
+
+function normalizeCampaignToken(rawValue = {}) {
+  const raw = rawValue && typeof rawValue === "object" ? rawValue : {};
+  const tokenType = ["player", "npc", "enemy"].includes(raw.type) ? raw.type : "npc";
+
+  return {
+    id: raw.id || createId(),
+    name: String(raw.name || "Token").trim() || "Token",
+    type: tokenType,
+    characterId: String(raw.characterId || ""),
+    image: String(raw.image || ""),
+    x: clampNumber(raw.x ?? 50, 0, 100),
+    y: clampNumber(raw.y ?? 50, 0, 100),
+  };
+}
+
+function normalizeCombatState(rawValue = {}) {
+  const raw = rawValue && typeof rawValue === "object" ? rawValue : {};
+
+  return {
+    turnTokenId: String(raw.turnTokenId || ""),
+    exchange: normalizeCombatExchange(raw.exchange),
+    history: normalizeCombatHistory(raw.history),
+  };
+}
+
+function normalizeCombatExchange(rawValue = {}) {
+  const raw = rawValue && typeof rawValue === "object" ? rawValue : {};
+
+  return {
+    id: raw.id || createId(),
+    currentHolderTokenId: String(raw.currentHolderTokenId || ""),
+    previousActorTokenId: String(raw.previousActorTokenId || ""),
+    previousBelieverTokenId: String(raw.previousBelieverTokenId || ""),
+    previousClaim: normalizeCombatClaim(raw.previousClaim),
+    previousActual: normalizeCombatRollResult(raw.previousActual),
+    pendingRoll: normalizeCombatRollResult(raw.pendingRoll),
+    mustRollOrCheck: Boolean(raw.mustRollOrCheck),
+    events: normalizeCombatEvents(raw.events),
+  };
+}
+
+function normalizeCombatHistory(rawValue = []) {
+  if (!Array.isArray(rawValue)) {
+    return [];
+  }
+
+  return rawValue.map((entry) => ({
+    id: entry?.id || createId(),
+    summary: String(entry?.summary || "Resolved exchange"),
+    winnerName: String(entry?.winnerName || ""),
+    loserName: String(entry?.loserName || ""),
+    truthful: Boolean(entry?.truthful),
+    resolvedAt: entry?.resolvedAt || new Date().toISOString(),
+    events: normalizeCombatEvents(entry?.events),
+  }));
+}
+
+function normalizeCombatEvents(rawValue = []) {
+  if (!Array.isArray(rawValue)) {
+    return [];
+  }
+
+  return rawValue.map((event) => ({
+    id: event?.id || createId(),
+    label: String(event?.label || ""),
+    createdAt: event?.createdAt || new Date().toISOString(),
+  }));
+}
+
+function normalizeCombatClaim(rawValue) {
+  if (!rawValue) {
+    return null;
+  }
+
+  if (typeof rawValue === "object" && rawValue.value) {
+    return parseCombatClaim(rawValue.value);
+  }
+
+  return parseCombatClaim(rawValue);
+}
+
+function normalizeCombatRollResult(rawValue) {
+  if (!rawValue) {
+    return null;
+  }
+
+  const raw = rawValue && typeof rawValue === "object" ? rawValue : { value: rawValue };
+  const claim = parseCombatClaim(raw.value);
+  if (!claim) {
+    return null;
+  }
+
+  return {
+    ...claim,
+    dice: Array.isArray(raw.dice) ? raw.dice.map((value) => clampNumber(value, 1, 6)).slice(0, 2) : [],
+    actorTokenId: String(raw.actorTokenId || ""),
+    rolledAt: raw.rolledAt || new Date().toISOString(),
+  };
+}
+
+function createDefaultCampaign() {
+  return normalizeCampaign({
+    name: "New Campaign",
+    code: createCampaignCode(state.campaigns),
+  });
+}
+
+function createCampaignCode(existingCampaigns = []) {
+  let code = "";
+  const campaigns = Array.isArray(existingCampaigns) ? existingCampaigns : [];
+  do {
+    code = `EMP-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+  } while (campaigns.some((campaign) => campaign.code === code));
+  return code;
+}
+
+function normalizeCampaignCode(value) {
+  const code = normalizeOptionalCampaignCode(value);
+  return code || createCampaignCode();
+}
+
+function normalizeOptionalCampaignCode(value) {
+  return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9-]/g, "");
+}
+
 function loadStoredState() {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -7350,6 +8826,487 @@ function persistState() {
     characters: state.characters.map((character) => normalizeCharacter(character)),
   };
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+}
+
+function getActiveCampaign() {
+  return state.campaigns.find((campaign) => campaign.id === state.ui.activeCampaignId) || null;
+}
+
+function getCampaignById(campaignId) {
+  return state.campaigns.find((campaign) => campaign.id === campaignId) || null;
+}
+
+function getCampaignByCode(code) {
+  const normalizedCode = normalizeOptionalCampaignCode(code);
+  if (!normalizedCode) {
+    return null;
+  }
+  return state.campaigns.find((campaign) => campaign.code === normalizedCode) || null;
+}
+
+function updateCampaign(campaignId, mutator) {
+  const index = state.campaigns.findIndex((campaign) => campaign.id === campaignId);
+  if (index === -1) {
+    return false;
+  }
+
+  const workingCopy = normalizeCampaign(state.campaigns[index]);
+  mutator(workingCopy);
+  workingCopy.updatedAt = new Date().toISOString();
+  state.campaigns[index] = normalizeCampaign(workingCopy);
+  persistCampaignState();
+  return true;
+}
+
+function updateCharacterById(characterId, mutator) {
+  const index = state.characters.findIndex((character) => character.id === characterId);
+  if (index === -1) {
+    return false;
+  }
+
+  const workingCopy = normalizeCharacter(state.characters[index]);
+  mutator(workingCopy);
+  workingCopy.updatedAt = new Date().toISOString();
+  state.characters[index] = normalizeCharacter(workingCopy);
+  persistState();
+  return true;
+}
+
+function getLinkedCharactersForCampaign(campaign) {
+  if (!campaign?.code) {
+    return [];
+  }
+
+  return state.characters
+    .filter((character) => normalizeOptionalCampaignCode(character.campaign?.code) === campaign.code)
+    .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: "base", numeric: true }));
+}
+
+function saveCampaignDetailsFromForm(formData) {
+  const campaignId = String(formData.get("campaignId") || "");
+  updateCampaign(campaignId, (campaign) => {
+    campaign.name = String(formData.get("name") || "").trim() || campaign.name;
+    campaign.code = normalizeCampaignCode(formData.get("code") || campaign.code);
+    campaign.obsidian = normalizeVaultConfig({
+      name: formData.get("vaultName"),
+      url: formData.get("vaultUrl"),
+      path: formData.get("vaultPath"),
+    });
+  });
+}
+
+function getObsidianVaultState(character) {
+  const campaign = getCampaignByCode(character?.campaign?.code || "");
+  const personalVault = normalizeVaultConfig(character?.obsidian);
+  const campaignVault = normalizeVaultConfig(campaign?.obsidian);
+  const hasCampaignVault = hasVaultConfig(campaignVault);
+  const publicVault = normalizeVaultConfig({
+    name: campaign ? `${campaign.name} Public Vault` : "Public Vault",
+  });
+  const scopes = [{ key: "personal", label: "Personal Vault" }];
+
+  if (campaign && hasCampaignVault) {
+    scopes.unshift({ key: "campaign", label: "Campaign Vault" });
+  } else if (campaign) {
+    scopes.unshift({ key: "public", label: "New Public Campaign Vault" });
+  }
+
+  const defaultScope = campaign ? (hasCampaignVault ? "campaign" : "public") : "personal";
+
+  return {
+    campaign,
+    defaultScope,
+    scopes,
+    subtitle: campaign
+      ? hasCampaignVault
+        ? `Adding to ${campaign.name}'s campaign vault.`
+        : `No campaign vault exists yet; this will create a public campaign vault for ${campaign.name}.`
+      : "Unlinked characters add notes to a personal vault.",
+    vaults: {
+      personal: personalVault,
+      campaign: campaignVault,
+      public: publicVault,
+    },
+  };
+}
+
+function hasVaultConfig(vault) {
+  return Boolean(String(vault?.name || vault?.url || vault?.path || "").trim());
+}
+
+function saveObsidianVaultNoteFromForm(formData) {
+  const character = getActiveCharacter();
+  if (!character) {
+    return;
+  }
+
+  const campaignId = String(formData.get("campaignId") || "");
+  const scope = String(formData.get("vaultScope") || "personal");
+  const vault = normalizeVaultConfig({
+    name: formData.get("vaultName"),
+    url: formData.get("vaultUrl"),
+    path: formData.get("vaultPath"),
+  });
+  const note = normalizeNote({
+    title: String(formData.get("noteTitle") || "").trim() || "New Vault Note",
+    body: String(formData.get("noteBody") || ""),
+    vaultScope: scope,
+    vaultName: vault.name,
+    source: "obsidian",
+  });
+
+  if (scope === "personal" || !campaignId) {
+    updateCurrentCharacter((workingCharacter) => {
+      workingCharacter.obsidian = vault;
+      workingCharacter.notes.unshift(note);
+    });
+    return;
+  }
+
+  updateCampaign(campaignId, (campaign) => {
+    campaign.obsidian = vault;
+    campaign.vaultNotes.unshift(note);
+  });
+
+  updateCurrentCharacter((workingCharacter) => {
+    workingCharacter.campaign.vault = vault;
+    workingCharacter.notes.unshift(note);
+  });
+}
+
+function addCharacterTokenToCampaign(campaignId, characterId) {
+  const character = state.characters.find((entry) => entry.id === characterId);
+  if (!character) {
+    return;
+  }
+
+  updateCampaign(campaignId, (campaign) => {
+    const existing = campaign.map.tokens.find((token) => token.characterId === character.id);
+    if (existing) {
+      campaign.combat.turnTokenId = existing.id;
+      return;
+    }
+
+    const token = normalizeCampaignToken({
+      name: character.name,
+      type: "player",
+      characterId: character.id,
+      image: character.profileImage,
+      x: 42 + Math.random() * 16,
+      y: 42 + Math.random() * 16,
+    });
+    campaign.map.tokens.push(token);
+    campaign.combat.turnTokenId = campaign.combat.turnTokenId || token.id;
+    campaign.combat.exchange.currentHolderTokenId = campaign.combat.exchange.currentHolderTokenId || token.id;
+  });
+  showToast(`${character.name} token added.`);
+}
+
+function saveGmTokenFromForm(formData) {
+  const campaignId = String(formData.get("campaignId") || "");
+  const token = normalizeCampaignToken({
+    name: String(formData.get("tokenName") || "").trim() || "Token",
+    type: String(formData.get("tokenType") || "npc"),
+    image: String(formData.get("tokenImage") || ""),
+    x: 42 + Math.random() * 16,
+    y: 42 + Math.random() * 16,
+  });
+
+  updateCampaign(campaignId, (campaign) => {
+    campaign.map.tokens.push(token);
+    campaign.combat.turnTokenId = campaign.combat.turnTokenId || token.id;
+    campaign.combat.exchange.currentHolderTokenId = campaign.combat.exchange.currentHolderTokenId || token.id;
+  });
+}
+
+function deleteCampaignToken(campaignId, tokenId) {
+  updateCampaign(campaignId, (campaign) => {
+    campaign.map.tokens = campaign.map.tokens.filter((token) => token.id !== tokenId);
+    if (campaign.combat.turnTokenId === tokenId) {
+      campaign.combat.turnTokenId = campaign.map.tokens[0]?.id || "";
+    }
+    const exchange = normalizeCombatExchange(campaign.combat.exchange);
+    if (exchange.currentHolderTokenId === tokenId) {
+      exchange.currentHolderTokenId = campaign.map.tokens[0]?.id || "";
+    }
+    campaign.combat.exchange = exchange;
+  });
+}
+
+function getCombatTokens(campaign) {
+  return normalizeCampaignMap(campaign?.map || {}).tokens;
+}
+
+function startCombatExchange(campaignId) {
+  updateCampaign(campaignId, (campaign) => {
+    const tokens = getCombatTokens(campaign);
+    const firstToken = tokens.find((token) => token.id === campaign.combat.turnTokenId) || tokens[0];
+    campaign.combat.exchange = normalizeCombatExchange({
+      currentHolderTokenId: firstToken?.id || "",
+      events: firstToken
+        ? [{ label: `${firstToken.name} takes the dice.` }]
+        : [],
+    });
+    campaign.combat.turnTokenId = firstToken?.id || "";
+  });
+}
+
+function rollCombatDiceForCampaign(campaignId) {
+  updateCampaign(campaignId, (campaign) => {
+    const tokens = getCombatTokens(campaign);
+    const exchange = normalizeCombatExchange(campaign.combat.exchange);
+    const holder = tokens.find((token) => token.id === exchange.currentHolderTokenId) || tokens[0];
+    if (!holder) {
+      return;
+    }
+    exchange.currentHolderTokenId = holder.id;
+    exchange.pendingRoll = {
+      ...rollCombatDice(),
+      actorTokenId: holder.id,
+      rolledAt: new Date().toISOString(),
+    };
+    campaign.combat.turnTokenId = holder.id;
+    campaign.combat.exchange = exchange;
+  });
+}
+
+function submitCombatClaim(formData) {
+  const campaignId = String(formData.get("campaignId") || "");
+  const claim = parseCombatClaim(formData.get("claim"));
+  const nextTokenId = String(formData.get("nextTokenId") || "");
+  let message = "";
+
+  if (!claim) {
+    return "Use a two-digit combat result from 11-66 or 21.";
+  }
+
+  updateCampaign(campaignId, (campaign) => {
+    const tokens = getCombatTokens(campaign);
+    const exchange = normalizeCombatExchange(campaign.combat.exchange);
+    const holder = tokens.find((token) => token.id === exchange.currentHolderTokenId) || tokens[0];
+    const nextToken = tokens.find((token) => token.id === nextTokenId);
+
+    if (!holder || !nextToken || !exchange.pendingRoll) {
+      message = "The claim could not be resolved.";
+      return;
+    }
+
+    if (exchange.previousClaim && claim.rank < exchange.previousClaim.rank) {
+      message = `Passed result must match or beat ${formatCombatClaim(exchange.previousClaim)}.`;
+      return;
+    }
+
+    const actual = normalizeCombatRollResult(exchange.pendingRoll);
+    exchange.events.push({
+      label: `${holder.name} passed ${claim.value} to ${nextToken.name}. Actual roll retained as ${actual.value}.`,
+    });
+    exchange.previousClaim = claim;
+    exchange.previousActual = actual;
+    exchange.previousActorTokenId = holder.id;
+    exchange.previousBelieverTokenId = "";
+    exchange.currentHolderTokenId = nextToken.id;
+    exchange.pendingRoll = null;
+    exchange.mustRollOrCheck = false;
+    campaign.combat.turnTokenId = nextToken.id;
+    campaign.combat.exchange = exchange;
+    message = `${claim.value} passed to ${nextToken.name}.`;
+  });
+
+  return message;
+}
+
+function submitCombatBelieve(formData) {
+  const campaignId = String(formData.get("campaignId") || "");
+  const nextTokenId = String(formData.get("nextTokenId") || "");
+
+  updateCampaign(campaignId, (campaign) => {
+    const tokens = getCombatTokens(campaign);
+    const exchange = normalizeCombatExchange(campaign.combat.exchange);
+    const holder = tokens.find((token) => token.id === exchange.currentHolderTokenId) || tokens[0];
+    const nextToken = tokens.find((token) => token.id === nextTokenId);
+
+    if (!holder || !nextToken || !exchange.previousClaim || exchange.mustRollOrCheck) {
+      return;
+    }
+
+    exchange.events.push({
+      label: `${holder.name} believed ${formatCombatClaim(exchange.previousClaim)} and passed the dice to ${nextToken.name}.`,
+    });
+    exchange.previousBelieverTokenId = holder.id;
+    exchange.currentHolderTokenId = nextToken.id;
+    exchange.mustRollOrCheck = true;
+    campaign.combat.turnTokenId = nextToken.id;
+    campaign.combat.exchange = exchange;
+  });
+  showToast("Dice passed. Next token must roll or check.");
+}
+
+function resolveCombatCheck(campaignId) {
+  updateCampaign(campaignId, (campaign) => {
+    const tokens = getCombatTokens(campaign);
+    const exchange = normalizeCombatExchange(campaign.combat.exchange);
+    const checker = tokens.find((token) => token.id === exchange.currentHolderTokenId);
+    const accountable = tokens.find((token) => token.id === (exchange.previousBelieverTokenId || exchange.previousActorTokenId));
+
+    if (!checker || !accountable || !exchange.previousClaim || !exchange.previousActual) {
+      return;
+    }
+
+    const truthful = exchange.previousClaim.value === exchange.previousActual.value;
+    const winner = truthful ? accountable : checker;
+    const loser = truthful ? checker : accountable;
+    const checkLabel = truthful
+      ? `${checker.name} checked ${formatCombatClaim(exchange.previousClaim)} and was wrong.`
+      : `${checker.name} checked ${formatCombatClaim(exchange.previousClaim)} and caught the lie.`;
+    const actualLabel = `Actual retained result was ${exchange.previousActual.value}.`;
+    const events = [
+      ...exchange.events,
+      { label: checkLabel },
+      { label: actualLabel },
+      { label: `${winner.name} wins the exchange. ${loser.name} loses.` },
+    ];
+
+    campaign.combat.history.unshift({
+      id: createId(),
+      summary: `${winner.name} over ${loser.name}`,
+      winnerName: winner.name,
+      loserName: loser.name,
+      truthful,
+      resolvedAt: new Date().toISOString(),
+      events,
+    });
+    campaign.combat.exchange = normalizeCombatExchange({
+      currentHolderTokenId: winner.id,
+      events: [{ label: `${winner.name} holds the dice after the check.` }],
+    });
+    campaign.combat.turnTokenId = winner.id;
+  });
+  showToast("Exchange resolved and logged.");
+}
+
+function rollCombatDice() {
+  const dice = [randomInt(1, 6), randomInt(1, 6)];
+  const sorted = [...dice].sort((left, right) => right - left);
+  const value = sorted[0] === 2 && sorted[1] === 1 ? "21" : `${sorted[0]}${sorted[1]}`;
+  const claim = parseCombatClaim(value);
+
+  return {
+    value: claim.value,
+    rank: claim.rank,
+    dice,
+  };
+}
+
+function parseCombatClaim(rawValue) {
+  const digits = String(rawValue || "").replace(/\D/g, "");
+  if (digits.length !== 2) {
+    return null;
+  }
+
+  let left = Number(digits[0]);
+  let right = Number(digits[1]);
+  if (left < 1 || left > 6 || right < 1 || right > 6) {
+    return null;
+  }
+
+  if (left < right) {
+    [left, right] = [right, left];
+  }
+
+  const value = `${left}${right}`;
+  let rank = left * 10 + right;
+  if (left === 2 && right === 1) {
+    rank = 200;
+  } else if (left === right) {
+    rank = 100 + left;
+  }
+
+  return { value, rank };
+}
+
+function formatCombatClaim(claim) {
+  return claim?.value || "";
+}
+
+function startCampaignTokenDrag(event) {
+  const tokenElement = event.target.closest?.("[data-gm-token-id]");
+  if (!tokenElement || tokenElement.dataset.canDrag !== "true" || event.button !== 0) {
+    return false;
+  }
+
+  const mapElement = tokenElement.closest("[data-gm-map]");
+  if (!mapElement) {
+    return false;
+  }
+
+  state.ui.draggingToken = {
+    campaignId: tokenElement.dataset.campaignId,
+    tokenId: tokenElement.dataset.gmTokenId,
+    mapElement,
+    tokenElement,
+    x: null,
+    y: null,
+  };
+  tokenElement.classList.add("is-dragging");
+  tokenElement.setPointerCapture?.(event.pointerId);
+  moveCampaignTokenDrag(event);
+  event.preventDefault();
+  return true;
+}
+
+function moveCampaignTokenDrag(event) {
+  const drag = state.ui.draggingToken;
+  if (!drag?.mapElement || !drag.tokenElement) {
+    return false;
+  }
+
+  const rect = drag.mapElement.getBoundingClientRect();
+  if (!rect.width || !rect.height) {
+    return false;
+  }
+
+  const x = clampNumber(((event.clientX - rect.left) / rect.width) * 100, 0, 100);
+  const y = clampNumber(((event.clientY - rect.top) / rect.height) * 100, 0, 100);
+  drag.x = x;
+  drag.y = y;
+  drag.tokenElement.style.left = `${x}%`;
+  drag.tokenElement.style.top = `${y}%`;
+  return true;
+}
+
+function endCampaignTokenDrag(event) {
+  const drag = state.ui.draggingToken;
+  if (!drag) {
+    return false;
+  }
+
+  drag.tokenElement?.releasePointerCapture?.(event.pointerId);
+  drag.tokenElement?.classList.remove("is-dragging");
+  if (Number.isFinite(drag.x) && Number.isFinite(drag.y)) {
+    updateCampaign(drag.campaignId, (campaign) => {
+      const token = campaign.map.tokens.find((entry) => entry.id === drag.tokenId);
+      if (token) {
+        token.x = drag.x;
+        token.y = drag.y;
+      }
+    });
+  }
+  state.ui.draggingToken = null;
+  renderApp();
+  return true;
+}
+
+function getTokenInitials(name) {
+  const parts = String(name || "Token")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const initials = parts.slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join("");
+  return initials || "T";
+}
+
+function escapeCssUrl(value) {
+  return String(value || "").replaceAll("\\", "\\\\").replaceAll("'", "\\'");
 }
 
 function buildSharePayload(character) {
@@ -8051,6 +10008,31 @@ function iconBackpack() {
       <path d="M8.5 7.5V6a3.5 3.5 0 0 1 7 0v1.5"></path>
       <path d="M6.3 8.5h11.4A2.3 2.3 0 0 1 20 10.8v8.4a2.3 2.3 0 0 1-2.3 2.3H6.3A2.3 2.3 0 0 1 4 19.2v-8.4a2.3 2.3 0 0 1 2.3-2.3Z"></path>
       <path d="M9 13h6"></path>
+    </svg>
+  `;
+}
+
+function iconNotepad() {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M7 4.5h10A2.5 2.5 0 0 1 19.5 7v12.5H6.5A2 2 0 0 1 4.5 17.5V7A2.5 2.5 0 0 1 7 4.5Z"></path>
+      <path d="M8 3v4"></path>
+      <path d="M12 3v4"></path>
+      <path d="M16 3v4"></path>
+      <path d="M8.5 11h7"></path>
+      <path d="M8.5 15h5"></path>
+    </svg>
+  `;
+}
+
+function iconObsidian() {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 2.8 18.8 7l-1.7 9.6L12 21.2l-5.1-4.6L5.2 7Z"></path>
+      <path d="M12 2.8 9.3 9.1 12 21.2"></path>
+      <path d="M18.8 7 9.3 9.1 5.2 7"></path>
+      <path d="m9.3 9.1 7.8 7.5"></path>
+      <path d="m6.9 16.6 10.2 0"></path>
     </svg>
   `;
 }
