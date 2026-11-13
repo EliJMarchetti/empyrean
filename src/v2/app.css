@@ -14,12 +14,11 @@
 
 .character-workspace,.session-layout{display:grid;gap:26px;align-items:start}
 .page-heading h1,.page-heading p{overflow-wrap:anywhere}
-.legacy-access{padding:16px 22px;text-align:center;color:var(--green);font-size:12px;background:var(--bg)}
-.legacy-access a{text-decoration:underline;text-underline-offset:3px}
 .sidebar{overflow-y:auto}
 .library-tabs{margin-bottom:26px}.library-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:16px}
 .library-card{display:flex;flex-direction:column;align-items:stretch;gap:14px;min-width:0}.library-card h3{overflow-wrap:anywhere}.library-card p{font-size:12px}
 .library-card-actions{padding-top:12px;border-top:1px solid var(--line);margin-top:auto}
+.library-card[hidden]{display:none}.catalog-search{display:flex;gap:12px;align-items:end;margin:0 0 18px;flex-wrap:wrap}.catalog-search label{width:min(320px,100%)}.catalog-search p{font-size:12px;padding-bottom:8px}.studio-draft-notice{margin-bottom:18px}
 .character-workspace.has-gm-roster{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}
 .character-workspace .empty{min-height:170px;padding:26px 18px}
 .character-card h3,.turn-row .grow,.clock-card h3,.roll-history .grow,.marker-list-row .grow{overflow-wrap:anywhere}

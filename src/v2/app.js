@@ -50,7 +50,7 @@ function navigate(path) {
   ui.editor = null; ui.settingsDraft = null; ui.studioDraft = null; ui.mobile = false;
   if (location.hash === path) render(); else location.hash = path;
 }
-function hasUnsavedChanges() { return ui.editor?.dirty || ui.settingsDraft?.dirty || ui.studioDraft?.dirty; }
+function hasUnsavedChanges() { return ui.editor?.dirty || ui.settingsDraft?.dirty; }
 function guardDirty() { return !hasUnsavedChanges() || confirm('Discard your unsaved changes?'); }
 function toast(message, error = false) {
   const el = document.querySelector('#toast'); el.textContent = message; el.className = 'show' + (error ? ' error' : ''); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.className = '', error ? 8000 : 4000);
@@ -127,42 +127,55 @@ function campaignCleanupNotices() {
 }
 function renderLibrary(studio) {
   const published = data.official_catalog || { catalog: emptyCatalog(), revision: 0 };
-  if (studio && (!ui.studioDraft || (!ui.studioDraft.dirty && ui.studioDraft.revision !== published.revision))) {
-    ui.studioDraft = { ...clone(published), dirty: false };
-  }
+  const saved = data.designer_draft;
+  if (studio) ui.studioDraft = clone(saved || { catalog: published.catalog, base_revision: published.revision, revision: null });
   const draft = studio ? ui.studioDraft : published;
   const category = ui.studioTab;
   const type = CONTENT_TYPES[category];
   const attrs = `data-kind="${category}"`;
-  const entries = studio ? draft.catalog[category] : draft.catalog[category].filter(entry => entry.enabled !== false);
-  const stale = draft.revision !== published.revision;
+  const available = studio ? draft.catalog[category] : draft.catalog[category].filter(entry => entry.enabled !== false);
+  const stale = studio && draft.base_revision !== published.revision;
   const add = studio ? btn(`Add ${type.singular}`, 'add-content', 'plus', 'primary', attrs) : '';
   const actions = studio ? link('View published library','#/library','book') : data.can_design ? link('Designer Studio','#/designer','edit') : '';
   return `${heading('Workspace', studio?'Designer Studio':'Official library', studio?'Create, edit, and publish game content for every campaign.':'Game content published by the Empyrean designer.', actions)}
-    ${stale ? `<div class="notice error">The published catalog changed while you were editing. ${btn('Reload catalog','reload-studio','','small')}</div>` : ''}
-    <div class="settings-tabs library-tabs" role="group" aria-label="Content categories">${Object.entries(CONTENT_TYPES).map(([key,value])=>`<button class="${key===category?'active':''}" data-action="studio-tab" data-value="${key}" aria-pressed="${key===category}">${value.title}</button>`).join('')}</div>
+    ${stale ? '<div class="notice error">The published catalog changed after this draft was created. Discard the draft to start from the published catalog.</div>' : ''}
+    ${studio && saved ? '<div class="notice studio-draft-notice">This draft is saved. Players see your changes after you publish.</div>' : ''}
+    <div class="settings-tabs library-tabs" role="group" aria-label="Content categories">${Object.entries(CONTENT_TYPES).map(([key,value])=>`<button class="${key===category?'active':''}" data-action="studio-tab" data-value="${key}" aria-pressed="${key===category}">${value.title}${studio?` · ${draft.catalog[key].length}`:''}</button>`).join('')}</div>
     <div class="section-heading"><h2>${type.title}</h2>${add}</div>
-    ${entries.length ? `<div class="library-grid">${entries.map(entry=>renderLibraryEntry(draft.catalog,category,entry,studio)).join('')}</div>` : empty('Nothing here yet',studio?'Add an entry and publish the catalog when it’s ready.':'Published content in this category will appear here.','',type.icon)}
-    ${studio ? `<div class="save-bar"><p class="${draft.dirty?'dirty-badge':''}">${draft.dirty?'Unpublished changes':'Catalog up to date'}</p>${btn('Publish catalog','publish-studio','check','primary',draft.dirty&&!stale?'':'disabled')}</div>` : ''}`;
+    ${available.length ? `<div class="catalog-search"><label>Search ${esc(type.title.toLowerCase())}<input type="search" data-catalog-search placeholder="Name, group, or description"/></label><p class="muted" data-catalog-count aria-live="polite">${available.length} entries</p></div><div class="library-grid">${available.map(entry=>renderLibraryEntry(draft.catalog,category,entry,studio)).join('')}</div>` : empty('Nothing here yet',studio?'Add an entry and publish the catalog when it’s ready.':'Published content in this category will appear here.','',type.icon)}
+    ${studio ? `<div class="save-bar"><p class="${saved?'dirty-badge':''}">${saved?'Unpublished changes':'Catalog up to date'}</p><div class="actions">${saved?btn('Discard draft','discard-studio','trash','danger'):''}${btn('Publish catalog','publish-studio','check','primary',saved&&!stale?'':'disabled')}</div></div>` : ''}`;
 }
 function renderLibraryEntry(catalog,category,entry,studio) {
   const attrs=`data-kind="${category}" ${recordAttr(entry.id)}`;
   const grants = ['skills','abilities'].flatMap(kind=>kind===category?[]:(entry[kind]||[]).map(id=>catalog[kind].find(item=>item.id===id)?.name).filter(Boolean));
   const details = [category==='abilities'?`${entry.cost} Merit`:'',entry.generic&&category==='skills'?'General skill':'',entry.meritBonus?`+${fmt(entry.meritBonus)} starting Merit`:'',entry.sparksBonus?`+${fmt(entry.sparksBonus)} starting Sparks`:'',...grants].filter(Boolean);
   const variants = entry.variants?.filter(variant=>studio||variant.enabled!==false).map(variant=>variant.name);
-  return `<article class="panel library-card"><div class="row"><span class="stat-icon">${icon(CONTENT_TYPES[category].icon)}</span><h3 class="grow">${esc(entry.name)}</h3>${studio&&entry.enabled===false?pill('Hidden','gray'):''}</div>
+  return `<article class="panel library-card" data-catalog-entry><div class="row"><span class="stat-icon">${icon(CONTENT_TYPES[category].icon)}</span><h3 class="grow">${esc(entry.name)}</h3>${studio&&entry.enabled===false?pill('Hidden','gray'):''}</div>
     ${entry.description?`<div class="text-content">${esc(entry.description)}</div>`:''}
-    ${details.length?`<div class="actions">${details.map(detail=>pill(detail,'gray')).join('')}</div>`:''}
+    ${details.length||entry.group?`<div class="actions">${entry.group?pill(entry.group):''}${details.map(detail=>pill(detail,'gray')).join('')}</div>`:''}
     ${variants?.length?`<p class="muted">Variants · ${esc(variants.join(', '))}</p>`:''}
     ${studio?`<div class="library-card-actions actions">${btn('Edit','edit-content','edit','small',attrs)}${btn('Delete','delete-official','trash','small danger',attrs)}</div>`:''}</article>`;
 }
 function deleteOfficialModal(category,id) {
   const draft=ui.studioDraft;
   const entry=draft.catalog[category].find(entry=>entry.id===id);
-  openModal(`Delete ${entry.name}?`,'<p>Publishing this deletion will remove the entry and its grants from campaign catalogs. Finished characters retain their saved rules.</p>',()=>{
-    draft.catalog=removeCatalogEntry(draft.catalog,category,id);
-    draft.dirty=true;closeModal();render();
+  openModal(`Delete ${entry.name}?`,'<p>Publishing this deletion will remove the entry and its grants from campaign catalogs. Finished characters retain their saved rules.</p>',async()=>{
+    await saveStudioDraft(draft,removeCatalogEntry(draft.catalog,category,id));
+    closeModal();render();
   },'Delete from draft','',false,true);
+}
+function studioRevision(draft) {
+  return { base_revision: draft.base_revision, draft_revision: draft.revision };
+}
+async function saveStudioDraft(draft,catalog) {
+  validateCatalog(catalog);
+  await command('save_catalog_draft',{ ...studioRevision(draft), catalog });
+}
+function discardStudioModal() {
+  const draft=ui.studioDraft;
+  openModal('Discard saved draft?','<p>This permanently removes the unpublished changes from Designer Studio.</p>',async()=>{
+    await command('discard_catalog_draft',studioRevision(draft));closeModal();render();
+  },'Discard draft','',false,true);
 }
 function renderCampaignCard(c, i) {
   const members = membersOf(c.id); const ch = partyOf(c.id); const map = data.maps.find(m=>m.campaign_id===c.id && m.image_url && !m.storage_path);
@@ -481,6 +494,7 @@ function markerModal(mapId,id) {
 let contentContext;
 function readContent(form,kind,base) {
   const f=new FormData(form);const e={...clone(base),name:String(f.get('name')).trim(),description:String(f.get('description')||''),enabled:f.has('enabled')};
+  if(f.has('group'))e.group=String(f.get('group')).trim();
   if(kind==='skills')e.generic=f.has('generic');
   else {e.skills=f.getAll('skills');if(kind!=='abilities'){e.abilities=f.getAll('abilities');e.meritBonus=Number(f.get('meritBonus')||0);e.sparksBonus=Number(f.get('sparksBonus')||0);}else e.cost=Number(f.get('cost'));}
   if(kind==='lineages'){
@@ -490,15 +504,17 @@ function readContent(form,kind,base) {
 }
 function contentModal(kind,id,entry) {
   const studio=route().page==='designer';
-  const cat=(studio?ui.studioDraft:ui.settingsDraft).catalog;
+  const draft=studio?ui.studioDraft:ui.settingsDraft;
+  const cat=draft.catalog;
   const e=entry||cat[kind].find(e=>e.id===id)||{id:(studio?'official-':'')+crypto.randomUUID(),name:'',description:'',enabled:true,skills:[],abilities:[],cost:4,meritBonus:0,sparksBonus:0,ageRequired:true,variants:[]};
   contentContext={kind,id,entry:e};
   const variants=kind==='lineages'?`<div class="form-section"><div class="section-heading"><h3>Lineage variants</h3>${btn('Add variant','add-variant','plus','small')}</div>${(e.variants||[]).map((v,i)=>`<div class="variant-editor"><div class="row between"><h3>Variant ${i+1}</h3>${ibtn('Remove variant','remove-variant','trash',`data-index="${i}"`)}</div><div class="form-grid" style="margin:14px 0">${field('Variant name',`v-name-${i}`,v.name,'text','required maxlength="120"')}${check('Available',`v-enabled-${i}`,v.enabled!==false)}${field('Additional Merit',`v-merit-${i}`,v.meritBonus||0,'number','min="0" step="any"')}${field('Additional Sparks',`v-sparks-${i}`,v.sparksBonus||0,'number','min="0" step="any"')}</div><label style="margin:14px 0 8px">Skill unlocks</label>${grantChecks(cat,'skills',v.skills,`v-skills-${i}`)}<label style="margin:14px 0 8px">Granted abilities</label>${grantChecks(cat,'abilities',v.abilities,`v-abilities-${i}`)}</div>`).join('')}</div>`:'';
-  openModal((id?'Edit ':'Add ')+CONTENT_TYPES[kind].singular,`<div class="form-section">${field('Name','name',e.name,'text','required maxlength="120"')}${area('Description','description',e.description||'','maxlength="5000"')}${check('Available to players','enabled',e.enabled!==false)}${kind==='skills'?check('General skill (available to every character)','generic',e.generic):`${kind==='abilities'?field('Merit cost','cost',e.cost,'number','required min="1" max="99" step="1"'):''}<label>Skill unlocks</label>${grantChecks(cat,'skills',e.skills)}${kind!=='abilities'?`<label>Granted abilities</label>${grantChecks(cat,'abilities',e.abilities)}<div class="form-grid">${field('Additional starting Merit','meritBonus',e.meritBonus||0,'number','min="0" step="any" required')}${field('Additional starting Sparks','sparksBonus',e.sparksBonus||0,'number','min="0" step="any" required')}</div>`:''}`}${kind==='lineages'?check('Age category required','ageRequired',e.ageRequired!==false):''}</div>${variants}`,async(form)=>{
-    const draft=studio?ui.studioDraft:ui.settingsDraft;
+  openModal((id?'Edit ':'Add ')+CONTENT_TYPES[kind].singular,`<div class="form-section">${field('Name','name',e.name,'text','required maxlength="120"')}${area('Description','description',e.description||'','maxlength="5000"')}${studio?field('Group (optional)','group',e.group,'text','maxlength="80"'):''}${check('Available to players','enabled',e.enabled!==false)}${kind==='skills'?check('General skill (available to every character)','generic',e.generic):`${kind==='abilities'?field('Merit cost','cost',e.cost,'number','required min="1" max="99" step="1"'):''}<label>Skill unlocks</label>${grantChecks(cat,'skills',e.skills)}${kind!=='abilities'?`<label>Granted abilities</label>${grantChecks(cat,'abilities',e.abilities)}<div class="form-grid">${field('Additional starting Merit','meritBonus',e.meritBonus||0,'number','min="0" step="any" required')}${field('Additional starting Sparks','sparksBonus',e.sparksBonus||0,'number','min="0" step="any" required')}</div>`:''}`}${kind==='lineages'?check('Age category required','ageRequired',e.ageRequired!==false):''}</div>${variants}`,async(form)=>{
     const updated=readContent(form,kind,contentContext.entry);
-    draft.catalog[kind]=id?draft.catalog[kind].map(entry=>entry.id===id?updated:entry):[...draft.catalog[kind],updated];
-    draft.dirty=true;closeModal();render();
+    const entries=id?draft.catalog[kind].map(entry=>entry.id===id?updated:entry):[...draft.catalog[kind],updated];
+    if(studio)await saveStudioDraft(draft,{...draft.catalog,[kind]:entries});
+    else {draft.catalog[kind]=entries;draft.dirty=true;}
+    closeModal();render();
   },studio?'Save to draft':'Apply to campaign','',true);
 }
 function profileModal() {
@@ -668,12 +684,11 @@ async function handleAction(el) {
   else if(a==='share-world'){const mp=currentMap(c);const url=new URL(location.href);url.search='';url.hash=pathFor(c.id,'world').slice(1)+(mp?'?map='+mp.id:'');await copyText(url.href);}
   else if(a==='settings-tab'){ui.settingsTab=el.dataset.value;render();}
   else if(a==='studio-tab'){ui.studioTab=el.dataset.value;render();}
-  else if(a==='reload-studio'){if(!guardDirty())return;ui.studioDraft=null;render();}
+  else if(a==='discard-studio')discardStudioModal();
   else if(a==='delete-official')deleteOfficialModal(el.dataset.kind,id);
   else if(a==='publish-studio'){
     const draft=ui.studioDraft;
-    validateCatalog(draft.catalog);
-    await command('publish_catalog',{catalog:draft.catalog,revision:draft.revision});
+    await command('publish_catalog_draft',studioRevision(draft));
     ui.studioDraft=null;render();toast('Official catalog published.');
   }
   else if(a==='reload-settings'){if(!guardDirty())return;ui.settingsDraft=null;render();}
@@ -710,6 +725,15 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('input',e=>{
   const el=e.target;const ed=ui.editor;
+  if(el.matches('[data-catalog-search]')){
+    const query=el.value.trim().toLowerCase();let count=0;
+    for(const card of root.querySelectorAll('[data-catalog-entry]')){
+      card.hidden=!card.textContent.toLowerCase().includes(query);
+      if(!card.hidden)count++;
+    }
+    root.querySelector('[data-catalog-count]').textContent=count===1?'1 entry':`${count} entries`;
+    return;
+  }
   if(el.matches('[data-character-name]')&&ed){ed.name=el.value;ed.dirty=true;}
   else if(el.dataset.bio&&ed){ed.build.bio??={};ed.build.bio[el.dataset.bio]=el.value;ed.dirty=true;}
   else if(el.dataset.build&&ed){ed.build[el.dataset.build]=el.dataset.build==='ageYears'?(el.value===''?null:Number(el.value)):el.value;ed.dirty=true;}
@@ -787,11 +811,8 @@ async function submitAuth(form) {
 }
 async function boot() {
   const params=new URLSearchParams(location.search),invite=params.get('invite');
-  if(['share','dev','developer','gm','gm-toolkit','campaigns'].some(key=>params.has(key))||['#gm','#developer'].includes(location.hash)){
-    const legacy=new URL('./legacy.html',location.href);
-    legacy.search=location.search;legacy.hash=location.hash;
-    location.replace(legacy.href);
-    return;
+  if(['dev','developer'].some(key=>params.has(key))||location.hash==='#developer'){
+    history.replaceState(null,'',location.pathname+'#/designer');
   }
   if(invite){
     localStorage.setItem('empyrean.pendingInvite',invite);

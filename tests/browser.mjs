@@ -31,9 +31,8 @@ try{
   await page.getByRole('button',{name:'Preview as player',exact:true}).click();
   await page.getByText('Preview as player',{exact:true}).waitFor();
   await page.reload();await page.getByText('Preview as player',{exact:true}).waitFor();
-  await page.goto(base+'/?gm=1');await page.waitForURL('**/legacy.html?gm=1');
-  await page.getByRole('heading',{name:'GM Toolkit',exact:true}).first().waitFor();
-  await page.goto(base+'/editor.html');await page.getByText('Developer Console',{exact:false}).first().waitFor();
+  assert.equal(await page.getByRole('link',{name:/original tracker/i}).count(),0);
+  await page.goto(base+'/editor.html');await page.waitForURL('**/#/designer');
   await preview.close();
   console.log('Local preview and responsive layouts passed.');
 
@@ -302,6 +301,12 @@ try{
   await gmDialog.getByLabel('Variant name',{exact:true}).fill('Drifter');
   await gmDialog.getByRole('button',{name:'Save to draft',exact:true}).click();
   await gm.getByText('Unpublished changes',{exact:true}).waitFor();
+  await gm.reload();
+  await gm.getByRole('heading',{name:'Starbound',exact:true}).waitFor();
+  await gm.getByRole('searchbox',{name:'Search lineages'}).fill('missing');
+  await gm.getByRole('heading',{name:'Starbound',exact:true}).waitFor({state:'hidden'});
+  await gm.getByRole('searchbox',{name:'Search lineages'}).fill('Drifter');
+  await gm.getByRole('heading',{name:'Starbound',exact:true}).waitFor();
   await player.goto(base+'/#/designer');
   await player.getByRole('heading',{name:'Designer access required',exact:true}).waitFor();
   await player.getByRole('link',{name:'Open official library',exact:true}).click();

@@ -11,13 +11,16 @@ In the project's SQL Editor, run these files in order, once, in a **new project*
 1. `supabase/migrations/001_campaigns.sql`
 2. `supabase/migrations/002_gm_tools.sql`
 3. `supabase/migrations/003_designer_studio.sql`
-4. `supabase/storage.sql`
+4. `supabase/migrations/004_designer_drafts.sql`
+5. `supabase/storage.sql`
 
 They create the data tables, account profiles, database permissions and transaction functions, plus a private `campaign-maps` bucket. Do not paste them over a database with an existing Empyrean schema.
 
 **Upgrading an existing Empyrean v2 project?** Run `supabase/migrations/002_gm_tools.sql` once and then re-run `supabase/storage.sql`. The upgrade keeps your existing campaigns, accounts, and sheets. Apply it before deploying the updated client.
 
 Apply `supabase/migrations/003_designer_studio.sql` after the GM migration. Assign the Game Designer role by inserting the chosen Supabase Auth user ID into `private.game_designers` from the SQL Editor. The user signs in with their normal Empyrean account and opens `/designer/`. Published entries are added to current and future campaigns. Finished character sheets use their saved rules for existing choices.
+
+Apply `supabase/migrations/004_designer_drafts.sql` to enable saved designer drafts. The production import is stored as a draft for review. The conversion script maps original specializations to unlockable skills, homeworlds and lineage features to variants, and corporate ties to abilities. Imported abilities start at 1 Merit when bought individually. Tekhne and Arkhemetry options without written rules start hidden. The original character and campaign saves are outside the scope of this catalog conversion.
 
 ## 2. Set up email sign-in
 

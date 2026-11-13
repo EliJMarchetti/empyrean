@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
 import { database, GM, PLAYER, OUTSIDER } from './database.mjs';
 import { blankBuild, DEFAULT_SETTINGS } from '../src/v2/rules.js';
 import { removeCatalogEntry } from '../src/v2/catalog.js';
@@ -58,4 +59,46 @@ test('Designer publishing updates every campaign and protects finished character
   assert.equal(advanced.rules.catalog.lineages[0].name, 'Voyager');
   assert.equal(advanced.rules.catalog.abilities[0].name, 'Star Chart');
   assert.ok(advanced.rules.catalog.skills.some(skill => skill.id === 'official-mapping'));
+});
+
+test('The original tracker imports into a persistent designer-only draft', async t => {
+  const d = await database();
+  t.after(() => d.close());
+  const imported = JSON.parse(execFileSync(process.execPath, ['scripts/import-original-catalog.mjs'], { encoding: 'utf8' }));
+  assert.equal(imported.lineages.length, 9);
+  assert.equal(imported.skills.filter(skill => skill.generic).length, 18);
+  assert.deepEqual(imported.backgrounds.map(background => background.name), ['Cyber-Infiltrator','Paratrooper','Energy Weaponsmith','Conscript']);
+  assert.ok(imported.lineages.find(lineage => lineage.name === 'Exo').variants.some(variant => variant.name === 'Mars' && variant.abilities.length));
+  assert.ok(imported.lineages.find(lineage => lineage.name === 'Aberrant').variants.some(variant => variant.name === 'Thermal Vision' && variant.abilities.length));
+  assert.ok(imported.abilities.some(ability => ability.name === 'Company Transit' && ability.description.startsWith('You can get free passage')));
+  assert.ok(imported.abilities.some(ability => ability.name === 'Time' && ability.group === 'Tekhne' && !ability.enabled));
+  assert.ok(imported.skills.some(skill => skill.name === 'Hacking' && !skill.generic));
+
+  const world = await d.action(PLAYER, 'create_campaign', { name: 'Player world', settings: DEFAULT_SETTINGS });
+  const payload = { base_revision: 1, draft_revision: null, catalog: imported };
+  await d.admin('insert into private.game_designers(user_id) values ($1)', [GM]);
+  await assert.rejects(d.action(PLAYER, 'save_catalog_draft', payload), /Only a game designer/);
+  const saved = await d.action(GM, 'save_catalog_draft', payload);
+  const player = await d.snapshot(PLAYER);
+  assert.equal(player.designer_draft, null);
+  assert.equal(player.official_catalog.catalog.skills.length, 0);
+  assert.equal(player.campaigns[0].catalog.lineages.length, 0);
+  assert.deepEqual((await d.snapshot(GM)).designer_draft.catalog, imported);
+  await assert.rejects(d.as(PLAYER, 'select * from private.designer_draft'), /permission denied/);
+  await assert.rejects(d.action(GM, 'save_catalog_draft', payload), /draft changed/);
+  await assert.rejects(d.action(PLAYER, 'publish_catalog_draft', { ...payload, draft_revision: saved.revision }), /Only a game designer/);
+  const edited = structuredClone(imported);
+  edited.lineages[0].name = 'Terran revised';
+  const next = await d.action(GM, 'save_catalog_draft', { ...payload, catalog: edited, draft_revision: saved.revision });
+  await assert.rejects(d.action(GM, 'discard_catalog_draft', { draft_revision: saved.revision }), /draft changed/);
+  const published = await d.action(GM, 'publish_catalog_draft', { ...payload, draft_revision: next.revision });
+  assert.equal(published.revision, 2);
+  assert.equal((await d.snapshot(GM)).designer_draft, null);
+  const current = await d.snapshot(PLAYER);
+  assert.equal(current.campaigns[0].id, world.id);
+  assert.equal(current.campaigns[0].catalog.lineages[0].name, 'Terran revised');
+  const abandoned = await d.action(GM, 'save_catalog_draft', { catalog: imported, base_revision: 2 });
+  await d.action(GM, 'discard_catalog_draft', { draft_revision: abandoned.revision });
+  assert.equal((await d.snapshot(GM)).designer_draft, null);
+  assert.equal((await d.snapshot(PLAYER)).official_catalog.revision, 2);
 });
