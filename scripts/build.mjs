@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 const root=resolve(import.meta.dirname,'..');
 const out=resolve(root,'dist');
 await mkdir(out,{recursive:true});
-for(const file of ['index.html','config.js','SETUP.md','robots.txt','legacy.html','editor.html','src/main.js','src/styles.css','data/empyrean-system-content.json']){
+for(const file of ['index.html','config.js','SETUP.md','robots.txt','legacy.html','editor.html','designer/index.html','src/main.js','src/styles.css','data/empyrean-system-content.json']){
   await cp(resolve(root,file),resolve(out,file));
 }
 await cp(resolve(root,'src/v2'),resolve(out,'src/v2'),{recursive:true});

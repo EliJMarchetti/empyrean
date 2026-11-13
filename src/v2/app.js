@@ -1,8 +1,9 @@
-import { ATTRIBUTES, AGE_CATEGORIES, DEFAULT_SETTINGS, clone, demand, buildInfo, validateBuild, settingsFrom, characterRules, checkAdvancement } from './rules.js';
+import { ATTRIBUTES, AGE_CATEGORIES, DEFAULT_SETTINGS, clone, demand, buildInfo, validateBuild, validateCatalog, settingsFrom, characterRules, checkAdvancement, emptyCatalog } from './rules.js';
 import { DemoStore, DEMO_GM, DEMO_PLAYER } from './demo.js';
 import { CloudStore, configured } from './cloud.js';
 import { icon } from './icons.js';
 import { emptyTurnOrder, nextTurn, withoutTurn, rollValues } from './table-tools.js';
+import { CONTENT_TYPES, isOfficial, removeCatalogEntry } from './catalog.js';
 
 const root = document.querySelector('#app');
 const modalRoot = document.querySelector('#modal-root');
@@ -25,7 +26,7 @@ const check = (label, name, value) => `<label class="check-label"><input name="$
 const uid = () => store?.userId || store?.session?.user?.id || data?.profile?.id;
 const previewUser = () => localStorage.getItem('empyrean.previewRole') === 'player' ? DEMO_PLAYER : DEMO_GM;
 let store, data, unsubscribe, syncing = null, toastTimer, modalHandler, modalPreviousFocus;
-const ui = { filter: 'all', editor: null, settingsTab: 'rules', settingsDraft: null, modal: false, auth: 'signin', mapId: '', mapZoom: 1, mobile: false, lastSync: null, offline: false, saving: false, refreshPending: false };
+const ui = { filter: 'all', editor: null, settingsTab: 'rules', settingsDraft: null, studioTab: 'lineages', studioDraft: null, modal: false, auth: 'signin', mapId: '', mapZoom: 1, mobile: false, lastSync: null, offline: false, saving: false, refreshPending: false };
 const campaignOf = id => data?.campaigns.find(c => c.id === id);
 const membersOf = id => data?.members.filter(m => m.campaign_id === id) || [];
 const charactersOf = id => data?.characters.filter(c => c.campaign_id === id) || [];
@@ -46,10 +47,11 @@ function route() {
 }
 function navigate(path) {
   if (!guardDirty()) return;
-  ui.editor = null; ui.settingsDraft = null; ui.mobile = false;
+  ui.editor = null; ui.settingsDraft = null; ui.studioDraft = null; ui.mobile = false;
   if (location.hash === path) render(); else location.hash = path;
 }
-function guardDirty() { return (!ui.editor?.dirty && !ui.settingsDraft?.dirty) || confirm('Discard your unsaved changes?'); }
+function hasUnsavedChanges() { return ui.editor?.dirty || ui.settingsDraft?.dirty || ui.studioDraft?.dirty; }
+function guardDirty() { return !hasUnsavedChanges() || confirm('Discard your unsaved changes?'); }
 function toast(message, error = false) {
   const el = document.querySelector('#toast'); el.textContent = message; el.className = 'show' + (error ? ' error' : ''); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.className = '', error ? 8000 : 4000);
 }
@@ -69,7 +71,7 @@ async function refresh({ renderPage = true, quiet = false } = {}) {
       if (!next.profile && !isDemo()) { await store.action('profile', { display_name: store.session.user?.user_metadata?.display_name || 'Player' }); next.profile = { id: store.session.user?.id, display_name: store.session.user?.user_metadata?.display_name || 'Player' }; }
       ui.refreshPending ||= JSON.stringify(data) !== JSON.stringify(next);
       data = next; ui.lastSync = Date.now(); ui.offline = false;
-      if (renderPage && (!quiet || (ui.refreshPending && !ui.modal && !ui.editor?.dirty && !ui.settingsDraft?.dirty && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) && !dragging))) render();
+      if (renderPage && (!quiet || (ui.refreshPending && !ui.modal && !hasUnsavedChanges() && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) && !dragging))) render();
       status();
     } catch (e) { ui.offline = true; status(); if (!quiet) throw e; }
   })();
@@ -91,7 +93,7 @@ function brand() { return '<a class="brand" href="#/"><img src="./src/assets/emp
 function navItem(label, glyph, href, active) { return `<a class="nav-item ${active ? 'active' : ''}" href="${esc(href)}">${icon(glyph)}${esc(label)}</a>`; }
 function shell(content, c = null) {
   const r = route(); const tabLabels = { overview: 'Overview', characters: 'Characters', character: 'Character sheet', world: 'World & table', session: 'Session tools', journal: 'Campaign journal', inventory: 'Inventory', settings: 'Campaign settings' };
-  return `<div class="layout ${ui.mobile ? 'nav-open' : ''}"><button class="mobile-shade" aria-label="Close navigation" data-action="menu"></button><aside class="sidebar">${brand()}<div class="nav-caption">Workspace</div>${navItem('My campaigns', 'grid', '#/', r.page === 'home')}${navItem('Personal notebook', 'book', '#/notebook', r.page === 'notebook')}${c ? `<div class="nav-caption">Current campaign</div><div class="campaign-nav-name">${esc(c.name)}</div>${[['Overview', 'compass', 'overview'], ['Characters', 'users', 'characters'], ['World & table', 'map', 'world'], ['Session tools', 'dice', 'session'], ['Journal', 'book', 'journal'], ['Inventory', 'box', 'inventory'], ...(isGm(c) ? [['Campaign settings', 'settings', 'settings']] : [])].map(([l,g,t]) => navItem(l,g,pathFor(c.id,t),r.tab === t || (r.tab === 'character' && t === 'characters'))).join('')}` : `<div class="nav-caption">At the table</div><button class="nav-item" data-action="join">${icon('link')}Join a campaign</button><button class="nav-item" data-action="create-campaign">${icon('plus')}Create a campaign</button>`}<div class="sidebar-bottom"><div class="table-status"><strong>${isDemo() ? 'Local preview' : 'Your table, connected'}</strong>${isDemo() ? 'Example content · device only' : '<span class="status-dot"></span>Campaigns saved to your account'}</div><button class="profile-button" data-action="profile">${avatar(data.profile?.display_name)}<div class="grow"><strong>${esc(data.profile?.display_name || 'Player')}</strong><small>${isDemo() ? (uid() === DEMO_GM ? 'Preview as game master' : 'Preview as player') : 'Personal account'}</small></div>${icon('settings')}</button></div></aside><main class="main"><header class="topbar"><div class="row">${ibtn('Open navigation', 'menu', 'menu', 'class="mobile-menu"')}<div class="breadcrumb"><a href="#/">Workspace</a>${icon('chevron')}${c ? `<a href="${pathFor(c.id)}">${esc(c.name)}</a>${icon('chevron')}<strong>${esc(tabLabels[r.tab] || 'Overview')}</strong>` : `<strong>${r.page === 'notebook' ? 'Personal notebook' : 'My campaigns'}</strong>`}</div></div><div class="row">${isDemo() ? '<span class="preview-label">LOCAL PREVIEW</span>' : ''}<span class="sync-label" data-sync></span></div></header>${ui.offline ? '<div class="notice error" role="alert">Connection lost. Changes cannot be saved until the server is reachable.</div>' : ''}<div class="page ${r.tab === 'world' ? 'world-page' : ''}">${content}</div></main></div>`;
+  return `<div class="layout ${ui.mobile ? 'nav-open' : ''}"><button class="mobile-shade" aria-label="Close navigation" data-action="menu"></button><aside class="sidebar">${brand()}<div class="nav-caption">Workspace</div>${navItem('My campaigns', 'grid', '#/', r.page === 'home')}${navItem('Personal notebook', 'book', '#/notebook', r.page === 'notebook')}${!isDemo() ? navItem('Official library', 'book', '#/library', r.page === 'library') : ''}${data.can_design ? navItem('Designer Studio', 'edit', '#/designer', r.page === 'designer') : ''}${c ? `<div class="nav-caption">Current campaign</div><div class="campaign-nav-name">${esc(c.name)}</div>${[['Overview', 'compass', 'overview'], ['Characters', 'users', 'characters'], ['World & table', 'map', 'world'], ['Session tools', 'dice', 'session'], ['Journal', 'book', 'journal'], ['Inventory', 'box', 'inventory'], ...(isGm(c) ? [['Campaign settings', 'settings', 'settings']] : [])].map(([l,g,t]) => navItem(l,g,pathFor(c.id,t),r.tab === t || (r.tab === 'character' && t === 'characters'))).join('')}` : `<div class="nav-caption">At the table</div><button class="nav-item" data-action="join">${icon('link')}Join a campaign</button><button class="nav-item" data-action="create-campaign">${icon('plus')}Create a campaign</button>`}<div class="sidebar-bottom"><div class="table-status"><strong>${isDemo() ? 'Local preview' : 'Your table, connected'}</strong>${isDemo() ? 'Example content · device only' : '<span class="status-dot"></span>Campaigns saved to your account'}</div><button class="profile-button" data-action="profile">${avatar(data.profile?.display_name)}<div class="grow"><strong>${esc(data.profile?.display_name || 'Player')}</strong><small>${isDemo() ? (uid() === DEMO_GM ? 'Preview as game master' : 'Preview as player') : 'Personal account'}</small></div>${icon('settings')}</button></div></aside><main class="main"><header class="topbar"><div class="row">${ibtn('Open navigation', 'menu', 'menu', 'class="mobile-menu"')}<div class="breadcrumb"><a href="#/">Workspace</a>${icon('chevron')}${c ? `<a href="${pathFor(c.id)}">${esc(c.name)}</a>${icon('chevron')}<strong>${esc(tabLabels[r.tab] || 'Overview')}</strong>` : `<strong>${{notebook:'Personal notebook',library:'Official library',designer:'Designer Studio'}[r.page] || 'My campaigns'}</strong>`}</div></div><div class="row">${isDemo() ? '<span class="preview-label">LOCAL PREVIEW</span>' : ''}<span class="sync-label" data-sync></span></div></header>${ui.offline ? '<div class="notice error" role="alert">Connection lost. Changes cannot be saved until the server is reachable.</div>' : ''}<div class="page ${r.tab === 'world' ? 'world-page' : ''}">${content}</div></main></div>`;
 }
 function heading(eyebrow, title, subtitle, actions = '') { return `<div class="page-heading"><div><div class="eyebrow">${esc(eyebrow)}</div><h1>${esc(title)}</h1>${subtitle ? `<p>${esc(subtitle)}</p>` : ''}</div>${actions ? `<div class="actions">${actions}</div>` : ''}</div>`; }
 function render() {
@@ -100,6 +102,8 @@ function render() {
   const r = route(); let c = r.page === 'campaign' ? campaignOf(r.campaignId) : null; let html;
   if (r.page === 'campaign' && !c) html = empty('Campaign not available', 'Join with a valid invitation or return to your campaigns.', link('My campaigns', '#/', 'back'));
   else if (r.page === 'notebook') html = renderNotes(null);
+  else if (r.page === 'library') html = renderLibrary(false);
+  else if (r.page === 'designer') html = data.can_design ? renderLibrary(true) : empty('Designer access required', 'Sign in with an account that has the Game Designer role.', link('Open official library','#/library','book'),'lock');
   else if (c) {
     if (r.tab === 'characters') html = renderCharacters(c);
     else if (r.tab === 'character') html = renderCharacter(c, r.recordId, r.query.has('edit'));
@@ -111,7 +115,7 @@ function render() {
     else html = renderOverview(c);
   } else html = renderHome();
   root.innerHTML = shell(html, c); status();
-  document.title = `${c?.name || (r.page === 'notebook' ? 'Notebook' : 'My campaigns')} | Empyrean`;
+  document.title = `${c?.name || ({notebook:'Notebook',library:'Official library',designer:'Designer Studio'}[r.page] || 'My campaigns')} | Empyrean`;
   if (r.tab === 'world' && c) loadMapImage(c);
 }
 function renderHome() {
@@ -120,6 +124,45 @@ function renderHome() {
 }
 function campaignCleanupNotices() {
   return (data.campaign_upload_cleanup || []).map(job=>`<div class="notice cleanup-notice"><p>A deleted campaign still has uploaded map files to remove.</p>${btn('Retry map cleanup','retry-upload-cleanup','cloud','small',recordAttr(job.campaign_id))}</div>`).join('');
+}
+function renderLibrary(studio) {
+  const published = data.official_catalog || { catalog: emptyCatalog(), revision: 0 };
+  if (studio && (!ui.studioDraft || (!ui.studioDraft.dirty && ui.studioDraft.revision !== published.revision))) {
+    ui.studioDraft = { ...clone(published), dirty: false };
+  }
+  const draft = studio ? ui.studioDraft : published;
+  const category = ui.studioTab;
+  const type = CONTENT_TYPES[category];
+  const attrs = `data-kind="${category}"`;
+  const entries = studio ? draft.catalog[category] : draft.catalog[category].filter(entry => entry.enabled !== false);
+  const stale = draft.revision !== published.revision;
+  const add = studio ? btn(`Add ${type.singular}`, 'add-content', 'plus', 'primary', attrs) : '';
+  const actions = studio ? link('View published library','#/library','book') : data.can_design ? link('Designer Studio','#/designer','edit') : '';
+  return `${heading('Workspace', studio?'Designer Studio':'Official library', studio?'Create, edit, and publish game content for every campaign.':'Game content published by the Empyrean designer.', actions)}
+    ${stale ? `<div class="notice error">The published catalog changed while you were editing. ${btn('Reload catalog','reload-studio','','small')}</div>` : ''}
+    <div class="settings-tabs library-tabs" role="group" aria-label="Content categories">${Object.entries(CONTENT_TYPES).map(([key,value])=>`<button class="${key===category?'active':''}" data-action="studio-tab" data-value="${key}" aria-pressed="${key===category}">${value.title}</button>`).join('')}</div>
+    <div class="section-heading"><h2>${type.title}</h2>${add}</div>
+    ${entries.length ? `<div class="library-grid">${entries.map(entry=>renderLibraryEntry(draft.catalog,category,entry,studio)).join('')}</div>` : empty('Nothing here yet',studio?'Add an entry and publish the catalog when it’s ready.':'Published content in this category will appear here.','',type.icon)}
+    ${studio ? `<div class="save-bar"><p class="${draft.dirty?'dirty-badge':''}">${draft.dirty?'Unpublished changes':'Catalog up to date'}</p>${btn('Publish catalog','publish-studio','check','primary',draft.dirty&&!stale?'':'disabled')}</div>` : ''}`;
+}
+function renderLibraryEntry(catalog,category,entry,studio) {
+  const attrs=`data-kind="${category}" ${recordAttr(entry.id)}`;
+  const grants = ['skills','abilities'].flatMap(kind=>kind===category?[]:(entry[kind]||[]).map(id=>catalog[kind].find(item=>item.id===id)?.name).filter(Boolean));
+  const details = [category==='abilities'?`${entry.cost} Merit`:'',entry.generic&&category==='skills'?'General skill':'',entry.meritBonus?`+${fmt(entry.meritBonus)} starting Merit`:'',entry.sparksBonus?`+${fmt(entry.sparksBonus)} starting Sparks`:'',...grants].filter(Boolean);
+  const variants = entry.variants?.filter(variant=>studio||variant.enabled!==false).map(variant=>variant.name);
+  return `<article class="panel library-card"><div class="row"><span class="stat-icon">${icon(CONTENT_TYPES[category].icon)}</span><h3 class="grow">${esc(entry.name)}</h3>${studio&&entry.enabled===false?pill('Hidden','gray'):''}</div>
+    ${entry.description?`<div class="text-content">${esc(entry.description)}</div>`:''}
+    ${details.length?`<div class="actions">${details.map(detail=>pill(detail,'gray')).join('')}</div>`:''}
+    ${variants?.length?`<p class="muted">Variants · ${esc(variants.join(', '))}</p>`:''}
+    ${studio?`<div class="library-card-actions actions">${btn('Edit','edit-content','edit','small',attrs)}${btn('Delete','delete-official','trash','small danger',attrs)}</div>`:''}</article>`;
+}
+function deleteOfficialModal(category,id) {
+  const draft=ui.studioDraft;
+  const entry=draft.catalog[category].find(entry=>entry.id===id);
+  openModal(`Delete ${entry.name}?`,'<p>Publishing this deletion will remove the entry and its grants from campaign catalogs. Finished characters retain their saved rules.</p>',()=>{
+    draft.catalog=removeCatalogEntry(draft.catalog,category,id);
+    draft.dirty=true;closeModal();render();
+  },'Delete from draft','',false,true);
 }
 function renderCampaignCard(c, i) {
   const members = membersOf(c.id); const ch = partyOf(c.id); const map = data.maps.find(m=>m.campaign_id===c.id && m.image_url && !m.storage_path);
@@ -262,10 +305,19 @@ function renderSettings(c) {
   const rules=`<section class="panel form-section"><h3>Campaign details</h3><div class="form-grid"><label class="full">Campaign name<input data-settings="name" value="${esc(draft.name)}" maxlength="120" required/></label><label class="full">Description<textarea data-settings="description" maxlength="5000">${esc(draft.description)}</textarea></label></div><h3>Character creation</h3><div class="form-grid">${[['Starting Merit','startingMerit',0,'any'],['Starting Sparks','startingSparks',0,'any'],['Maximum Attribute at creation','attributeCap',1,1],['Maximum Skill at creation','skillCap',0,1]].map(([l,k,min,step])=>`<label>${l}<input data-rule="${k}" type="number" min="${min}" step="${step}" ${k==='attributeCap'?'max="5"':k==='skillCap'?'max="10"':''} value="${s[k]}"/></label>`).join('')}</div><label class="check-label"><input data-rule="allowCustomBackground" type="checkbox" ${checked(s.allowCustomBackground)}/>Allow custom backgrounds with GM approval</label><label class="check-label"><input data-rule="allowBackgroundBypass" type="checkbox" ${checked(s.allowBackgroundBypass)}/>Allow background bypass (+5 Merit, +500 Sparks)</label><label>Required custom background fields (one per line)<textarea data-rule="backgroundFields" rows="4">${esc(s.backgroundFields.join('\n'))}</textarea></label><p class="muted" style="font-size:11px">These campaign caps apply during creation. Finished characters use the normal maximums of Attribute 5 and Skill 10.</p></section>`;
   let content=rules;
   if(tab!=='rules'){
-    const cat=draft.catalog[tab]||[];
-    content=`<div class="section-heading"><h2>${esc(tab.charAt(0).toUpperCase()+tab.slice(1))}</h2>${btn('Add '+{lineages:'lineage',backgrounds:'background',skills:'skill',abilities:'ability'}[tab],'add-content','plus','primary',`data-kind="${tab}"`)}</div>${cat.length?`<div class="content-list">${cat.map(e=>`<div class="content-row ${e.enabled===false?'disabled':''}"><span class="stat-icon">${icon(tab==='skills'?'book':tab==='abilities'?'spark':'users')}</span><div class="grow"><h3>${esc(e.name)} ${e.enabled===false?pill('Disabled','gray'):''}</h3><p>${tab==='abilities'?e.cost+' Merit · ':''}${tab==='skills'?(e.generic?'General skill':'Unlocked by content'):esc(e.description||'')}${e.variants?.length?' · '+e.variants.length+' variants':''}</p></div><div class="actions">${btn(e.enabled===false?'Enable':'Disable','toggle-content','','small',`data-kind="${tab}" data-id="${esc(e.id)}"`)}${ibtn('Edit '+e.name,'edit-content','edit',`data-kind="${tab}" data-id="${esc(e.id)}"`)}</div></div>`).join('')}</div>`:empty('No '+tab+' yet','Add campaign content for your players to choose from.',btn('Add '+{lineages:'lineage',backgrounds:'background',skills:'skill',abilities:'ability'}[tab],'add-content','plus','primary',`data-kind="${tab}"`),'book')}`;
+    content=renderCampaignCatalog(draft.catalog,tab);
   }
   return `${heading('Campaign / Settings','The rules of your world.','Starting values, creation limits, and campaign content.',btn('Manage invitations','invite','link','',`data-id="${c.id}"`))}${isDemo()?'<div class="notice" style="margin-bottom:20px">This preview campaign includes example content. New campaigns start with an empty catalog for the new edition.</div>':''}${draft.revision!==c.revision?'<div class="notice error">Settings changed on another device. Reload before saving. '+btn('Reload settings','reload-settings','','small')+'</div>':''}<div class="settings-tabs" role="group" aria-label="Campaign settings sections">${[['rules','Rules'],['lineages','Lineages'],['backgrounds','Backgrounds'],['skills','Skills'],['abilities','Abilities']].map(([k,l])=>`<button class="${tab===k?'active':''}" data-action="settings-tab" data-value="${k}">${l}${k==='rules'?'':' · '+draft.catalog[k].length}</button>`).join('')}</div>${content}<div class="save-bar"><p class="${draft.dirty?'dirty-badge':''}">${draft.dirty?'Unsaved changes':'Campaign settings saved'}</p><div class="actions">${btn('Save campaign settings','save-settings','check','primary')}</div></div>${tab==='rules'?campaignDanger(c):''}`;
+}
+function renderCampaignCatalog(catalog,category) {
+  const type=CONTENT_TYPES[category];
+  const add=btn(`Add ${type.singular}`,'add-content','plus','primary',`data-kind="${category}"`);
+  const entries=catalog[category];
+  return `<div class="section-heading"><h2>${type.title}</h2>${add}</div>${entries.length?`<div class="content-list">${entries.map(entry=>{
+    const official=isOfficial(entry.id),attrs=`data-kind="${category}" ${recordAttr(entry.id)}`;
+    const details=category==='skills'?(entry.generic?'General skill':'Unlocked by content'):entry.description;
+    return `<div class="content-row ${entry.enabled===false?'disabled':''}"><span class="stat-icon">${icon(type.icon)}</span><div class="grow"><h3>${esc(entry.name)} ${official?pill('Official'):''} ${entry.enabled===false?pill('Disabled','gray'):''}</h3><p>${category==='abilities'?`${entry.cost} Merit · `:''}${esc(details||'')}${entry.variants?.length?` · ${entry.variants.length} variants`:''}</p></div><div class="actions">${official?'':btn(entry.enabled===false?'Enable':'Disable','toggle-content','','small',attrs)+ibtn(`Edit ${entry.name}`,'edit-content','edit',attrs)}</div></div>`;
+  }).join('')}</div>`:empty(`No ${category} yet`,'Add campaign content for your players to choose from.',add,'book')}`;
 }
 
 function openModal(title,body,submit,label='Save',extra='',wide=false,destructive=false) {
@@ -437,12 +489,17 @@ function readContent(form,kind,base) {
   return e;
 }
 function contentModal(kind,id,entry) {
-  const cat=ui.settingsDraft.catalog;const e=entry||cat[kind].find(e=>e.id===id)||{id:crypto.randomUUID(),name:'',description:'',enabled:true,skills:[],abilities:[],cost:4,meritBonus:0,sparksBonus:0,ageRequired:true,variants:[]};
+  const studio=route().page==='designer';
+  const cat=(studio?ui.studioDraft:ui.settingsDraft).catalog;
+  const e=entry||cat[kind].find(e=>e.id===id)||{id:(studio?'official-':'')+crypto.randomUUID(),name:'',description:'',enabled:true,skills:[],abilities:[],cost:4,meritBonus:0,sparksBonus:0,ageRequired:true,variants:[]};
   contentContext={kind,id,entry:e};
   const variants=kind==='lineages'?`<div class="form-section"><div class="section-heading"><h3>Lineage variants</h3>${btn('Add variant','add-variant','plus','small')}</div>${(e.variants||[]).map((v,i)=>`<div class="variant-editor"><div class="row between"><h3>Variant ${i+1}</h3>${ibtn('Remove variant','remove-variant','trash',`data-index="${i}"`)}</div><div class="form-grid" style="margin:14px 0">${field('Variant name',`v-name-${i}`,v.name,'text','required maxlength="120"')}${check('Available',`v-enabled-${i}`,v.enabled!==false)}${field('Additional Merit',`v-merit-${i}`,v.meritBonus||0,'number','min="0" step="any"')}${field('Additional Sparks',`v-sparks-${i}`,v.sparksBonus||0,'number','min="0" step="any"')}</div><label style="margin:14px 0 8px">Skill unlocks</label>${grantChecks(cat,'skills',v.skills,`v-skills-${i}`)}<label style="margin:14px 0 8px">Granted abilities</label>${grantChecks(cat,'abilities',v.abilities,`v-abilities-${i}`)}</div>`).join('')}</div>`:'';
-  openModal((id?'Edit ':'Add ')+{lineages:'lineage',backgrounds:'background',skills:'skill',abilities:'ability'}[kind],`<div class="form-section">${field('Name','name',e.name,'text','required maxlength="120"')}${area('Description','description',e.description||'','maxlength="5000"')}${check('Available to players','enabled',e.enabled!==false)}${kind==='skills'?check('General skill (available to every character)','generic',e.generic):`${kind==='abilities'?field('Merit cost','cost',e.cost,'number','required min="1" max="99" step="1"'):''}<label>Skill unlocks</label>${grantChecks(cat,'skills',e.skills)}${kind!=='abilities'?`<label>Granted abilities</label>${grantChecks(cat,'abilities',e.abilities)}<div class="form-grid">${field('Additional starting Merit','meritBonus',e.meritBonus||0,'number','min="0" step="any" required')}${field('Additional starting Sparks','sparksBonus',e.sparksBonus||0,'number','min="0" step="any" required')}</div>`:''}`}${kind==='lineages'?check('Age category required','ageRequired',e.ageRequired!==false):''}</div>${variants}`,async(form)=>{
-    const updated=readContent(form,kind,contentContext.entry);const entries=ui.settingsDraft.catalog[kind];const i=entries.findIndex(v=>v.id===id);if(i>=0)entries[i]=updated;else entries.push(updated);ui.settingsDraft.dirty=true;closeModal();render();toast('Content added to your pending settings. Save campaign settings to publish it.');
-  },'Apply to campaign','',true);
+  openModal((id?'Edit ':'Add ')+CONTENT_TYPES[kind].singular,`<div class="form-section">${field('Name','name',e.name,'text','required maxlength="120"')}${area('Description','description',e.description||'','maxlength="5000"')}${check('Available to players','enabled',e.enabled!==false)}${kind==='skills'?check('General skill (available to every character)','generic',e.generic):`${kind==='abilities'?field('Merit cost','cost',e.cost,'number','required min="1" max="99" step="1"'):''}<label>Skill unlocks</label>${grantChecks(cat,'skills',e.skills)}${kind!=='abilities'?`<label>Granted abilities</label>${grantChecks(cat,'abilities',e.abilities)}<div class="form-grid">${field('Additional starting Merit','meritBonus',e.meritBonus||0,'number','min="0" step="any" required')}${field('Additional starting Sparks','sparksBonus',e.sparksBonus||0,'number','min="0" step="any" required')}</div>`:''}`}${kind==='lineages'?check('Age category required','ageRequired',e.ageRequired!==false):''}</div>${variants}`,async(form)=>{
+    const draft=studio?ui.studioDraft:ui.settingsDraft;
+    const updated=readContent(form,kind,contentContext.entry);
+    draft.catalog[kind]=id?draft.catalog[kind].map(entry=>entry.id===id?updated:entry):[...draft.catalog[kind],updated];
+    draft.dirty=true;closeModal();render();
+  },studio?'Save to draft':'Apply to campaign','',true);
 }
 function profileModal() {
   openModal('Your account',`<div class="form-section">${field('Display name','display_name',data.profile?.display_name||'','text','required maxlength="80"')}${isDemo()?`<div class="notice">Local preview data is saved only in this browser. The included characters and rules are examples.</div><div class="actions">${btn(uid()===DEMO_GM?'Preview as player':'Preview as GM','switch-preview','users')}${btn('Exit preview','exit-preview','logout')}</div>`:`<p class="muted" style="font-size:12px">${esc(store.session?.user?.email||'')}</p><div class="actions">${btn('Change password','change-password','lock')}${btn('Sign out','signout','logout')}</div>`}</div>`,async(form)=>{await command('profile',{display_name:new FormData(form).get('display_name')});closeModal();render();toast('Profile saved.');},'Save profile');
@@ -610,6 +667,15 @@ async function handleAction(el) {
   else if(a==='zoom-in'||a==='zoom-out'||a==='zoom-reset'){ui.mapZoom=a==='zoom-reset'?1:Math.max(1,Math.min(3,ui.mapZoom+(a==='zoom-in'?.25:-.25)));render();}
   else if(a==='share-world'){const mp=currentMap(c);const url=new URL(location.href);url.search='';url.hash=pathFor(c.id,'world').slice(1)+(mp?'?map='+mp.id:'');await copyText(url.href);}
   else if(a==='settings-tab'){ui.settingsTab=el.dataset.value;render();}
+  else if(a==='studio-tab'){ui.studioTab=el.dataset.value;render();}
+  else if(a==='reload-studio'){if(!guardDirty())return;ui.studioDraft=null;render();}
+  else if(a==='delete-official')deleteOfficialModal(el.dataset.kind,id);
+  else if(a==='publish-studio'){
+    const draft=ui.studioDraft;
+    validateCatalog(draft.catalog);
+    await command('publish_catalog',{catalog:draft.catalog,revision:draft.revision});
+    ui.studioDraft=null;render();toast('Official catalog published.');
+  }
   else if(a==='reload-settings'){if(!guardDirty())return;ui.settingsDraft=null;render();}
   else if(a==='save-settings'){
     const draft=ui.settingsDraft;draft.settings=settingsFrom(draft.settings);await command('update_campaign',{id:draft.id,revision:draft.revision,name:draft.name,description:draft.description,settings:draft.settings,catalog:draft.catalog});ui.settingsDraft=null;render();toast('Campaign rules and content saved.');
@@ -625,7 +691,7 @@ async function handleAction(el) {
     closeModal();ui.editor=null;ui.settingsDraft=null;ui.mapId='';await start(new DemoStore(previewUser()));navigate('#/');
   }
   else if(a==='exit-preview'){if(!guardDirty())return;unsubscribe?.();closeModal();store=null;data=null;localStorage.removeItem('empyrean.previewMode');ui.editor=null;ui.settingsDraft=null;configured()?renderAuth():renderLocalIntro();}
-  else if(a==='signout'){if(!guardDirty())return;await store.signOut();unsubscribe?.();closeModal();data=null;store=null;ui.editor=null;ui.settingsDraft=null;renderAuth();}
+  else if(a==='signout'){if(!guardDirty())return;await store.signOut();unsubscribe?.();closeModal();data=null;store=null;ui.editor=null;ui.settingsDraft=null;ui.studioDraft=null;renderAuth();}
   else if(a==='change-password')passwordModal();
   else if(a==='roll')rollModal(Number(el.dataset.value)||1);
   else if(a==='enter-preview'){localStorage.setItem('empyrean.previewMode','1');await start(new DemoStore(previewUser()));}
@@ -672,13 +738,13 @@ document.addEventListener('keydown',e=>{
     if(e.shiftKey&&document.activeElement===first){last?.focus();e.preventDefault();}else if(!e.shiftKey&&document.activeElement===last){first?.focus();e.preventDefault();}
   }
 });
-window.addEventListener('hashchange',()=>{ui.mobile=false;const r=route();if(ui.editor&&r.recordId!==ui.editor.id)ui.editor=null;if(ui.settingsDraft&&(r.campaignId!==ui.settingsDraft.id||r.tab!=='settings'))ui.settingsDraft=null;render();});
-window.addEventListener('beforeunload',e=>{if(ui.editor?.dirty||ui.settingsDraft?.dirty){e.preventDefault();e.returnValue='';}});
+window.addEventListener('hashchange',()=>{ui.mobile=false;const r=route();if(ui.editor&&r.recordId!==ui.editor.id)ui.editor=null;if(ui.settingsDraft&&(r.campaignId!==ui.settingsDraft.id||r.tab!=='settings'))ui.settingsDraft=null;if(r.page!=='designer')ui.studioDraft=null;render();});
+window.addEventListener('beforeunload',e=>{if(hasUnsavedChanges()){e.preventDefault();e.returnValue='';}});
 window.addEventListener('storage',async e=>{
   if(e.key!=='empyrean.v2.session'||!(store instanceof CloudStore))return;
   let session;try{session=JSON.parse(e.newValue||'null');}catch{return;}
   if(session?.user?.id&&session.user.id===store.session?.user?.id){store.session=session;return;}
-  unsubscribe?.();data=null;ui.editor=null;ui.settingsDraft=null;closeModal();
+  unsubscribe?.();data=null;ui.editor=null;ui.settingsDraft=null;ui.studioDraft=null;closeModal();
   if(session){try{await start(new CloudStore());}catch(error){renderAuth(error.message,true);}}
   else{store.saveSession(null);store=null;renderAuth();}
 });

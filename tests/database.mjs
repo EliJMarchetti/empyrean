@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 export const GM='00000000-0000-4000-8000-000000000001';
 export const PLAYER='00000000-0000-4000-8000-000000000002';
 export const OUTSIDER='00000000-0000-4000-8000-000000000003';
-export async function database({ gmTools = true, storage = false } = {}) {
+export async function database({ gmTools = true, designer = gmTools, storage = false } = {}) {
   const db=new PGlite();
   await db.exec(`create role anon nologin; create role authenticated nologin;
     create schema auth; create table auth.users(id uuid primary key,raw_user_meta_data jsonb default '{}');
@@ -13,6 +13,7 @@ export async function database({ gmTools = true, storage = false } = {}) {
   `);
   await db.exec(await readFile(new URL('../supabase/migrations/001_campaigns.sql',import.meta.url),'utf8'));
   if (gmTools) await db.exec(await readFile(new URL('../supabase/migrations/002_gm_tools.sql',import.meta.url),'utf8'));
+  if (designer) await db.exec(await readFile(new URL('../supabase/migrations/003_designer_studio.sql',import.meta.url),'utf8'));
   if (storage) {
     // Emulate the Supabase-owned tables used by our storage policies.
     await db.exec(`create schema storage;

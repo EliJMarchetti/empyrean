@@ -10,11 +10,14 @@ In the project's SQL Editor, run these files in order, once, in a **new project*
 
 1. `supabase/migrations/001_campaigns.sql`
 2. `supabase/migrations/002_gm_tools.sql`
-3. `supabase/storage.sql`
+3. `supabase/migrations/003_designer_studio.sql`
+4. `supabase/storage.sql`
 
 They create the data tables, account profiles, database permissions and transaction functions, plus a private `campaign-maps` bucket. Do not paste them over a database with an existing Empyrean schema.
 
 **Upgrading an existing Empyrean v2 project?** Run `supabase/migrations/002_gm_tools.sql` once and then re-run `supabase/storage.sql`. The upgrade keeps your existing campaigns, accounts, and sheets. Apply it before deploying the updated client.
+
+Apply `supabase/migrations/003_designer_studio.sql` after the GM migration. Assign the Game Designer role by inserting the chosen Supabase Auth user ID into `private.game_designers` from the SQL Editor. The user signs in with their normal Empyrean account and opens `/designer/`. Published entries are added to current and future campaigns. Finished character sheets use their saved rules for existing choices.
 
 ## 2. Set up email sign-in
 
