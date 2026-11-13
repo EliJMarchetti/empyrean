@@ -12,7 +12,8 @@ In the project's SQL Editor, run these files in order, once, in a **new project*
 2. `supabase/migrations/002_gm_tools.sql`
 3. `supabase/migrations/003_designer_studio.sql`
 4. `supabase/migrations/004_designer_drafts.sql`
-5. `supabase/storage.sql`
+5. `supabase/migrations/005_linked_journal.sql`
+6. `supabase/storage.sql`
 
 They create the data tables, account profiles, database permissions and transaction functions, plus a private `campaign-maps` bucket. Do not paste them over a database with an existing Empyrean schema.
 
@@ -21,6 +22,8 @@ They create the data tables, account profiles, database permissions and transact
 Apply `supabase/migrations/003_designer_studio.sql` after the GM migration. Assign the Game Designer role by inserting the chosen Supabase Auth user ID into `private.game_designers` from the SQL Editor. The user signs in with their normal Empyrean account and opens `/designer/`. Published entries are added to current and future campaigns. Finished character sheets use their saved rules for existing choices.
 
 Apply `supabase/migrations/004_designer_drafts.sql` to enable saved designer drafts. The production import is stored as a draft for review. The conversion script maps original specializations to unlockable skills, homeworlds and lineage features to variants, and corporate ties to abilities. Imported abilities start at 1 Merit when bought individually. Tekhne and Arkhemetry options without written rules start hidden. The original character and campaign saves are outside the scope of this catalog conversion.
+
+Apply `supabase/migrations/005_linked_journal.sql` to upgrade the journal. It preserves existing notes and maps each old audience to the corresponding sharing toggles. Use **Journal → Campaign setting** to group campaigns run by the same GM. A setting note follows the owner’s campaign memberships. A world note follows the GM’s memberships in that setting, and the GM controls edits and sharing after transfer.
 
 ## 2. Set up email sign-in
 
@@ -97,7 +100,7 @@ Connected screens refresh every five seconds while visible, and immediately afte
 - Supabase Auth owns logins. All data access requires an authenticated user.
 - The database checks GM ownership and campaign membership. Browser controls are not the security boundary.
 - Direct table writes are denied. `app_action` validates mutations and performs spending, completion, awards, transfers, invitation redemption, and marker movement in transactions.
-- Private/personal notes are author-only. GM notes are author-plus-GM; direct notes are author-plus-recipient. Read policies enforce this even with manual API calls.
+- Personal notes are owner-only. Campaign and setting notes check the reader’s membership and the owner’s sharing choices for each journal. Links and backlinks use notes visible in that journal.
 - Players see their own drafts; the GM sees all campaign drafts. Finished sheets are visible to campaign members. Shared links require sign-in and membership.
 - Maps use a private bucket and expiring URLs. An already issued image URL may remain usable until its one-hour expiry if a map is subsequently hidden. Database map/marker reads reflect hiding on the next sync.
 - Finished characters retain the rules for their chosen lineage/background, unlocked skills, and acquired abilities. Other abilities use current campaign availability/prices until acquired. Newly added entries become available for advancement. Creation choices remain locked.

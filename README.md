@@ -8,6 +8,8 @@ GMs can build unassigned sheets in **Characters** and give them to a player dire
 
 **Designer Studio** lets designated Empyrean accounts edit and save an unpublished draft of official lineages, variants, backgrounds, skills, and abilities. **Publish catalog** makes the draft available to all signed-in players through the Official library, character creation, and advancement.
 
+The **Journal** supports `[[Note title]]` links, backlinks, and `#tags`. Share a note with the GM and selected players independently, or with all players. GMs can group their campaigns under a named setting, and authors can use that setting to share across campaigns they belong to or transfer a note to the GM as a world note.
+
 **Cloud accounts and cross-device persistence require a Supabase project.** The repository includes the database schema, authorization, transaction functions, and [setup instructions](./SETUP.md). Until configured, the application offers an explicitly labeled device-only preview with example content.
 
 New campaigns use empty catalogs so we can author the new edition's lineages, backgrounds, skills, and abilities together. The preview's game content is illustrative.

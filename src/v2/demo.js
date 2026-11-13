@@ -1,5 +1,6 @@
 import { ATTRIBUTES, DEFAULT_SETTINGS, blankBuild, clone, settingsFrom, emptyCatalog, validateCatalog, validateBuild, buildInfo, checkAdvancement, characterRules, assertRevision, demand, number, canReadNote } from './rules.js';
 import { validateTurnOrder, validateNpc, rollValues } from './table-tools.js';
+import { noteSharing } from './journal.js';
 
 const KEY = 'empyrean.v2.preview';
 export const DEMO_GM = '00000000-0000-4000-8000-000000000001';
@@ -50,11 +51,22 @@ export function localSnapshot(db, userId) {
   const campaigns = db.campaigns.filter(c => db.members.some(m => m.campaign_id === c.id && m.user_id === userId));
   const belongs = id => campaigns.some(c => c.id === id);
   const isGm = id => campaigns.find(c => c.id === id)?.gm_id === userId;
+  const noteJournals = n => campaigns.filter(c=>c.setting_id === n.setting_id && db.members.some(m=>m.campaign_id===c.id&&m.user_id===n.owner_id) && (
+    n.owner_id === userId || (c.gm_id === userId ? n.share_gm : n.all_players || n.shared_with.includes(userId))
+  )).map(c=>c.id);
+  const notes = db.notes.filter(n => {
+    if(n.setting_id)return n.owner_id===userId || noteJournals(n).length;
+    const c = campaigns.find(c=>c.id===n.campaign_id);
+    if(!('share_gm' in n))return (!n.campaign_id || c) && canReadNote(n,userId,c);
+    return n.owner_id===userId || (c && (c.gm_id===userId?n.share_gm:n.all_players||n.shared_with.includes(userId)));
+  });
   return clone({
     profile: db.profiles.find(p => p.id === userId), campaigns,
+    campaign_settings: (db.campaign_settings || []).filter(s=>s.gm_id===userId || campaigns.some(c=>c.setting_id===s.id)),
     members: db.members.filter(m => belongs(m.campaign_id)),
     characters: db.characters.filter(c => belongs(c.campaign_id) && (isGm(c.campaign_id) || (!c.npc && !c.claimable && (c.owner_id === userId || c.status === 'active')))),
-    notes: db.notes.filter(n => (!n.campaign_id || belongs(n.campaign_id)) && canReadNote(n, userId, campaigns.find(c => c.id === n.campaign_id))),
+    notes: [...notes].sort((a,b)=>b.updated_at.localeCompare(a.updated_at)),
+    note_journals: Object.fromEntries(notes.filter(n=>n.setting_id).map(n=>[n.id,noteJournals(n)])),
     items: db.items.filter(i => belongs(i.campaign_id)),
     maps: db.maps.filter(m => belongs(m.campaign_id) && (m.visible || isGm(m.campaign_id))),
     markers: db.markers.filter(m => belongs(m.campaign_id) && (isGm(m.campaign_id) || (!m.hidden && db.maps.some(map => map.id === m.map_id && map.visible)))),
@@ -94,6 +106,16 @@ export function applyAction(db, userId, action, p) {
   } else if (action === 'update_campaign') {
     const c = gm(p.id); assertRevision(c, p); demand(p.name?.trim() && p.name.length <= 120, 'Name your campaign.');
     Object.assign(c, stamp({ ...c, name: p.name.trim(), description: p.description || '', settings: settingsFrom(p.settings), catalog: validateCatalog(p.catalog) })); log(c.id, 'Updated campaign rules and content.'); result = c;
+  } else if (action === 'set_campaign_setting') {
+    const c = gm(p.id); assertRevision(c,p);
+    db.campaign_settings ??= [];
+    let settingId = p.setting_id || null;
+    if(p.setting_name?.trim()){
+      const name=p.setting_name.trim();
+      demand(name.length<=120,'Name your setting.');
+      settingId=uuid(); db.campaign_settings.push({id:settingId,gm_id:userId,name});
+    } else if(settingId) demand(db.campaign_settings.some(s=>s.id===settingId&&s.gm_id===userId),'Choose one of your settings.');
+    Object.assign(c,stamp({...c,setting_id:settingId})); result=c;
   } else if (action === 'delete_campaign') {
     const c = gm(p.id); assertRevision(c, p);
     db.campaigns = db.campaigns.filter(other => other.id !== c.id);
@@ -178,13 +200,23 @@ export function applyAction(db, userId, action, p) {
   } else if (action === 'save_note' || action === 'delete_note') {
     const n = p.id ? row('notes', p.id) : null;
     if (n) { demand(n.owner_id === userId, 'Only the author can edit this note.'); assertRevision(n, p); }
-    if (action === 'delete_note') db.notes = db.notes.filter(x => x.id !== n.id);
+    if (action === 'delete_note') { demand(n,'Note not found.'); db.notes = db.notes.filter(x => x.id !== n.id); }
     else {
-      if (p.campaign_id) campaign(p.campaign_id);
-      demand(['private', 'party', 'gm', 'player'].includes(p.audience) && (p.campaign_id || p.audience === 'private'), 'Choose a valid note audience.');
-      demand(p.audience !== 'player' || db.members.some(m => m.campaign_id === p.campaign_id && m.user_id === p.recipient_id), 'Choose a campaign member.');
+      const scope=p.scope || (p.campaign_id?'campaign':'personal');
+      demand(['personal','campaign','setting','world'].includes(scope),'Choose a valid note scope.');
+      const retained=!p.campaign_id&&n?.setting_id&&scope===(n.world_note?'world':'setting');
+      const c=scope==='personal'?null:retained?{setting_id:n.setting_id,gm_id:db.campaign_settings.find(s=>s.id===n.setting_id).gm_id}:campaign(p.campaign_id);
+      const settingId=['setting','world'].includes(scope)?c?.setting_id:null;
+      demand(!['setting','world'].includes(scope)||settingId,'Choose a campaign with a setting.');
+      demand(scope!=='world'||c.gm_id===userId||p.transfer_to_gm,'Confirm that the GM will take ownership of the world note.');
+      const owner=scope==='world'?c.gm_id:userId;
+      if(!p.scope) demand(['private','party','gm','player'].includes(p.audience)&&(c||p.audience==='private')&&(p.audience!=='player'||p.recipient_id),'Choose a valid note audience.');
+      const sharing=c?noteSharing(p,c):{share_gm:false,all_players:false,shared_with:[]};
+      const recipients=[...new Set(sharing.shared_with || [])];
+      const journals=settingId?db.campaigns.filter(j=>j.setting_id===settingId):[c];
+      demand(recipients.every(id=>(retained&&n.shared_with.includes(id))||journals.some(j=>db.members.some(m=>m.campaign_id===j.id&&m.user_id===owner)&&db.members.some(m=>m.campaign_id===j.id&&m.user_id===id&&m.role==='player'))),'Choose players in the linked campaigns.');
       demand(p.title?.trim() && p.title.length <= 160 && typeof p.body === 'string' && p.body.length <= 50000, 'Enter a title and a note of up to 50,000 characters.');
-      const next = stamp({ id: n?.id || uuid(), created_at: n?.created_at || now(), revision: n?.revision || 0, owner_id: userId, campaign_id: p.campaign_id || null, title: p.title.trim(), body: p.body, audience: p.audience, recipient_id: p.audience === 'player' ? p.recipient_id : null });
+      const next = stamp({ id:n?.id||uuid(),created_at:n?.created_at||now(),revision:n?.revision||0,owner_id:owner,author_id:n?.author_id||n?.owner_id||userId,campaign_id:scope==='campaign'?c.id:null,setting_id:settingId||null,title:p.title.trim(),body:p.body,audience:'private',recipient_id:null,share_gm:Boolean(sharing.share_gm),all_players:Boolean(sharing.all_players),shared_with:recipients,world_note:scope==='world' });
       if (n) Object.assign(n, next); else db.notes.push(next); result = next;
     }
   } else if (['save_item', 'transfer_item', 'delete_item'].includes(action)) {

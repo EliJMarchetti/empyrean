@@ -4,6 +4,7 @@ import { CloudStore, configured } from './cloud.js';
 import { icon } from './icons.js';
 import { emptyTurnOrder, nextTurn, withoutTurn, rollValues } from './table-tools.js';
 import { CONTENT_TYPES, isOfficial, removeCatalogEntry } from './catalog.js';
+import { noteLinkIndex, noteTags, noteSharing } from './journal.js';
 
 const root = document.querySelector('#app');
 const modalRoot = document.querySelector('#modal-root');
@@ -71,7 +72,8 @@ async function refresh({ renderPage = true, quiet = false } = {}) {
       if (!next.profile && !isDemo()) { await store.action('profile', { display_name: store.session.user?.user_metadata?.display_name || 'Player' }); next.profile = { id: store.session.user?.id, display_name: store.session.user?.user_metadata?.display_name || 'Player' }; }
       ui.refreshPending ||= JSON.stringify(data) !== JSON.stringify(next);
       data = next; ui.lastSync = Date.now(); ui.offline = false;
-      if (renderPage && (!quiet || (ui.refreshPending && !ui.modal && !hasUnsavedChanges() && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) && !dragging))) render();
+      const journalSearch=document.activeElement?.matches('[data-note-search]');
+      if (renderPage && (!quiet || (ui.refreshPending && !ui.modal && !hasUnsavedChanges() && (journalSearch || !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) && !dragging))) render();
       status();
     } catch (e) { ui.offline = true; status(); if (!quiet) throw e; }
   })();
@@ -99,6 +101,9 @@ function heading(eyebrow, title, subtitle, actions = '') { return `<div class="p
 function render() {
   if (!data) return;
   ui.refreshPending = false;
+  const activeSearch=root.querySelector('[data-note-search]');
+  const searchValue=activeSearch?.value;
+  const searchFocused=activeSearch && document.activeElement===activeSearch;
   const r = route(); let c = r.page === 'campaign' ? campaignOf(r.campaignId) : null; let html;
   if (r.page === 'campaign' && !c) html = empty('Campaign not available', 'Join with a valid invitation or return to your campaigns.', link('My campaigns', '#/', 'back'));
   else if (r.page === 'notebook') html = renderNotes(null);
@@ -115,6 +120,9 @@ function render() {
     else html = renderOverview(c);
   } else html = renderHome();
   root.innerHTML = shell(html, c); status();
+  const search=root.querySelector('[data-note-search]');
+  if(search && searchValue){search.value=searchValue;filterNotes(searchValue);}
+  if(searchFocused)search?.focus();
   document.title = `${c?.name || ({notebook:'Notebook',library:'Official library',designer:'Designer Studio'}[r.page] || 'My campaigns')} | Empyrean`;
   if (r.tab === 'world' && c) loadMapImage(c);
 }
@@ -282,10 +290,69 @@ function renderSheet(c,ch) {
   const actions=(mine&&ch.status==='active'?link('Spend Merit',pathFor(c.id,'character/'+ch.id)+'?edit=1','plus'):'')+(isGm(c)&&ch.status==='active'?btn('Award Merit / Sparks','award','spark','primary',`data-id="${ch.id}"`):'')+(ch.claimable?'':btn('Share sheet','share-sheet','link','',recordAttr(ch.id)))+characterManagement(ch);
   return `${heading('Campaign / Character sheet',ch.status==='draft'?'Character in progress':'Character sheet','',actions)}<div class="sheet-banner">${avatar(ch.name)}<div class="grow"><h1>${esc(ch.name)}</h1><p>${esc(lin?.name||'Lineage not selected')} · ${esc(bg||'Background not selected')} · ${esc(ch.claimable?'Unassigned':ownerName(ch.owner_id))}</p></div><div class="sheet-currency"><div><strong>${fmt(ch.status==='draft'?info.merit-info.spent:ch.merit)}</strong><small>${ch.status==='draft'?'Creation Merit':'Unspent Merit'}</small></div><div><strong>${fmt(ch.status==='draft'?info.sparks:ch.sparks)}</strong><small>Sparks ${mine&&ch.status==='active'?btn('Spend','spend-sparks','','small',`data-id="${ch.id}"`):''}</small></div></div></div>${ch.status==='draft'?'<div class="notice" style="margin-bottom:25px">Draft character. Only the player and GM can view this sheet.</div>':''}${isGm(c)&&ch.review?.status==='pending'?`<div class="pending-card"><h3>Custom background awaiting review</h3><p>${esc(b.background.name)}</p>${btn('Review background','review','eye','small',`data-id="${ch.id}"`)}</div>`:''}<div class="sheet-sections"><div class="stack"><section><div class="section-heading"><h2>Attributes</h2>${btn('Dice roller','roll','dice','small')}</div><div class="sheet-attrs">${ATTRIBUTES.map(n=>`<div class="sheet-attr"><small>${n}</small><strong>${b.attributes[n]}</strong><button type="button" data-action="roll" data-value="${b.attributes[n]}" aria-label="Roll ${n}" title="Roll ${n}">${icon('dice')}</button></div>`).join('')}</div></section><section><div class="section-heading"><h2>Skills</h2><small>Unlocked skills appear at rank 0</small></div><div class="content-list">${rules.catalog.skills.filter(s=>info.skills.includes(s.id)).map(s=>`<div class="skill-row"><span>${esc(s.name)}</span><strong>${b.skills[s.id]||0}</strong></div>`).join('')||'<div style="padding:20px" class="muted">No skills unlocked.</div>'}</div></section><section><div class="section-heading"><h2>Abilities</h2></div>${info.abilities.map(id=>{const a=rules.catalog.abilities.find(a=>a.id===id);return a?`<div class="ability-row">${icon('spark')}<div><h3>${esc(a.name)}</h3><p>${esc(a.description||'')}</p></div>${info.freeAbilities.includes(id)?pill('Granted','gray'):''}</div>`:'';}).join('')||'<p class="muted" style="font-size:12px">No abilities acquired.</p>'}</section></div><aside class="stack"><section class="panel"><div class="section-heading"><h2>Identity</h2>${mine?link('Edit',pathFor(c.id,'character/'+ch.id)+'?edit=1','edit','text small'):''}</div><dl class="review-grid">${[['Lineage',lin?.name||''],['Variant',lin?.variants?.find(v=>v.id===b.variantId)?.name||''],['Age category',b.ageCategory],['Years',b.ageYears??''],['Height',b.bio?.height],['Weight',b.bio?.weight],['Eye color',b.bio?.eyeColor],['Hair color',b.bio?.hairColor],['Oracle ID',b.bio?.oracleId]].filter(([,v])=>v!==''&&v!==undefined).map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl></section>${b.bio?.description?`<section class="panel"><h3 style="margin-bottom:15px">Appearance & story</h3><div class="text-content">${esc(b.bio.description)}</div></section>`:''}<section class="panel"><h3 style="margin-bottom:12px">At the table</h3><div class="stack" style="gap:8px">${link('World & table',pathFor(c.id,'world'),'map','text small')}${link('Inventory',pathFor(c.id,'inventory'),'box','text small')}${link('Campaign journal',pathFor(c.id,'journal'),'book','text small')}</div></section></aside></div>`;
 }
-function audienceLabel(note) { if(note.audience==='player')return 'To '+ownerName(note.recipient_id); return {private:'Private',party:'Whole party',gm:'You & GM'}[note.audience]||'Private'; }
+const settingOf = id => data.campaign_settings?.find(s=>s.id===id);
+const notePath = (noteId, c) => `${c ? pathFor(c.id,'journal') : '#/notebook'}?note=${encodeURIComponent(noteId)}`;
+const notesInJournal = c => c ? data.notes.filter(n=>n.campaign_id===c.id || data.note_journals?.[n.id]?.includes(c.id)) : data.notes;
+function noteScopeLabel(note) {
+  if(note.setting_id)return `${note.world_note?'World note':'Setting'} · ${settingOf(note.setting_id)?.name||'Shared setting'}`;
+  if(note.campaign_id)return campaignOf(note.campaign_id)?.name || 'Campaign';
+  return 'Personal';
+}
+function noteAudience(note,c) {
+  const sharing=noteSharing(note,c);
+  const labels=[];
+  if(sharing.share_gm && note.owner_id!==c?.gm_id)labels.push('GM');
+  if(sharing.all_players)labels.push('All players');
+  else if(sharing.shared_with.length)labels.push(`${sharing.shared_with.length} selected ${sharing.shared_with.length===1?'player':'players'}`);
+  return labels.join(' · ') || 'Private';
+}
+function noteReference(note,c,label=note.title) {
+  return `<a href="${esc(notePath(note.id,c))}">${esc(label)}</a>`;
+}
+function renderNoteBody(note,links,notes,c) {
+  let end=0,html='';
+  for(const link of links){
+    html+=esc(note.body.slice(end,link.index));
+    const target=notes.find(n=>n.id===link.id);
+    html+=target?noteReference(target,c,link.label):`<span class="unresolved-note" title="Note unavailable in this journal">${esc(link.label)}</span>`;
+    end=link.index+link.length;
+  }
+  return html+esc(note.body.slice(end));
+}
 function renderNotes(c) {
-  const notes=data.notes.filter(n=>n.campaign_id===(c?.id||null));
-  return `${heading(c?'Campaign / Journal':'Your workspace',c?'The campaign journal.':'A notebook of your own.',c?'Shared discoveries, private thoughts, and conversations with your GM.':'Personal notes stay with your account.',btn('New note','new-note','plus','primary',`data-campaign="${c?.id||''}"`))}${notes.length?`<div class="notes-grid">${notes.map(n=>`<article class="note-card"><div class="row between"><span class="eyebrow" style="margin:0">${esc(audienceLabel(n))}</span>${n.owner_id===uid()?ibtn('Edit note','edit-note','edit',`data-id="${n.id}"`):''}</div><h3>${esc(n.title)}</h3><div class="text-content">${esc(n.body)}</div><div class="note-footer row between"><span>${esc(ownerName(n.owner_id))}</span><span>Updated ${date(n.updated_at)}</span></div></article>`).join('')}</div>`:empty(c?'A story waiting to be written':'Your thoughts have a home','Create a note to get started.',btn('Write a note','new-note','plus','primary',`data-campaign="${c?.id||''}"`),'book')}`;
+  const notes=notesInJournal(c),selectedId=route().query.get('note');
+  const selectedNote=notes.find(n=>n.id===selectedId) || (!selectedId ? notes[0] : null);
+  const newNote=btn('New note','new-note','plus','primary',`data-campaign="${c?.id||''}"`);
+  const setting=c && settingOf(c.setting_id);
+  const subtitle=c ? (setting ? `Setting · ${setting.name}` : '') : 'Your personal notes and the campaign notes you can access.';
+  const manage=c&&isGm(c)?btn('Campaign setting','campaign-setting','settings','',recordAttr(c.id)):'';
+  const title=heading(c?'Campaign / Journal':'Your workspace',c?'Campaign journal':'Personal notebook',subtitle,manage+newNote);
+  if(!notes.length)return title+empty('No notes yet','Start a note and link related entries as your journal grows.','','book');
+  const index=`<aside class="panel journal-index"><label>Search notes<input type="search" data-note-search placeholder="Title, text, or #tag"/></label><p class="muted journal-count" data-note-count aria-live="polite">${notes.length} ${notes.length===1?'note':'notes'}</p><nav aria-label="Notes" class="journal-list">${notes.map(n=>`<a href="${esc(notePath(n.id,c))}" data-note-row="${n.id}" ${n===selectedNote?'aria-current="page"':''}><strong>${esc(n.title)}</strong><small>${esc(noteScopeLabel(n))}</small></a>`).join('')}</nav></aside>`;
+  return `${title}<div class="journal-workspace">${index}${selectedNote ? renderSelectedNote(selectedNote,notes,c) : empty('Note unavailable','Choose a note from this journal.','','lock')}</div>`;
+}
+function renderSelectedNote(note,notes,c) {
+  const findLinks=noteLinkIndex(notes);
+  const links=findLinks(note.body);
+  const linked=notes.filter(other=>other.id!==note.id && links.some(link=>link.id===other.id));
+  const backlinks=notes.filter(other=>other.id!==note.id && findLinks(other.body).some(link=>link.id===note.id));
+  const tags=noteTags(note.body);
+  const connectionList=(label,entries)=>`<section><h3>${label}</h3>${entries.length?`<ul>${entries.map(n=>`<li>${noteReference(n,c)}</li>`).join('')}</ul>`:'<p class="muted">None yet</p>'}</section>`;
+  const edit=note.owner_id===uid()?btn('Edit note','edit-note','edit','small',recordAttr(note.id)):'';
+  return `<article class="panel journal-note"><div class="journal-note-header"><div><div class="actions">${pill(noteScopeLabel(note),'gray')}${pill(noteAudience(note,c||campaignOf(note.campaign_id)))}</div><h2>${esc(note.title)}</h2><small>${esc(ownerName(note.author_id||note.owner_id))} · Updated ${date(note.updated_at)}</small></div>${edit}</div><div class="text-content journal-body">${note.body?renderNoteBody(note,links,notes,c):'<span class="muted">Empty note</span>'}</div>${tags.length?`<div class="actions journal-tags">${tags.map(tag=>btn('#'+tag,'note-tag','','small',`data-value="${esc(tag)}"`)).join('')}</div>`:''}<div class="journal-connections">${connectionList('Links from this note',linked)}${connectionList('Backlinks',backlinks)}</div></article>`;
+}
+function filterNotes(value) {
+  const terms=value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const notes=new Map(data.notes.map(note=>[note.id,note]));
+  let count=0;
+  for(const row of root.querySelectorAll('[data-note-row]')){
+    const note=notes.get(row.dataset.noteRow);
+    const text=`${note.title} ${note.body} ${noteScopeLabel(note)}`.toLowerCase();
+    const tags=noteTags(note.body);
+    row.hidden=!terms.every(term=>term.startsWith('#') ? tags.includes(term.slice(1)) : text.includes(term));
+    if(!row.hidden)count++;
+  }
+  root.querySelector('[data-note-count]').textContent=`${count} ${count===1?'note':'notes'}`;
 }
 function renderInventory(c) {
   const items=data.items.filter(i=>i.campaign_id===c.id);
@@ -315,7 +382,7 @@ async function loadMapImage(c) {
 function renderSettings(c) {
   if(!ui.settingsDraft||ui.settingsDraft.id!==c.id)ui.settingsDraft={...clone(c),dirty:false};
   const draft=ui.settingsDraft; const s=draft.settings; const tab=ui.settingsTab;
-  const rules=`<section class="panel form-section"><h3>Campaign details</h3><div class="form-grid"><label class="full">Campaign name<input data-settings="name" value="${esc(draft.name)}" maxlength="120" required/></label><label class="full">Description<textarea data-settings="description" maxlength="5000">${esc(draft.description)}</textarea></label></div><h3>Character creation</h3><div class="form-grid">${[['Starting Merit','startingMerit',0,'any'],['Starting Sparks','startingSparks',0,'any'],['Maximum Attribute at creation','attributeCap',1,1],['Maximum Skill at creation','skillCap',0,1]].map(([l,k,min,step])=>`<label>${l}<input data-rule="${k}" type="number" min="${min}" step="${step}" ${k==='attributeCap'?'max="5"':k==='skillCap'?'max="10"':''} value="${s[k]}"/></label>`).join('')}</div><label class="check-label"><input data-rule="allowCustomBackground" type="checkbox" ${checked(s.allowCustomBackground)}/>Allow custom backgrounds with GM approval</label><label class="check-label"><input data-rule="allowBackgroundBypass" type="checkbox" ${checked(s.allowBackgroundBypass)}/>Allow background bypass (+5 Merit, +500 Sparks)</label><label>Required custom background fields (one per line)<textarea data-rule="backgroundFields" rows="4">${esc(s.backgroundFields.join('\n'))}</textarea></label><p class="muted" style="font-size:11px">These campaign caps apply during creation. Finished characters use the normal maximums of Attribute 5 and Skill 10.</p></section>`;
+  const rules=`<section class="panel form-section"><h3>Campaign details</h3><div class="form-grid"><label class="full">Campaign name<input data-settings="name" value="${esc(draft.name)}" maxlength="120" required/></label><label class="full">Description<textarea data-settings="description" maxlength="5000">${esc(draft.description)}</textarea></label></div><div class="row between wrap"><div><h3>Setting</h3><small>${esc(settingOf(c.setting_id)?.name||'No setting')}</small></div>${btn('Campaign setting','campaign-setting','settings','small',recordAttr(c.id))}</div><h3>Character creation</h3><div class="form-grid">${[['Starting Merit','startingMerit',0,'any'],['Starting Sparks','startingSparks',0,'any'],['Maximum Attribute at creation','attributeCap',1,1],['Maximum Skill at creation','skillCap',0,1]].map(([l,k,min,step])=>`<label>${l}<input data-rule="${k}" type="number" min="${min}" step="${step}" ${k==='attributeCap'?'max="5"':k==='skillCap'?'max="10"':''} value="${s[k]}"/></label>`).join('')}</div><label class="check-label"><input data-rule="allowCustomBackground" type="checkbox" ${checked(s.allowCustomBackground)}/>Allow custom backgrounds with GM approval</label><label class="check-label"><input data-rule="allowBackgroundBypass" type="checkbox" ${checked(s.allowBackgroundBypass)}/>Allow background bypass (+5 Merit, +500 Sparks)</label><label>Required custom background fields (one per line)<textarea data-rule="backgroundFields" rows="4">${esc(s.backgroundFields.join('\n'))}</textarea></label><p class="muted" style="font-size:11px">These campaign caps apply during creation. Finished characters use the normal maximums of Attribute 5 and Skill 10.</p></section>`;
   let content=rules;
   if(tab!=='rules'){
     content=renderCampaignCatalog(draft.catalog,tab);
@@ -448,9 +515,89 @@ function reviewModal(id) {
   const ch=data.characters.find(ch=>ch.id===id),bg=ch.build.background,c=campaignOf(ch.campaign_id);
   openModal('Review custom background',`<div class="form-section"><div><h3>${esc(bg.name)}</h3><small>${esc(ch.name)} · ${esc(ownerName(ch.owner_id))}</small></div>${bg.description?`<p class="text-content">${esc(bg.description)}</p>`:''}${Object.entries(bg.answers||{}).map(([k,v])=>`<div><div class="eyebrow">${esc(k)}</div><p class="text-content">${esc(v)}</p></div>`).join('')}<p style="font-size:12px"><strong>Skill unlocks:</strong> ${esc(bg.skills.map(id=>c.catalog.skills.find(s=>s.id===id)?.name||id).join(', ')||'None')}<br/><strong>Granted abilities:</strong> ${esc(bg.abilities.map(id=>c.catalog.abilities.find(a=>a.id===id)?.name||id).join(', ')||'None')}</p>${pick('Decision','decision',[{id:'approved',name:'Approve'},{id:'denied',name:'Deny'}],'approved')}${area('Feedback (optional)','comment','','maxlength="5000"')}</div>`,async(form)=>{const f=new FormData(form);await command('review_background',{id:ch.id,revision:ch.revision,decision:f.get('decision'),comment:f.get('comment')});closeModal();render();toast('Background review saved.');},'Save decision','',true);
 }
-function noteModal(campaignId,id) {
-  const n=data.notes.find(n=>n.id===id);const c=campaignId?campaignOf(campaignId):null;
-  openModal(n?'Edit note':'New note',`<div class="form-section">${field('Title','title',n?.title||'','text','required maxlength="160"')}${area('Note','body',n?.body||'','rows="9" maxlength="50000"')}${c?`${pick('Visible to','audience',[{id:'private',name:'Only me'},{id:'party',name:'Whole party'},{id:'gm',name:'Me and the GM'},{id:'player',name:'Me and one member'}],n?.audience||'private')}${pick('Recipient (for one-member notes)','recipient_id',membersOf(c.id).filter(m=>m.user_id!==uid()).map(m=>({id:m.user_id,name:m.display_name})),n?.recipient_id||'','Select a member')}`:'<input name="audience" type="hidden" value="private"/>'}</div>`,async(form)=>{const f=new FormData(form);await command('save_note',{id:n?.id,revision:n?.revision,campaign_id:c?.id||null,title:f.get('title'),body:f.get('body'),audience:f.get('audience'),recipient_id:f.get('recipient_id')||null});closeModal();render();toast('Note saved.');},'Save note',n?btn('Delete','delete-note','trash','danger',`data-id="${n.id}"`):'',true);
+function settingModal(c) {
+  const settings=(data.campaign_settings||[]).filter(s=>s.gm_id===uid());
+  const choices=[{id:'',name:'No setting'},...settings,{id:'new',name:'Create a setting…'}];
+  openModal('Campaign setting',`<div class="form-section"><p>Campaigns in the same setting can share journal notes.</p>${pick('Setting','setting_id',choices,c.setting_id||'')}<div data-new-setting hidden>${field('Setting name','setting_name','','text','maxlength="120"')}</div></div>`,async form=>{
+    const f=new FormData(form),choice=f.get('setting_id');
+    const name=choice==='new'?String(f.get('setting_name')).trim():'';
+    demand(choice!=='new'||name,'Enter a setting name.');
+    await command('set_campaign_setting',{id:c.id,revision:c.revision,setting_id:choice==='new'?null:choice,setting_name:name});
+    ui.settingsDraft=null;closeModal();render();toast('Campaign setting saved.');
+  },'Save setting');
+  const select=modalRoot.querySelector('[name="setting_id"]');
+  select.addEventListener('change',()=>{
+    const wrapper=modalRoot.querySelector('[data-new-setting]');
+    wrapper.hidden=select.value!=='new';
+    wrapper.querySelector('input').required=!wrapper.hidden;
+    if(!wrapper.hidden)wrapper.querySelector('input').focus();
+  });
+}
+
+function noteModal(currentCampaign,id) {
+  const n=data.notes.find(note=>note.id===id);
+  const existingCampaign=n?.setting_id ? (currentCampaign?.setting_id===n.setting_id ? currentCampaign : data.campaigns.find(c=>c.setting_id===n.setting_id)) : campaignOf(n?.campaign_id);
+  const c=existingCampaign || currentCampaign;
+  const initialScope=n ? (n.world_note?'world':n.setting_id?'setting':n.campaign_id?'campaign':'personal') : (c?'campaign':'personal');
+  const sharing=n?noteSharing(n,c):{share_gm:false,all_players:false,shared_with:[]};
+  const detachedSetting=n?.setting_id && !existingCampaign;
+  const campaignChoices=data.campaigns.map(campaign=>({id:campaign.id,name:campaign.name}));
+  if(detachedSetting)campaignChoices.unshift({id:'retained',name:`${settingOf(n.setting_id)?.name||'Existing setting'} · keep linked`});
+  const linkedNotes=notesInJournal(currentCampaign).filter(note=>note.id!==id);
+  const insert=linkedNotes.length?`<div class="note-link-insert">${pick('Insert note link','insert_link',linkedNotes,'','Select a note')}${btn('Insert link','insert-note-link','link','small')}</div>`:'';
+  openModal(n?'Edit note':'New note',`<div class="form-section">${field('Title','title',n?.title||'','text','required maxlength="160"')}${area('Note','body',n?.body||'','rows="8" maxlength="50000"')}<p class="muted">Use [[Note title]] to link a note and #tag to group related entries.</p>${insert}<div class="form-grid">${pick('Link to','campaign_id',campaignChoices,detachedSetting?'retained':c?.id||'','Personal notebook')}<div data-note-scope></div></div><div data-note-sharing></div></div>`,async form=>{
+    const f=new FormData(form),choice=f.get('campaign_id'),retained=choice==='retained',campaignId=retained?null:choice,scope=retained?initialScope:campaignId?f.get('scope'):'personal';
+    const saved=await command('save_note',{id:n?.id,revision:n?.revision,campaign_id:campaignId||null,title:f.get('title'),body:f.get('body'),scope,share_gm:retained?shareGm:f.has('share_gm'),all_players:retained?allPlayers:f.has('all_players'),shared_with:retained?[...selectedPlayers]:f.getAll('shared_with'),transfer_to_gm:f.has('transfer_to_gm')});
+    closeModal();
+    const target=currentCampaign ? (notesInJournal(currentCampaign).some(note=>note.id===saved.id)?currentCampaign:campaignOf(campaignId)) : null;
+    navigate(data.notes.some(note=>note.id===saved.id)?notePath(saved.id,target):pathFor(currentCampaign?.id||campaignId,'journal'));
+    toast(saved.owner_id===uid()?'Note saved.':'World note transferred to the GM.');
+  },'Save note',n?btn('Delete','delete-note','trash','danger',recordAttr(n.id)):'',true);
+
+  const form=modalRoot.querySelector('form');
+  const campaignSelect=form.elements.campaign_id;
+  const scopeTarget=form.querySelector('[data-note-scope]');
+  const visibility=form.querySelector('[data-note-sharing]');
+  const selectedPlayers=new Set(sharing.shared_with);
+  let shareGm=sharing.share_gm, allPlayers=sharing.all_players;
+  function refreshSharing() {
+    const campaign=campaignOf(campaignSelect.value),scope=form.elements.scope?.value;
+    if(!campaign){visibility.innerHTML=campaignSelect.value==='retained'?'<p class="muted">This note keeps its setting and sharing. Link a campaign in this setting to update the recipients.</p>':'';return;}
+    const journals=scope==='setting'||scope==='world'?data.campaigns.filter(c=>c.setting_id===campaign.setting_id):[campaign];
+    const players=new Map(journals.flatMap(c=>membersOf(c.id)).filter(m=>m.role==='player'&&m.user_id!==uid()).map(m=>[m.user_id,m.display_name]));
+    // A transferred world note can be seen in campaigns whose rosters the author cannot read.
+    if(n?.world_note && scope==='world' && n.setting_id===campaign.setting_id){
+      for(const id of selectedPlayers)if(!players.has(id))players.set(id,ownerName(id));
+    }
+    const transferring=scope==='world'&&!isGm(campaign);
+    const memberToggles=[...players].sort((a,b)=>a[1].localeCompare(b[1])).map(([id,name])=>`<label class="check-label"><input type="checkbox" name="shared_with" value="${esc(id)}" ${checked(selectedPlayers.has(id))}/>${esc(name)}</label>`).join('');
+    visibility.innerHTML=`<fieldset class="journal-sharing"><legend>Visible to</legend>${!isGm(campaign)&&!transferring?check('Game Master','share_gm',shareGm):''}${check('All players','all_players',allPlayers)}${memberToggles?`<div class="journal-recipients" data-note-recipients ${allPlayers?'hidden':''}>${memberToggles}</div>`:''}<p class="muted">${transferring?'The GM takes over editing and sharing. The note can reach other campaigns the GM runs in this setting.':'Leave sharing off to keep this note private.'}</p>${transferring?check('Transfer ownership to the GM','transfer_to_gm',false):''}</fieldset>`;
+    const transfer=visibility.querySelector('[name="transfer_to_gm"]');
+    if(transfer)transfer.required=true;
+  }
+  function refreshScope(value) {
+    const campaign=campaignOf(campaignSelect.value);
+    const choices=[{id:'campaign',name:'This campaign'}];
+    if(campaign?.setting_id)choices.push({id:'setting',name:'My campaigns in this setting'},{id:'world',name:'GM-owned world note'});
+    scopeTarget.innerHTML=campaign?pick('Note scope','scope',choices,choices.some(choice=>choice.id===value)?value:'campaign'):'';
+    refreshSharing();
+  }
+  form.addEventListener('change',event=>{
+    const input=event.target;
+    if(input.name==='campaign_id')refreshScope(form.elements.scope?.value);
+    if(input.name==='scope')refreshSharing();
+    if(input.name==='share_gm')shareGm=input.checked;
+    if(input.name==='all_players'){
+      allPlayers=input.checked;
+      const recipients=form.querySelector('[data-note-recipients]');
+      if(recipients)recipients.hidden=allPlayers;
+    }
+    if(input.name==='shared_with'){
+      if(input.checked)selectedPlayers.add(input.value);
+      else selectedPlayers.delete(input.value);
+    }
+  });
+  refreshScope(initialScope);
 }
 function itemModal(campaignId,id) {
   const i=data.items.find(i=>i.id===id),c=campaignOf(campaignId);const owners=[{id:'',name:'Party stash'},...membersOf(c.id).filter(m=>isGm(c)||m.user_id===uid()).map(m=>({id:m.user_id,name:m.display_name}))];
@@ -666,9 +813,20 @@ async function handleAction(el) {
   else if(a==='review')reviewModal(id);
   else if(a==='award')awardModal(id);
   else if(a==='spend-sparks')spendModal(id);
-  else if(a==='new-note')noteModal(el.dataset.campaign||null);
-  else if(a==='edit-note'){const n=data.notes.find(n=>n.id===id);noteModal(n.campaign_id,id);}
-  else if(a==='delete-note'){const n=data.notes.find(n=>n.id===id);if(confirm('Delete this note?')){await command('delete_note',{id,revision:n.revision});closeModal();render();}}
+  else if(a==='campaign-setting'){if(guardDirty())settingModal(campaignOf(id));}
+  else if(a==='new-note')noteModal(campaignOf(el.dataset.campaign));
+  else if(a==='edit-note')noteModal(c,id);
+  else if(a==='delete-note'){const n=data.notes.find(n=>n.id===id);if(confirm('Delete this note?')){await command('delete_note',{id,revision:n.revision});closeModal();navigate(c?pathFor(c.id,'journal'):'#/notebook');}}
+  else if(a==='insert-note-link'){
+    const form=el.closest('form'),picker=form.elements.insert_link,body=form.elements.body;
+    const target=data.notes.find(note=>note.id===picker.value);
+    if(!target)return;
+    body.setRangeText(`[[${target.id}]]`,body.selectionStart,body.selectionEnd,'end');
+    picker.value='';body.focus();
+  }
+  else if(a==='note-tag'){
+    const search=root.querySelector('[data-note-search]');search.value='#'+el.dataset.value;filterNotes(search.value);search.focus();
+  }
   else if(a==='new-item')itemModal(id);
   else if(a==='edit-item'){const i=data.items.find(i=>i.id===id);itemModal(i.campaign_id,id);}
   else if(a==='delete-item'){const i=data.items.find(i=>i.id===id);if(confirm('Delete this item?')){await command('delete_item',{id,revision:i.revision});closeModal();render();}}
@@ -734,6 +892,7 @@ document.addEventListener('input',e=>{
     root.querySelector('[data-catalog-count]').textContent=count===1?'1 entry':`${count} entries`;
     return;
   }
+  if(el.matches('[data-note-search]')){filterNotes(el.value);return;}
   if(el.matches('[data-character-name]')&&ed){ed.name=el.value;ed.dirty=true;}
   else if(el.dataset.bio&&ed){ed.build.bio??={};ed.build.bio[el.dataset.bio]=el.value;ed.dirty=true;}
   else if(el.dataset.build&&ed){ed.build[el.dataset.build]=el.dataset.build==='ageYears'?(el.value===''?null:Number(el.value)):el.value;ed.dirty=true;}

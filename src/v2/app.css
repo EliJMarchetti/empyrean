@@ -19,6 +19,19 @@
 .library-card{display:flex;flex-direction:column;align-items:stretch;gap:14px;min-width:0}.library-card h3{overflow-wrap:anywhere}.library-card p{font-size:12px}
 .library-card-actions{padding-top:12px;border-top:1px solid var(--line);margin-top:auto}
 .library-card[hidden]{display:none}.catalog-search{display:flex;gap:12px;align-items:end;margin:0 0 18px;flex-wrap:wrap}.catalog-search label{width:min(320px,100%)}.catalog-search p{font-size:12px;padding-bottom:8px}.studio-draft-notice{margin-bottom:18px}
+
+.journal-workspace{display:grid;grid-template-columns:minmax(205px,270px) minmax(0,1fr);gap:20px;align-items:start}
+.journal-index{padding:16px;min-width:0}.journal-count{font-size:11px;margin:10px 0}
+.journal-list{display:grid;gap:4px;max-height:60vh;overflow:auto}.journal-list a{display:grid;gap:3px;padding:10px;border-radius:5px;overflow-wrap:anywhere}
+.journal-list a[hidden]{display:none}.journal-list a:hover,.journal-list a[aria-current]{background:#edf2e9}.journal-list small{font-size:11px}
+.journal-note{min-width:0;padding:clamp(16px,4vw,35px)}.journal-note-header{display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:10px}.journal-note-header h2{font-size:clamp(22px,4vw,32px);margin:12px 0 4px;overflow-wrap:anywhere}
+.journal-body{margin-top:24px;min-height:60px}.journal-body a,.journal-connections a{color:var(--green);text-decoration:underline;text-underline-offset:3px}.unresolved-note{color:var(--muted);text-decoration:underline dotted}
+.journal-tags{margin-top:18px}.journal-tags .btn{color:var(--green)}.journal-connections{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px;padding-top:18px;border-top:1px solid var(--line)}
+.journal-connections h3{font-size:13px}.journal-connections p,.journal-connections ul{font-size:12px;margin:8px 0}.journal-connections ul{padding-left:16px;overflow-wrap:anywhere}
+.journal-sharing{border:1px solid var(--line);border-radius:6px;padding:12px;margin:0;display:grid;gap:10px;min-width:0}.journal-sharing legend{font-size:12px;font-weight:600;padding:0 5px}.journal-sharing p,.note-link-insert+p{font-size:12px}
+.journal-recipients{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));gap:8px 16px;padding:4px 0 4px 8px}.journal-recipients[hidden]{display:none}
+.note-link-insert{display:flex;align-items:end;gap:10px}.note-link-insert label{flex:1;min-width:0}
+@media(max-width:720px){.journal-workspace{grid-template-columns:minmax(0,1fr)}.journal-list{max-height:200px}.journal-connections{gap:10px}}
 .character-workspace.has-gm-roster{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}
 .character-workspace .empty{min-height:170px;padding:26px 18px}
 .character-card h3,.turn-row .grow,.clock-card h3,.roll-history .grow,.marker-list-row .grow{overflow-wrap:anywhere}
