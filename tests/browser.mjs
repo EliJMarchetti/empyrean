@@ -1,0 +1,303 @@
+import { chromium } from '@playwright/test';
+import { mkdir } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { spawn } from 'node:child_process';
+import assert from 'node:assert/strict';
+import { database, GM, PLAYER, OUTSIDER } from './database.mjs';
+import { DEFAULT_SETTINGS } from '../src/v2/rules.js';
+import { sampleCatalog } from '../src/v2/demo.js';
+
+const base=process.env.TEST_BASE_URL||'http://127.0.0.1:4186';
+const artifacts=resolve('test-results');await mkdir(artifacts,{recursive:true});
+const executable=process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||['C:/Program Files/Google/Chrome/Application/chrome.exe','C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(existsSync);
+let server,browser,db;const errors=[];
+try{
+  try{await fetch(base,{signal:AbortSignal.timeout(1500)});}catch{server=spawn(process.execPath,['scripts/serve.mjs'],{stdio:'ignore',env:{...process.env,PORT:new URL(base).port}});for(let i=0;i<30;i++){try{await fetch(base,{signal:AbortSignal.timeout(1500)});break;}catch{await new Promise(r=>setTimeout(r,200));}}}
+  browser=await chromium.launch({headless:true,args:['--no-proxy-server'],...(executable?{executablePath:executable}:{})});
+  const preview=await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce'});const page=await preview.newPage();page.on('pageerror',e=>errors.push(e.message));
+  await preview.route('**/config.js',route=>route.fulfill({contentType:'text/javascript',body:'window.EMPYREAN_CONFIG={};'}));
+  await page.goto(base);await page.getByRole('button',{name:'Explore local preview',exact:true}).click();await page.getByRole('heading',{name:'Every world starts here.'}).waitFor();
+  await page.screenshot({path:resolve(artifacts,'campaigns-desktop.png'),fullPage:true});
+  await page.getByRole('link',{name:/The Far Meridian/}).first().click();
+  await page.getByRole('link',{name:'World & table',exact:true}).click();await page.locator('[data-map-canvas]').waitFor();
+  await page.screenshot({path:resolve(artifacts,'world-desktop.png'),fullPage:true});
+  await page.setViewportSize({width:390,height:844});await page.waitForTimeout(100);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'World fits mobile width');
+  await page.screenshot({path:resolve(artifacts,'world-mobile.png'),fullPage:true});
+  await page.goto(base+'/#/');await page.getByRole('heading',{name:'Every world starts here.'}).waitFor();await page.screenshot({path:resolve(artifacts,'campaigns-mobile.png'),fullPage:true});
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Campaigns fit mobile width');
+  await page.setViewportSize({width:1440,height:1000});
+  await page.locator('[data-action="profile"]').click();
+  await page.getByRole('button',{name:'Preview as player',exact:true}).click();
+  await page.getByText('Preview as player',{exact:true}).waitFor();
+  await page.reload();await page.getByText('Preview as player',{exact:true}).waitFor();
+  await page.goto(base+'/?gm=1');await page.waitForURL('**/legacy.html?gm=1');
+  await page.getByRole('heading',{name:'GM Toolkit',exact:true}).first().waitFor();
+  await page.goto(base+'/editor.html');await page.getByText('Developer Console',{exact:false}).first().waitFor();
+  await preview.close();
+  console.log('Local preview and responsive layouts passed.');
+
+  // Exercise the real cloud HTTP adapter against the actual PostgreSQL migration.
+  // Auth/Storage services are emulated here; production email delivery still needs setup.
+  db=await database({storage:true});let campaign=await db.action(GM,'create_campaign',{name:'Connected Test',description:'Across two separate accounts.',settings:{...DEFAULT_SETTINGS,attributeCap:2,skillCap:2}});
+  campaign=await db.action(GM,'update_campaign',{...campaign,catalog:sampleCatalog()});
+  let queue=Promise.resolve();const serial=fn=>{const result=queue.then(fn,fn);queue=result.catch(()=>{});return result;};
+  let storageUnavailable=false;
+  async function contextFor(user){
+    const ctx=await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce'});
+    await ctx.route('**/config.js',route=>route.fulfill({contentType:'text/javascript',body:'window.EMPYREAN_CONFIG={supabaseUrl:"https://test-project.supabase.co",supabasePublishableKey:"sb_publishable_test"};'}));
+    await ctx.route('https://test-project.supabase.co/**',async route=>{
+      const req=route.request(),url=new URL(req.url());const payload=req.postDataJSON();
+      const cors={'access-control-allow-origin':base,'access-control-allow-headers':'authorization,apikey,content-type','access-control-allow-methods':'GET,POST,PUT,DELETE,OPTIONS'};
+      if(req.method()==='OPTIONS'){await route.fulfill({status:204,headers:cors});return;}
+      try{
+        let result;
+        if(url.pathname==='/auth/v1/token')result={access_token:'token-'+user,refresh_token:'refresh-'+user,expires_in:3600,user:{id:user,email:user===GM?'gm@example.test':'player@example.test',user_metadata:{display_name:user===GM?'Game Master':'Player One'}}};
+        else if(url.pathname==='/auth/v1/logout')result={};
+        else{
+          assert.equal(req.headers().authorization,'Bearer token-'+user);
+          assert.equal(req.headers().apikey,'sb_publishable_test');
+          if(url.pathname.endsWith('/app_snapshot'))result=await serial(()=>db.snapshot(user));
+          else if(url.pathname.endsWith('/app_action'))result=await serial(()=>db.action(user,payload.p_action,payload.p_payload));
+          else if(req.method()==='DELETE'&&url.pathname==='/storage/v1/object/campaign-maps'){
+            if(storageUnavailable)throw Error('Storage is temporarily unavailable.');
+            result=(await serial(()=>db.as(user,"delete from storage.objects where bucket_id='campaign-maps' and name=any($1::text[]) returning name",[payload.prefixes]))).rows;
+          }
+          else throw Error('Unexpected request: '+url.pathname);
+        }
+        await route.fulfill({status:200,headers:cors,contentType:'application/json',body:JSON.stringify(result)});
+      }catch(e){await route.fulfill({status:400,headers:cors,contentType:'application/json',body:JSON.stringify({message:e.message})});}
+    });
+    return ctx;
+  }
+  const gmCtx=await contextFor(GM),playerCtx=await contextFor(PLAYER);const gm=await gmCtx.newPage(),player=await playerCtx.newPage();
+  for(const p of [gm,player]){p.on('pageerror',e=>errors.push(e.message));p.on('dialog',dialog=>dialog.accept());}
+  async function login(p,email){await p.getByLabel('Email',{exact:true}).fill(email);await p.getByLabel('Password',{exact:true}).fill('Test password 123');await p.getByRole('button',{name:'Sign in',exact:true}).click();}
+  await gm.goto(base);await login(gm,'gm@example.test');await gm.getByRole('link',{name:/Connected Test/}).first().click();
+  await gm.getByRole('button',{name:'Invite players',exact:true}).first().click();await gm.getByRole('button',{name:'Create invitation link',exact:true}).click();
+  await gm.locator('.invite-row .code').waitFor();const inviteUrl=await gm.locator('.invite-row .code').innerText();await gm.getByRole('button',{name:'Close dialog',exact:true}).click();
+  await player.goto(inviteUrl);await login(player,'player@example.test');await player.getByRole('button',{name:'Join & create character',exact:true}).click();
+  await player.getByRole('heading',{name:'Choose a lineage',exact:true}).waitFor();await player.getByRole('button',{name:/Android/}).click();
+  await player.getByRole('button',{name:'Continue',exact:true}).click();await player.getByRole('button',{name:/Custom background/}).click();
+  const dialog=player.getByRole('dialog');await dialog.getByLabel('Background name',{exact:true}).fill('Orbital Courier');
+  for(const f of ['Origin *','Training *','Connections *','Defining experience *'])await dialog.getByLabel(f,{exact:true}).fill('A complete background answer.');
+  await dialog.getByLabel('Navigation',{exact:true}).check();await dialog.getByRole('button',{name:'Use this configuration',exact:true}).click();
+  await player.getByRole('button',{name:'Save draft',exact:true}).click();await player.getByText('Draft saved',{exact:false}).first().waitFor();
+  await gm.reload();await gm.getByRole('button',{name:'Review background',exact:true}).click();await gm.getByRole('button',{name:'Save decision',exact:true}).click();await gm.getByText('Background review saved.',{exact:true}).waitFor();
+  await player.reload();await player.getByRole('button',{name:/Merit/}).filter({has:player.locator('b')}).click();
+  await player.getByRole('button',{name:'Increase Power',exact:true}).click();
+  assert.equal(await player.getByRole('button',{name:'Increase Power',exact:true}).isDisabled(),true,'Creation cap applied in browser');
+  await player.getByRole('button',{name:'Increase Navigation',exact:true}).click();
+  await player.screenshot({path:resolve(artifacts,'creation-merit.png'),fullPage:true});
+  await player.getByRole('button',{name:'Continue',exact:true}).click();await player.locator('[data-character-name]').fill('Aster Vale');
+  await player.locator('[data-bio=height]').fill('180 cm');await player.getByRole('button',{name:'Continue',exact:true}).click();
+  await player.getByRole('button',{name:'Finish Character Creation',exact:true}).click();await player.getByText('Are you sure? All unspent Merit will be lost.',{exact:true}).waitFor();
+  await player.getByRole('button',{name:'Finish & discard Merit',exact:true}).click();await player.getByRole('heading',{name:'Aster Vale',exact:true}).waitFor();
+  let ch=(await serial(()=>db.snapshot(PLAYER))).characters[0];assert.equal(ch.merit,0);assert.equal(ch.status,'active');
+  await gm.goto(base+`/#/campaign/${campaign.id}/character/${ch.id}`);await gm.reload();await gm.getByRole('button',{name:'Award Merit / Sparks',exact:true}).click();
+  await gm.getByRole('dialog').getByLabel('Merit',{exact:true}).fill('20');await gm.getByRole('dialog').getByRole('button',{name:'Grant award',exact:true}).click();
+  await player.reload();await player.getByRole('link',{name:'Spend Merit',exact:true}).click();await player.getByRole('button',{name:'Increase Power',exact:true}).click();await player.getByRole('button',{name:'Save advancement',exact:true}).click();await player.getByText('Advancement saved.',{exact:true}).waitFor();
+  ch=(await serial(()=>db.snapshot(PLAYER))).characters[0];assert.equal(ch.build.attributes.Power,3);assert.equal(ch.merit,14);
+  assert.equal(await player.getByRole('button',{name:'Decrease Power',exact:true}).isDisabled(),true,'No advancement refunds in UI');
+  console.log('Two-account invitation, custom approval, character completion, and advancement passed.');
+
+  await player.goto(base+`/#/campaign/${campaign.id}/journal`);await player.getByRole('button',{name:'New note',exact:true}).click();
+  await player.getByRole('dialog').getByLabel('Title',{exact:true}).fill('Shared discovery');await player.getByRole('dialog').getByLabel('Note',{exact:true}).fill('The relay is still transmitting.');await player.getByRole('dialog').getByLabel('Visible to',{exact:true}).selectOption('party');await player.getByRole('button',{name:'Save note',exact:true}).click();
+  await gm.goto(base+`/#/campaign/${campaign.id}/journal`);await gm.reload();await gm.getByRole('heading',{name:'Shared discovery',exact:true}).waitFor();
+  await player.goto(base+`/#/campaign/${campaign.id}/inventory`);await player.getByRole('button',{name:'Add item',exact:true}).first().click();
+  await player.getByRole('dialog').getByLabel('Item name',{exact:true}).fill('Rations');await player.getByRole('dialog').getByLabel('Quantity',{exact:true}).fill('5');await player.getByRole('button',{name:'Save item',exact:true}).click();
+  await player.getByRole('button',{name:'Transfer',exact:true}).click();await player.getByRole('dialog').getByLabel('Recipient',{exact:true}).selectOption(GM);await player.getByRole('dialog').getByLabel('Quantity',{exact:true}).fill('2');await player.getByRole('dialog').getByRole('button',{name:'Transfer',exact:true}).click();
+  await player.getByRole('dialog').waitFor({state:'hidden'});
+  assert.equal((await serial(()=>db.snapshot(GM))).items.find(i=>i.owner_id===GM).quantity,2);
+  await gm.goto(base+`/#/campaign/${campaign.id}/world`);await gm.getByRole('button',{name:'Add map',exact:true}).first().click();await gm.getByRole('dialog').getByLabel('Map name',{exact:true}).fill('Shared table');await gm.getByRole('dialog').getByLabel('Visible to players',{exact:true}).check();await gm.getByRole('button',{name:'Save map',exact:true}).click();
+  await gm.locator('[data-map-canvas]').waitFor();await gm.getByRole('button',{name:'Add marker',exact:true}).first().click();await gm.getByRole('dialog').getByLabel('Marker name',{exact:true}).fill('Aster');await gm.getByRole('dialog').getByLabel('Linked character (optional)',{exact:true}).selectOption(ch.id);await gm.getByRole('button',{name:'Save marker',exact:true}).click();
+  await player.goto(base+`/#/campaign/${campaign.id}/world`);await player.reload();const token=player.locator('[data-marker]').first();await token.waitFor();const box=await token.boundingBox();await player.mouse.move(box.x+box.width/2,box.y+box.height/2);await player.mouse.down();await player.mouse.move(box.x+100,box.y+75,{steps:8});await player.mouse.up();
+  await player.waitForFunction(()=>!document.querySelector('[data-sync]')?.textContent.includes('Saving'));
+  await new Promise(r=>setTimeout(r,200));assert.ok((await serial(()=>db.snapshot(GM))).markers[0].x>50,'Player token position saved to PostgreSQL');
+  console.log('Shared notes, atomic inventory transfers, and player marker movement passed.');
+  await gm.goto(base+`/#/campaign/${campaign.id}/settings`);await gm.getByRole('button',{name:/Skills ·/}).click();await gm.getByRole('button',{name:'Add skill',exact:true}).click();await gm.getByRole('dialog').getByLabel('Name',{exact:true}).fill('New edition skill');await gm.getByRole('dialog').getByLabel('General skill (available to every character)',{exact:true}).check();await gm.getByRole('button',{name:'Apply to campaign',exact:true}).click();await gm.getByRole('button',{name:'Save campaign settings',exact:true}).click();
+  assert.ok((await serial(()=>db.snapshot(GM))).campaigns[0].catalog.skills.some(s=>s.name==='New edition skill'));
+  await gm.getByText('Campaign rules and content saved.',{exact:true}).waitFor();
+
+  const campaignPage=tab=>base+`/#/campaign/${campaign.id}/${tab}`;
+  await gm.goto(campaignPage('characters'));
+  await gm.getByRole('button',{name:'Build for a player',exact:true}).first().click();
+  await gm.getByRole('dialog').getByLabel('Character name',{exact:true}).fill('Prebuilt Ranger');
+  await gm.getByRole('button',{name:'Open character builder',exact:true}).click();
+  await gm.getByRole('button',{name:/Android/}).click();
+  await gm.getByRole('button',{name:'Assign character',exact:true}).click();
+  await gm.getByRole('button',{name:'Create character link',exact:true}).click();
+  const claimCode=gm.getByRole('dialog').locator('.code');
+  await claimCode.waitFor();
+  const claimUrl=await claimCode.innerText();
+  assert.equal(new URL(claimUrl).searchParams.get('type'),'character');
+  await gm.getByRole('button',{name:'Close dialog',exact:true}).click();
+  const guestCtx=await contextFor(OUTSIDER),guest=await guestCtx.newPage();
+  guest.on('pageerror',e=>errors.push(e.message));
+  await guest.goto(claimUrl);await login(guest,'guest@example.test');
+  await guest.getByRole('button',{name:'Accept character',exact:true}).click();
+  await guest.getByRole('heading',{name:'Choose a lineage',exact:true}).waitFor();
+  const guestSheets=(await serial(()=>db.snapshot(OUTSIDER))).characters.filter(ch=>ch.owner_id===OUTSIDER);
+  assert.equal(guestSheets.length,1);
+  assert.equal(guestSheets[0].name,'Prebuilt Ranger');
+  assert.equal(guestSheets[0].build.lineageId,'sample-android');
+  await guest.getByRole('button',{name:'Delete character',exact:true}).click();
+  await guest.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();
+  assert.equal((await serial(()=>db.snapshot(OUTSIDER))).characters.filter(ch=>ch.owner_id===OUTSIDER).length,1);
+  await guest.getByRole('button',{name:'Delete character',exact:true}).click();
+  await guest.getByRole('dialog').getByRole('button',{name:'Delete character',exact:true}).click();
+  await guest.getByText('Character deleted.',{exact:true}).waitFor();
+  assert.equal((await serial(()=>db.snapshot(OUTSIDER))).characters.filter(ch=>ch.owner_id===OUTSIDER).length,0);
+  await guestCtx.close();
+
+  await gm.goto(campaignPage('characters'));
+  await gm.getByRole('button',{name:'Build for a player',exact:true}).first().click();
+  await gm.getByRole('dialog').getByLabel('Character name',{exact:true}).fill('Assigned Courier');
+  await gm.getByRole('button',{name:'Open character builder',exact:true}).click();
+  await gm.getByRole('button',{name:'Assign character',exact:true}).click();
+  await gm.getByLabel('Give to a campaign member',{exact:true}).selectOption(PLAYER);
+  await gm.getByRole('button',{name:'Assign to player',exact:true}).click();
+  await gm.getByText('Character assigned.',{exact:true}).waitFor();
+  assert.equal((await serial(()=>db.snapshot(PLAYER))).characters.find(ch=>ch.name==='Assigned Courier').owner_id,PLAYER);
+  console.log('Prebuilt character claims, direct assignment, and owner deletion passed.');
+
+  await gm.getByRole('button',{name:'New NPC',exact:true}).first().click();
+  let gmDialog=gm.getByRole('dialog');
+  await gmDialog.getByLabel('Name',{exact:true}).fill('Relay Keeper');
+  await gmDialog.getByLabel('Role',{exact:true}).fill('Watch officer');
+  await gmDialog.getByLabel('Description',{exact:true}).fill('Keeps watch over the abandoned relay.');
+  await gmDialog.getByLabel('GM notes',{exact:true}).fill('Has the override key.');
+  await gmDialog.getByRole('button',{name:'Add stat',exact:true}).click();
+  await gmDialog.getByLabel('Stat label',{exact:true}).fill('Resolve');
+  await gmDialog.getByLabel('Stat value',{exact:true}).fill('4');
+  await gmDialog.getByRole('button',{name:'Add stat',exact:true}).click();
+  await gmDialog.getByLabel('Stat label',{exact:true}).last().fill('Equipment');
+  await gmDialog.getByLabel('Stat value',{exact:true}).last().fill('Signal jammer');
+  await gmDialog.getByRole('button',{name:'Save NPC',exact:true}).click();
+  await gm.getByRole('heading',{name:'Relay Keeper',exact:true}).waitFor();
+  await gm.getByText('Signal jammer',{exact:true}).waitFor();
+  await gm.screenshot({path:resolve(artifacts,'npc-sheet-desktop.png'),fullPage:true,style:'#toast{visibility:hidden}'});
+  await gm.setViewportSize({width:390,height:844});
+  assert.ok(await gm.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'NPC sheet fits mobile width');
+  await gm.screenshot({path:resolve(artifacts,'npc-sheet-mobile.png'),fullPage:true,style:'#toast{visibility:hidden}'});
+  await gm.setViewportSize({width:1440,height:1000});
+  await gm.getByRole('button',{name:'Edit NPC',exact:true}).click();
+  await gmDialog.getByRole('button',{name:'Remove stat',exact:true}).last().click();
+  await gmDialog.getByRole('button',{name:'Save NPC',exact:true}).click();
+  await gmDialog.waitFor({state:'hidden'});
+  assert.equal(await gm.getByText('Signal jammer',{exact:true}).count(),0);
+  await gm.getByRole('button',{name:'Place on map',exact:true}).click();
+  await gmDialog.getByRole('button',{name:'Place NPC',exact:true}).click();
+  const keeper=gm.getByRole('button',{name:'Relay Keeper (GM only)',exact:true});
+  await keeper.waitFor();
+  const npcToken=await keeper.boundingBox();
+  await gm.mouse.move(npcToken.x+npcToken.width/2,npcToken.y+npcToken.height/2);
+  await gm.mouse.down();await gm.mouse.move(npcToken.x+100,npcToken.y+75,{steps:8});await gm.mouse.up();
+  await gm.waitForFunction(()=>parseFloat(document.querySelector('[aria-label="Relay Keeper (GM only)"]').style.left)>50&&!document.querySelector('[data-sync]').textContent.includes('Saving'));
+  await player.goto(campaignPage('world'));await player.reload();await player.locator('[data-map-canvas]').waitFor();
+  assert.equal(await player.getByRole('button',{name:/Relay Keeper/}).count(),0);
+  await keeper.press('Enter');
+  await gmDialog.getByLabel('Hidden from players',{exact:true}).uncheck();
+  await gmDialog.getByRole('button',{name:'Save marker',exact:true}).click();
+  await gmDialog.waitFor({state:'hidden'});
+  await player.reload();
+  const visibleNpc=player.getByRole('button',{name:'Relay Keeper',exact:true});
+  await visibleNpc.waitFor();
+  assert.equal(await visibleNpc.evaluate(el=>el.classList.contains('movable')),false);
+  assert.equal(await player.getByRole('link',{name:'Open Relay Keeper sheet',exact:true}).count(),0);
+  await gm.getByRole('link',{name:'Open Relay Keeper sheet',exact:true}).click();
+  await gm.getByRole('heading',{name:'Relay Keeper',exact:true}).waitFor();
+  await gm.getByRole('button',{name:'Delete NPC',exact:true}).click();
+  await gmDialog.getByRole('button',{name:'Delete NPC',exact:true}).click();
+  await gm.getByText('NPC deleted.',{exact:true}).waitFor();
+  assert.ok(!(await serial(()=>db.snapshot(PLAYER))).markers.some(marker=>marker.name==='Relay Keeper'));
+  console.log('NPC sheet editing, map placement, drag, visibility, and deletion passed.');
+
+  await gm.getByRole('link',{name:'Session tools',exact:true}).click();
+  for(const [name,score] of [['Aster Vale','8'],['Relay drones','4']]){
+    await gm.getByRole('button',{name:'Add participant',exact:true}).click();
+    await gmDialog.getByLabel('Participant name',{exact:true}).fill(name);
+    await gmDialog.getByLabel('Initiative score',{exact:true}).fill(score);
+    await gmDialog.getByRole('button',{name:'Save participant',exact:true}).click();
+    await gmDialog.waitFor({state:'hidden'});
+  }
+  await gm.getByRole('button',{name:'Start turns',exact:true}).click();
+  await gm.getByText('Round 1',{exact:true}).waitFor();
+  await gm.getByRole('button',{name:'Next turn',exact:true}).click();
+  await gm.locator('[aria-current="step"]').filter({hasText:'Relay drones'}).waitFor();
+  await gm.getByRole('button',{name:'Next turn',exact:true}).click();
+  await gm.getByText('Round 2',{exact:true}).waitFor();
+  for(const [name,visible] of [['Signal lock',true],['Reinforcements',false]]){
+    await gm.getByRole('button',{name:'New clock',exact:true}).click();
+    await gmDialog.getByLabel('Clock name',{exact:true}).fill(name);
+    await gmDialog.getByLabel('Total segments',{exact:true}).fill('6');
+    await gmDialog.getByLabel('Visible to players',{exact:true}).setChecked(visible);
+    await gmDialog.getByRole('button',{name:'Save clock',exact:true}).click();
+    await gmDialog.waitFor({state:'hidden'});
+  }
+  await gm.getByRole('button',{name:'Advance Signal lock',exact:true}).click();
+  await gm.locator('[role="progressbar"][aria-valuenow="1"]').waitFor();
+  await player.goto(campaignPage('session'));await player.reload();
+  await player.getByText('Round 2',{exact:true}).waitFor();
+  await player.getByRole('progressbar',{name:'Signal lock',exact:true}).waitFor();
+  assert.equal(await player.getByRole('progressbar',{name:'Reinforcements',exact:true}).count(),0);
+  assert.equal(await player.getByRole('button',{name:'Next turn',exact:true}).count(),0);
+  await player.getByRole('button',{name:'Roll dice',exact:true}).click();
+  const playerDialog=player.getByRole('dialog');
+  await playerDialog.getByLabel('Number of dice',{exact:true}).fill('2');
+  await playerDialog.getByLabel('Die sides',{exact:true}).fill('10');
+  await playerDialog.getByLabel('Roll label (optional)',{exact:true}).fill('Signal check');
+  await playerDialog.getByRole('button',{name:'Roll dice',exact:true}).click();
+  await playerDialog.getByText('2d10 · Shared with campaign',{exact:true}).waitFor();
+  await playerDialog.getByLabel('Share with the campaign',{exact:true}).uncheck();
+  await playerDialog.getByRole('button',{name:'Roll dice',exact:true}).click();
+  await playerDialog.getByText('2d10 · Private roll',{exact:true}).waitFor();
+  await gm.getByText('Signal check',{exact:true}).waitFor();
+  assert.equal((await serial(()=>db.snapshot(GM))).table_rolls.length,1);
+  await gm.screenshot({path:resolve(artifacts,'session-tools-desktop.png'),fullPage:true,style:'#toast{visibility:hidden}'});
+  await gm.setViewportSize({width:390,height:844});
+  assert.ok(await gm.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Session tools fit mobile width');
+  await gm.screenshot({path:resolve(artifacts,'session-tools-mobile.png'),fullPage:true,style:'#toast{visibility:hidden}'});
+  await gm.setViewportSize({width:1440,height:1000});
+  await gm.getByRole('button',{name:'Edit Relay drones',exact:true}).click();
+  await gmDialog.getByRole('button',{name:'Remove',exact:true}).click();
+  await gm.getByText('Relay drones',{exact:true}).waitFor({state:'hidden'});
+  await gm.getByRole('button',{name:'Reset rounds',exact:true}).click();
+  await gm.getByText('Ready to start',{exact:true}).waitFor();
+  await gm.getByRole('button',{name:'Edit Reinforcements',exact:true}).click();
+  await gmDialog.getByRole('button',{name:'Delete clock',exact:true}).click();
+  await gm.getByRole('progressbar',{name:'Reinforcements',exact:true}).waitFor({state:'hidden'});
+  console.log('Turn order, clock visibility, and private and shared rolls passed.');
+
+  const uploadPath=`${campaign.id}/test-upload.png`;
+  await serial(()=>db.as(GM,"insert into storage.objects(bucket_id,name) values('campaign-maps',$1)",[uploadPath]));
+  storageUnavailable=true;
+  await gm.goto(campaignPage('settings'));
+  await gm.getByRole('button',{name:'Rules',exact:true}).click();
+  await gm.getByRole('button',{name:'Delete campaign',exact:true}).click();
+  await gmDialog.getByLabel('Type the campaign name to confirm',{exact:true}).fill('Wrong name');
+  await gmDialog.getByRole('button',{name:'Delete campaign',exact:true}).click();
+  await gmDialog.getByText('Enter the campaign name exactly as shown in settings.',{exact:true}).waitFor();
+  await gmDialog.getByLabel('Type the campaign name to confirm',{exact:true}).fill('Connected Test');
+  await gmDialog.getByRole('button',{name:'Delete campaign',exact:true}).click();
+  await gm.getByText('Storage is temporarily unavailable.',{exact:true}).waitFor();
+  assert.equal((await serial(()=>db.snapshot(GM))).campaigns.length,0);
+  await gm.reload();
+  storageUnavailable=false;
+  await gm.getByRole('button',{name:'Retry map cleanup',exact:true}).click();
+  await gm.getByRole('button',{name:'Retry map cleanup',exact:true}).waitFor({state:'hidden'});
+  assert.equal((await serial(()=>db.as(GM,'select * from storage.objects'))).rows.length,0);
+  await playerDialog.getByRole('button',{name:'Close dialog',exact:true}).click();
+  await player.reload();
+  await player.getByRole('heading',{name:'Campaign not available',exact:true}).waitFor();
+  console.log('Campaign deletion, retryable map file cleanup, and cross-account removal passed.');
+
+  const otherTab=await gmCtx.newPage();otherTab.on('pageerror',e=>errors.push(e.message));await otherTab.goto(base);await otherTab.getByRole('heading',{name:'Every world starts here.',exact:true}).waitFor();
+  await gmCtx.route('https://test-project.supabase.co/auth/v1/logout',route=>route.abort());
+  await gm.locator('[data-action=profile]').click();await gm.getByRole('button',{name:'Sign out',exact:true}).click();
+  await gm.getByRole('heading',{name:'Welcome to the table.',exact:true}).waitFor();await otherTab.getByRole('heading',{name:'Welcome to the table.',exact:true}).waitFor();
+  console.log('Offline sign-out clears both tabs.');
+  assert.deepEqual(errors,[],'No browser JavaScript errors');
+  console.log('Campaign content editing passed. Browser QA complete; screenshots in test-results/.');
+}catch(e){console.error(e);if(browser){for(const context of browser.contexts()){for(const page of context.pages()){await page.screenshot({path:resolve(artifacts,'failure-'+Math.random().toString(36).slice(2)+'.png'),fullPage:true,timeout:5000}).catch(()=>{});}}}process.exitCode=1;}
+finally{await browser?.close();await db?.close();server?.kill();}

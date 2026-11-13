@@ -5,13 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Empyrean character sheet and gameplay tracker."
+      content="Empyrean campaigns, characters, and shared worlds."
     />
-    <title>Empyrean Character Tracker</title>
-    <link rel="stylesheet" href="./src/styles.css?v=20260701c" />
+    <meta name="theme-color" content="#173e3c" />
+    <title>Empyrean | Campaigns</title>
+    <link rel="icon" href="./src/assets/empyrean-mark.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./src/v2/app.css?v=2" />
   </head>
   <body>
-    <div id="app"></div>
-    <script defer src="./src/main.js?v=20260701c"></script>
+    <div id="app"><p class="boot">Opening Empyrean…</p></div>
+    <div id="modal-root"></div>
+    <div id="toast" role="status" aria-live="polite"></div>
+    <footer class="legacy-access"><a href="./legacy.html">Open the original tracker</a></footer>
+    <noscript>Enable JavaScript to open Empyrean.</noscript>
+    <script src="./config.js"></script>
+    <script type="module" src="./src/v2/app.js?v=2.1"></script>
   </body>
 </html>
