@@ -90,6 +90,15 @@ try{
   await player.screenshot({path:resolve(artifacts,'creation-merit.png'),fullPage:true});
   await player.getByRole('button',{name:'Continue',exact:true}).click();await player.locator('[data-character-name]').fill('Aster Vale');
   await player.locator('[data-bio=height]').fill('180 cm');await player.getByRole('button',{name:'Continue',exact:true}).click();
+  await player.getByRole('heading',{name:'Awakening',exact:true}).waitFor();
+  await player.getByRole('button',{name:'Draw input card',exact:true}).click();await player.getByRole('button',{name:'Draw output card',exact:true}).click();
+  await player.getByLabel('Input selection',{exact:true}).waitFor();
+  const drawText=await player.locator('.draw-history').allTextContents();await player.reload();
+  await player.getByRole('button',{name:/Awakening/}).filter({has:player.locator('b')}).click();
+  assert.deepEqual(await player.locator('.draw-history').allTextContents(),drawText,'Refresh restores both draws without rerolls');
+  await player.getByRole('button',{name:'Confirm awakening',exact:true}).click();await player.getByText('Awakening saved.',{exact:true}).waitFor();
+  await player.screenshot({path:resolve(artifacts,'awakening-desktop.png'),fullPage:true});
+  await player.getByRole('button',{name:'Continue',exact:true}).click();
   await player.getByRole('button',{name:'Finish Character Creation',exact:true}).click();await player.getByText('Are you sure? All unspent Merit will be lost.',{exact:true}).waitFor();
   await player.getByRole('button',{name:'Finish & discard Merit',exact:true}).click();await player.getByRole('heading',{name:'Aster Vale',exact:true}).waitFor();
   let ch=(await serial(()=>db.snapshot(PLAYER))).characters[0];assert.equal(ch.merit,0);assert.equal(ch.status,'active');
@@ -99,6 +108,28 @@ try{
   ch=(await serial(()=>db.snapshot(PLAYER))).characters[0];assert.equal(ch.build.attributes.Power,3);assert.equal(ch.merit,14);
   assert.equal(await player.getByRole('button',{name:'Decrease Power',exact:true}).isDisabled(),true,'No advancement refunds in UI');
   console.log('Two-account invitation, custom approval, character completion, and advancement passed.');
+
+  await player.goto(base+`/oracle/#/campaign/${campaign.id}/oracle`);await player.getByRole('heading',{name:'Oracle',exact:true}).waitFor();
+  await player.getByRole('button',{name:'New valuation request',exact:true}).click();
+  let oracleForm=player.getByRole('dialog');
+  await oracleForm.getByLabel('Character',{exact:true}).selectOption(ch.id);
+  await oracleForm.getByLabel('Proposed action',{exact:true}).fill('Sacrifice one hour of remaining natural lifespan to learn this monster’s habits.');
+  await oracleForm.getByLabel('Request mode',{exact:true}).selectOption('manual');await oracleForm.getByRole('button',{name:'Save valuation request',exact:true}).click();
+  await player.getByText('Request saved for GM review.',{exact:true}).waitFor();
+  assert.equal(await player.getByRole('button',{name:'Review valuation',exact:true}).count(),0);
+  await gm.goto(base+`/oracle/#/campaign/${campaign.id}/oracle`);await gm.getByRole('button',{name:'Review valuation',exact:true}).click();oracleForm=gm.getByRole('dialog');
+  const inputSide=oracleForm.locator('fieldset').filter({has:gm.locator('legend',{hasText:'Input yield'})});
+  const outputSide=oracleForm.locator('fieldset').filter({has:gm.locator('legend',{hasText:'Output cost'})});
+  await inputSide.getByLabel('Domain',{exact:true}).selectOption('life');await inputSide.getByLabel('Resource or effect',{exact:true}).fill('Permanent sacrifice of natural lifespan');await inputSide.getByLabel('Quantity',{exact:true}).fill('1');await inputSide.getByLabel('Unit',{exact:true}).fill('hour');await inputSide.getByLabel('Essentia (blank = undetermined)',{exact:true}).fill('30');
+  await outputSide.getByLabel('Domain',{exact:true}).selectOption('information');await outputSide.getByLabel('Resource or effect',{exact:true}).fill('General monster habits');await outputSide.getByLabel('Essentia (blank = undetermined)',{exact:true}).fill('70');
+  await oracleForm.getByLabel('GM rationale',{exact:true}).fill('Browser acceptance example, not a global game rate.');await oracleForm.getByRole('button',{name:'Save GM decision',exact:true}).click();await gm.getByText('GM ruling saved.',{exact:true}).waitFor();
+  assert.equal(await gm.locator('.codex-ruling').count(),2);await gm.getByLabel('Search rulings',{exact:true}).fill('lifespan');assert.equal(await gm.locator('.codex-ruling:visible').count(),1);
+  await gm.getByRole('button',{name:'Revise / supersede',exact:true}).first().click();oracleForm=gm.getByRole('dialog');await oracleForm.locator('[name=input_essentia]').fill('20');await oracleForm.getByLabel('GM rationale',{exact:true}).fill('Revised scope for lifespan.');await oracleForm.getByRole('button',{name:'Save GM decision',exact:true}).click();await gm.getByText('GM ruling saved.',{exact:true}).waitFor();
+  assert.equal(await gm.locator('.codex-ruling:visible').count(),1);await gm.getByLabel('Search rulings',{exact:true}).fill('');await gm.getByLabel('Status',{exact:true}).selectOption('all');assert.equal(await gm.locator('.codex-ruling:visible').count(),3);
+  await gm.screenshot({path:resolve(artifacts,'oracle-desktop.png'),fullPage:true});
+  await gm.setViewportSize({width:390,height:844});assert.ok(await gm.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Oracle fits mobile');await gm.screenshot({path:resolve(artifacts,'oracle-mobile.png'),fullPage:true});await gm.setViewportSize({width:1440,height:1000});
+  await player.reload();assert.equal(await player.locator('.codex-ruling:visible').count(),2);assert.equal(await player.getByRole('button',{name:'Revise / supersede',exact:true}).count(),0);
+  console.log('Awakening restoration, /oracle entry point, player requests, edited GM approval, supersession and responsive Codex passed.');
 
   await player.goto(base+`/#/campaign/${campaign.id}/journal`);await player.getByRole('button',{name:'New note',exact:true}).click();
   await player.getByRole('dialog').getByLabel('Title',{exact:true}).fill('Shared discovery');await player.getByRole('dialog').getByLabel('Note',{exact:true}).fill('The relay is still transmitting.');await player.getByRole('dialog').getByLabel('All players',{exact:true}).check();await player.getByRole('dialog').getByLabel('Game Master',{exact:true}).check();await player.getByRole('button',{name:'Save note',exact:true}).click();

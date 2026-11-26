@@ -1,0 +1,4 @@
+[functions.oracle]
+# The handler validates the user with Auth before every RLS-scoped context request.
+# This also supports modern publishable keys, which are not JWTs.
+verify_jwt = false

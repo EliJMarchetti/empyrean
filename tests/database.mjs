@@ -4,9 +4,9 @@ import { readFile } from 'node:fs/promises';
 export const GM='00000000-0000-4000-8000-000000000001';
 export const PLAYER='00000000-0000-4000-8000-000000000002';
 export const OUTSIDER='00000000-0000-4000-8000-000000000003';
-export async function database({ gmTools = true, designer = gmTools, drafts = designer, journal = drafts, storage = false } = {}) {
+export async function database({ gmTools = true, designer = gmTools, drafts = designer, journal = drafts, oracle = journal, storage = false } = {}) {
   const db=new PGlite();
-  await db.exec(`create role anon nologin; create role authenticated nologin;
+  await db.exec(`create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
     create schema auth; create table auth.users(id uuid primary key,raw_user_meta_data jsonb default '{}');
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
     grant usage on schema auth to authenticated,anon; grant execute on function auth.uid() to authenticated,anon;
@@ -16,6 +16,8 @@ export async function database({ gmTools = true, designer = gmTools, drafts = de
   if (designer) await db.exec(await readFile(new URL('../supabase/migrations/003_designer_studio.sql',import.meta.url),'utf8'));
   if (drafts) await db.exec(await readFile(new URL('../supabase/migrations/004_designer_drafts.sql',import.meta.url),'utf8'));
   if (journal) await db.exec(await readFile(new URL('../supabase/migrations/005_linked_journal.sql',import.meta.url),'utf8'));
+  if (oracle) await db.exec(await readFile(new URL('../supabase/migrations/20261126022017_awakening_oracle.sql',import.meta.url),'utf8'));
+  if (oracle) await db.exec(await readFile(new URL('../supabase/migrations/20261126023650_oracle_hardening.sql',import.meta.url),'utf8'));
   if (storage) {
     // Emulate the Supabase-owned tables used by our storage policies.
     await db.exec(`create schema storage;

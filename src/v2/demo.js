@@ -1,6 +1,7 @@
 import { ATTRIBUTES, DEFAULT_SETTINGS, blankBuild, clone, settingsFrom, emptyCatalog, validateCatalog, validateBuild, buildInfo, checkAdvancement, characterRules, assertRevision, demand, number, canReadNote } from './rules.js';
 import { validateTurnOrder, validateNpc, rollValues } from './table-tools.js';
 import { noteSharing } from './journal.js';
+import { oracleAction, oracleSnapshot } from './oracle-store.js';
 
 const KEY = 'empyrean.v2.preview';
 export const DEMO_GM = '00000000-0000-4000-8000-000000000001';
@@ -75,11 +76,14 @@ export function localSnapshot(db, userId) {
     clocks: (db.clocks || []).filter(c => belongs(c.campaign_id) && (c.visible || isGm(c.campaign_id))),
     table_rolls: (db.table_rolls || []).filter(r => belongs(r.campaign_id)),
     campaign_upload_cleanup: [],
+    ...oracleSnapshot(db,userId,campaigns,db.characters.filter(c=>belongs(c.campaign_id)&&(isGm(c.campaign_id)||(!c.npc&&!c.claimable&&(c.owner_id===userId||c.status==='active'))))),
   });
 }
 // The preview mirrors the database commands. It deliberately never impersonates a cloud account.
 export function applyAction(db, userId, action, p) {
   demand(db.profiles.some(u => u.id === userId), 'Sign in first.');
+  const oracle=oracleAction(db,userId,action,p);
+  if(oracle!==undefined)return oracle;
   const member = id => db.members.some(m => m.campaign_id === id && m.user_id === userId);
   const campaign = id => { const c = db.campaigns.find(c => c.id === id); demand(c && member(id), 'Campaign not found.'); return c; };
   const gm = id => { const c = campaign(id); demand(c.gm_id === userId, 'Only the GM can do that.'); return c; };

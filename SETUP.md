@@ -13,7 +13,9 @@ In the project's SQL Editor, run these files in order, once, in a **new project*
 3. `supabase/migrations/003_designer_studio.sql`
 4. `supabase/migrations/004_designer_drafts.sql`
 5. `supabase/migrations/005_linked_journal.sql`
-6. `supabase/storage.sql`
+6. `supabase/migrations/20261126022017_awakening_oracle.sql`
+7. `supabase/migrations/20261126023650_oracle_hardening.sql`
+8. `supabase/storage.sql`
 
 They create the data tables, account profiles, database permissions and transaction functions, plus a private `campaign-maps` bucket. Do not paste them over a database with an existing Empyrean schema.
 
@@ -26,6 +28,8 @@ Apply `supabase/migrations/004_designer_drafts.sql` to enable saved designer dra
 Apply `supabase/migrations/005_linked_journal.sql` to upgrade the journal. It preserves existing notes and maps each old audience to the corresponding sharing toggles. Use **Journal → Campaign setting** to group campaigns run by the same GM. A setting note follows the owner’s campaign memberships. A world note follows the GM’s memberships in that setting, and the GM controls edits and sharing after transfer.
 
 ## 2. Set up email sign-in
+
+For an existing project already through migration 005, apply the two Awakening/Oracle migrations above once, in that order, before deploying the updated client. They preserve existing builds and catalog entries. The optional Oracle Edge Function and its provider settings are described in [ORACLE.md](./ORACLE.md). Add the exact `/oracle/` URL to Authentication Redirect URLs if players register or recover accounts from that page.
 
 In Supabase Authentication, enable Email sign-in. In URL Configuration:
 

@@ -14,6 +14,8 @@ The **Journal** supports `[[Note title]]` links, backlinks, and `#tags`. Share a
 
 New campaigns use empty catalogs so we can author the new edition's lineages, backgrounds, skills, and abilities together. The preview's game content is illustrative.
 
+**Awakening** is available in character creation and on existing characters through the advancement editor. Draws are saved immediately, including recursive Aces and both sets of choices. **Oracle**, available at `/oracle/` and in each campaign, supports natural-language requests, separate input/output valuations, GM review, and the searchable **Codex of Equivalence**. The optional server-side AI uses only relevant approved campaign precedents. Manual GM rulings work without an AI provider. See [Oracle setup and implementation notes](./ORACLE.md).
+
 ```powershell
 npm ci
 npm run dev

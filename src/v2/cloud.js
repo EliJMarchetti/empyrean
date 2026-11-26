@@ -16,11 +16,11 @@ export class CloudStore {
     this.signed = new Map();
   }
   saveSession(session) { this.session = session?.access_token ? { ...session, expires_at: session.expires_at || Math.floor(Date.now() / 1000) + session.expires_in } : null; if (this.session) localStorage.setItem(SESSION_KEY, JSON.stringify(this.session)); else localStorage.removeItem(SESSION_KEY); }
-  async request(path, { method = 'GET', body, auth = true, raw = false, headers = {}, retry = true } = {}) {
+  async request(path, { method = 'GET', body, auth = true, raw = false, headers = {}, retry = true, timeoutMs = timeout } = {}) {
     if (auth) await this.refresh();
     let response;
     try {
-      response = await fetch(this.url + path, { method, headers: { apikey: this.key, ...(auth && this.session ? { Authorization: `Bearer ${this.session.access_token}` } : {}), ...(raw ? {} : { 'Content-Type': 'application/json' }), ...headers }, ...(body === undefined ? {} : { body: raw ? body : JSON.stringify(body) }), signal: AbortSignal.timeout(timeout) });
+      response = await fetch(this.url + path, { method, headers: { apikey: this.key, ...(auth && this.session ? { Authorization: `Bearer ${this.session.access_token}` } : {}), ...(raw ? {} : { 'Content-Type': 'application/json' }), ...headers }, ...(body === undefined ? {} : { body: raw ? body : JSON.stringify(body) }), signal: AbortSignal.timeout(timeoutMs) });
     } catch { throw Error('Could not reach the campaign server. Check your connection and reload before retrying.'); }
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -61,6 +61,7 @@ export class CloudStore {
   async signOut() { try { if (this.session) await this.request('/auth/v1/logout', { method: 'POST' }); } catch { /* Local sign-out must also work without a connection. */ } finally { this.saveSession(null); this.signed.clear(); } }
   async snapshot() { return this.request('/rest/v1/rpc/app_snapshot', { method: 'POST', body: {} }); }
   async action(action, payload) { return this.request('/rest/v1/rpc/app_action', { method: 'POST', body: { p_action: action, p_payload: payload } }); }
+  async estimate(id) { return this.request('/functions/v1/oracle', {method:'POST',body:{id},timeoutMs:60000,retry:false}); }
   subscribe(callback) {
     let active = true;
     const poll = async () => { if (active && document.visibilityState !== 'hidden') await callback(); };
