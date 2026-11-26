@@ -1,6 +1,10 @@
 // No SDK or browser secrets. Auth and RLS use the application's existing REST conventions.
 import { ESTIMATE_SCHEMA, ORACLE_SYSTEM, validateEstimate, precedentConflicts } from '../../../src/v2/oracle-core.js';
 
+// Use the provider's documented constraints. Length limits remain mandatory in
+// validateEstimate, independently of what the provider's schema dialect accepts.
+const PROVIDER_SCHEMA=JSON.parse(JSON.stringify(ESTIMATE_SCHEMA,(key,value)=>key==='maxLength'?undefined:value));
+const DEFAULT_MODEL='gpt-6.2-sol';
 const reply=(body,status,headers)=>new Response(JSON.stringify(body),{status,headers:{...headers,'Content-Type':'application/json'}});
 export async function handleOracle(req,env,fetch=globalThis.fetch){
   const origins=()=>(env('ORACLE_ALLOWED_ORIGINS')||'https://goodlands.space,https://www.goodlands.space,https://elijmarchetti.github.io').split(',').map(s=>s.trim()).filter(Boolean);
@@ -25,9 +29,10 @@ export async function handleOracle(req,env,fetch=globalThis.fetch){
     id=JSON.parse(raw).id;if(typeof id!=='string'||!/^[0-9a-f-]{36}$/i.test(id))throw Error('Invalid request identifier.');
     const context=await rpc('oracle_ai_context',{estimate_id:id});
     context.conflicts=precedentConflicts(context.precedents).map(group=>group.map(p=>p.id));
-    if(!env('OPENAI_API_KEY')||!env('ORACLE_MODEL'))return reply({error:'AI is not configured. Your request is saved for manual GM review.'},503,headers);
+    if(!env('OPENAI_API_KEY'))return reply({error:'AI is not configured. Your request is saved for manual GM review.'},503,headers);
+    const model=env('ORACLE_MODEL').trim()||DEFAULT_MODEL;
     lease=(await rpc('oracle_provider',{estimate_id:id,caller,operation:'begin'},true)).lease;
-    const response=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:`Bearer ${env('OPENAI_API_KEY')}`,'Content-Type':'application/json'},body:JSON.stringify({model:env('ORACLE_MODEL'),store:false,instructions:ORACLE_SYSTEM,input:JSON.stringify(context),max_output_tokens:4500,text:{format:{type:'json_schema',name:'essentia_estimate',strict:true,schema:ESTIMATE_SCHEMA}}}),signal:AbortSignal.timeout(40000)});
+    const response=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:`Bearer ${env('OPENAI_API_KEY')}`,'Content-Type':'application/json'},body:JSON.stringify({model,...(/^gpt-6\.2(?:-|$)/.test(model)?{reasoning:{effort:'low'}}:{}),store:false,instructions:ORACLE_SYSTEM,input:JSON.stringify(context),max_output_tokens:4500,text:{format:{type:'json_schema',name:'essentia_estimate',strict:true,schema:PROVIDER_SCHEMA}}}),signal:AbortSignal.timeout(40000)});
     if(!response.ok)throw Error('AI provider unavailable. Your request remains saved for manual GM review.');
     const result=await response.json();
     if(result.status!=='completed')throw Error('AI did not complete a valid estimate. Manual GM review is available.');

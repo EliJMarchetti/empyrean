@@ -45,10 +45,16 @@ Set these in **Supabase → Edge Functions → Secrets**, never in `config.js`, 
 | Secret | Meaning |
 | --- | --- |
 | `OPENAI_API_KEY` | Provider API credential; must have access to the configured model |
-| `ORACLE_MODEL` | Model ID supporting strict JSON-schema structured output through the Responses API |
+| `ORACLE_MODEL` | Optional model override supporting strict JSON-schema structured output through the Responses API; defaults to `gpt-6.2-sol` |
 | `ORACLE_ALLOWED_ORIGINS` | Optional comma-separated origins; defaults to `https://goodlands.space`, `https://www.goodlands.space`, and `https://elijmarchetti.github.io`. Add local development origins explicitly when needed. |
 
 Supabase supplies `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` in the function environment. The function manually validates the user's bearer token with Supabase Auth. Gateway `verify_jwt=false` supports modern publishable-key calls; it does not permit unauthenticated access. Context RPC calls run with the caller's token and RLS. Only the server credential can claim a generation lease and save validated provider results. The model has no tools or approval privileges.
+
+The default [GPT-6.2 Sol](https://developers.openai.com/api/docs/models/gpt-6.2-sol) supports Responses and structured outputs. Its listed Standard token prices are $2 input and $10 output per million tokens. GPT-6.2 requests explicitly use low reasoning to keep interactive estimates concise; other model overrides do not receive that family-specific setting. The 4,500-token output budget includes reasoning tokens, and provider requests time out after 40 seconds. Incomplete responses remain failed proposals with the original request preserved. Confirm completion and latency with an authenticated smoke test before relying on AI estimates.
+
+The provider receives a projection of the schema using the documented structured-output constraints. String length limits are enforced by the unchanged application validator and database instead of relying on provider support for `maxLength`. Domain enums, decimal patterns, UUID formats, array limits, required fields, and closed object shapes remain in the provider schema.
+
+For first-time API access, use OpenAI Developers or the API Platform to select an organization and create a project-scoped key. Eligible paid ChatGPT Pro and Business owners may [claim API credits](https://developers.openai.com/api/docs/guides/chatgpt-api-credits) for an API organization they own using the same email address. Eligibility and credit activation must be checked on the account; a ChatGPT session itself is not an API credential. Store the resulting key only in the Supabase function secrets.
 
 Requests retrieve at most twelve relevant active approved valuations from the same campaign using description, domain, tags, scope and conditions. Retrieval treats each operation independently and does not require a matching conversion pair. It is a bounded lexical implementation; semantic embeddings and advanced quantity matching are future improvements. The AI receives only explicit Oracle instructions, supplied circumstances, the selected character's mechanical fields and purchased skill definitions, and these precedents. Journal entries, biographies, unrelated characters and the full campaign history are excluded.
 
@@ -56,7 +62,7 @@ The system prompt establishes the authority hierarchy and treats retrieved text 
 
 Provider calls have a timeout, per-request retry cap and a per-user rate guard. A generation lease prevents duplicate concurrent requests; stale leases expire after two minutes so a GM can review manually. Missing configuration, provider errors, malformed output and refusals preserve the original request. No AI response is fabricated. Requests use `store:false` at the provider.
 
-The adapter follows the official [Responses API](https://developers.openai.com/api/reference/resources/responses/methods/create) and [Supabase Edge Function authentication](https://supabase.com/docs/guides/functions/auth) interfaces.
+The adapter follows the official [Responses API](https://developers.openai.com/api/reference/resources/responses/methods/create), [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs), and [Supabase Edge Function authentication](https://supabase.com/docs/guides/functions/auth) interfaces.
 
 ## Established, provisional and deferred mechanics
 
